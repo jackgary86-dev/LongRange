@@ -2644,8 +2644,14 @@
     const speed = dist / t.eta;
     const dir = dest.x > origin.x ? 1 : -1;
     const lane = (Math.random() - 0.5) * LANE_SPAN;
-    const hit = Math.random() < HIT_CHANCE;
-    const targetX = hit ? dest.x : dest.x + (Math.random() < 0.5 ? -1 : 1) * (50 + Math.random() * 160);
+    // LRNA-126: this "aim" roll only decides the flight path's aim point
+    // (a wide arc for a wobbly trajectory vs. a dead-on approach) - it is
+    // NOT the final hit/miss outcome anymore. The actual hit/miss is
+    // revalidated and rerolled fresh at impact time (see the arrival
+    // handler below), so a target destroyed mid-flight by something else
+    // can no longer be "ghost hit" using a stale result decided at launch.
+    const aimTrue = Math.random() < HIT_CHANCE;
+    const targetX = aimTrue ? dest.x : dest.x + (Math.random() < 0.5 ? -1 : 1) * (50 + Math.random() * 160);
     const missile = {
       id: Math.random().toString(36).slice(2, 9),
       name: nextName(typeKey),
@@ -2653,7 +2659,7 @@
       color: t.color, radius: t.radius, dmg: Math.round(t.dmg * (origin.id === 'A' ? dmgMultiplier() : 1)),
       splitCount: t.splitCount || 0,
       originId: origin.id, destId: dest.id,
-      dest, hit, targetX,
+      dest, targetX,
       x: origin.x, laneY: lane,
       laneIndex: Math.max(0, Math.min(ANTIPLANE_LANES - 1, Math.floor((lane + LANE_SPAN / 2) / (LANE_SPAN / ANTIPLANE_LANES)))),
       vx: speed * dir,
@@ -3826,8 +3832,16 @@
 
       const distToTarget = Math.abs(m.targetX - m.x);
       if (distToTarget <= 14) {
-        if (m.hit) {
-          const dest = m.dest;
+        const dest = m.dest;
+        // LRNA-126: revalidate the target still exists and is alive, and
+        // reroll the hit chance fresh right here at arrival, instead of
+        // trusting a hit/miss result decided back at launch time. Without
+        // this, a target destroyed mid-flight by something else (another
+        // missile, a counter, etc.) would still take a "ghost hit" -
+        // awarding rewards and re-triggering destroy logic on a corpse.
+        const targetAlive = !!dest && !dest.destroyed && !(dest.id === 'O' && omegaHealth <= 0);
+        const hit = targetAlive && Math.random() < HIT_CHANCE;
+        if (hit) {
           const isPlayerShot = m.originId === 'A';
           dest.impacts += 1;
           if (isPlayerShot) {
