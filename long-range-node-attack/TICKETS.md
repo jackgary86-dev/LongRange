@@ -17,6 +17,185 @@ snapshot), `LongRange-1.0.0.html` (post-coin-economy, pre-v1.0.1 snapshot).
 
 ---
 
+## OPEN — High Priority Bugs
+
+- **LRNA-101** — CRITICAL: Emergency Counter can target FAST missiles despite 5s window gate
+  - Current: `findEmergencyTarget()` filters `m.sizeKey === 'fast'` with continue, skipping them
+  - Problem: At 10/sec passive income (100 coins/10s), players will accumulate Emergency tokens
+    for many waves without a way to spend them efficiently - the gate is too restrictive,
+    defeats the purpose. If unskippable, should be documented; if unintended, needs removal.
+  - Verify: Fire FAST missiles, try to emergency-counter during the 5s window - confirm no target appears
+  
+- **LRNA-102** — HIGH: Omega's Counter Missile (6s cooldown, 75% hit) gets ~4 shots at a LARGE
+  warhead (30s flight) - cumulative interception odds ~98.2%, making LARGE essentially unreachable
+  against active defenses. CLUSTER (24s) gets ~3 shots (~93% odds). MEDIUM (20s) gets ~3 shots.
+  - Problem: Asymmetric difficulty - player's LARGE/CLUSTER are high-risk, low-reward when Omega
+    is actively defending. FAST/MEDIUM are more practical but deal less damage (FAST 50→1 damage coin
+    after Omega heal, MEDIUM 250→~75 coin after heal).
+  - Consider: Buff CLUSTER/LARGE damage-to-coin ratio, increase Omega Counter cooldown, or add
+    brief invulnerability windows after recent hits so players can land follow-ups.
+
+- **LRNA-103** — HIGH: Counter window (Missile & Planes) can open to a stale threat mid-flight
+  - Current: `openCounterWindow()` fetches `findInboundEnemyMissiles()[0]` at open time, but
+    if that threat is destroyed (via AM battery) while the window is open, the threat stale-closes
+    the window (renderCounterWindow's auto-close). However, a NEW threat can enter the 10s window
+    while that modal is open → no auto-popup (popup only fires once per threat via `counterPopupShown`)
+    → player doesn't realize there's a fresh threat.
+  - Problem: Player launches window at T=1s (threat incoming, auto-popup), focuses on aiming,
+    threat lands/is destroyed, window closes. New threat enters window at T=5s but window stays
+    closed. Player misses interception opportunity because the auto-popup flag blocks re-opening.
+  - Fix: Track `lastThreatId` in the window, and if `findInboundEnemyMissiles()[0].id` differs
+    from that, allow re-popup (or just re-open automatically on threat change).
+
+- **LRNA-104** — HIGH: Loadout nodes (GML/MGAA/CB) can fire at targets outside their engagement
+  range during the first frame of eligibility
+  - Current: `updateLoadoutNodes()` does target search with `remaining <= 0 || remaining > COUNTER_WINDOW_SECONDS`
+    but no distance/range check. All nodes at any X coordinate can intercept any target.
+  - Problem: Loadout nodes at X=200 (far left) should not be engaging missiles at X=700 (center).
+    This gives geographically distant nodes overlapping coverage and makes early game trivial.
+  - Fix: Add range gate based on each node's position (`Math.abs(node.x - m.x) < LOADOUT_RANGE`),
+    or keep it asymmetric and document.
+
+- **LRNA-105** — HIGH: Player's plane launches (Strike Fighter, Strike Bomber, Recon Plane) don't
+  respect the COUNTER_WINDOW_SECONDS gate for their own arrival targets
+  - Current: Planes are launched via `firePlane()`, which doesn't check whether their destination
+    is interceptable within the 10s window. A player can launch a plane at a field target that
+    will arrive in 25 seconds, and it will fly the full distance even if intercepted late.
+  - Problem: Asymmetric with missile/drone behavior (which gate on 10s window). Player planes should
+    only be launchable if their destination is currently under counter threat, OR planes should have
+    their own separate engagement window (different rule).
+  - Verify: Launch a Strike Bomber at a stationary field target 20+ seconds away → observe it
+    completes its flight. Confirm this is intended or needs a fix.
+
+---
+
+## OPEN — High Priority Improvements
+
+- **LRNA-106** — Game balance: 10/sec passive income vs. weapon costs creates feast/famine cycles
+  - Current: FAST costs 100 (10s of passive income), MEDIUM 300 (30s), LARGE 500 (50s). Emergency
+    Counter costs 150 (15s). Counter Missile costs 500 (50s). Counter Planes costs 1000 (100s).
+  - Problem: Long passive wait between high-cost abilities (e.g., 100s for Counter Planes means
+    ~10 "waves" of doing nothing but passive accumulation before one can be used). This flattens
+    moment-to-moment decision-making.
+  - Possible fixes:
+    1. Increase passive to 20/sec (200 coins per 10s), allowing faster ability cycling
+    2. Reduce weapon costs by 50% (FAST 50, LARGE 250, Counter Planes 500)
+    3. Add a "burst income" mechanic when player achieves 2+ consecutive hits (temporary boost)
+    4. Introduce difficulty scaling where later waves grant passive bonuses
+
+- **LRNA-107** — Omega "defeat" state (health ≤ 0) leads to wave reset, not game over
+  - Current: `resetGame(false)` respawns Omega at full health and cranks difficulty
+  - Problem: This creates an awkward "Omega survives infinitely" loop where Omega keeps coming
+    back. There's no real win condition - player can rack up high damage scores forever.
+  - Possible fixes:
+    1. Add a "survival time" score metric (how long until Omega reforms)
+    2. Introduce a "final wave" threshold where defeating Omega N times ends the run
+    3. Implement a leaderboard based on "time before first Omega kill" or "total damage on final Omega"
+
+- **LRNA-108** — Loadout node targeting priority is unclear; they fire at the soonest threat
+  - Current: Each loadout node finds the closest-to-impact inbound missile (`bestRemaining`)
+  - Problem: This can lead to "overkill" where multiple nodes fire at the same target (stacking
+    interception odds to 99%+), while other threats slip through. No load-balancing or shared state.
+  - Improve: Add "target reservation" so nodes can see what their neighbors are already engaging
+    and spread fire across multiple threats. Or add a visual indicator on the Radar Lane showing
+    which targets are "locked" by ground units.
+
+- **LRNA-109** — HUD display of threat type/size inconsistent across panels
+  - Current: INCOMING alert shows `[FAST]`, contact list shows `FASTMis`, Radar Lane shows only
+    dot color coding
+  - Problem: New players can't quickly scan which size missile is which. Color-coding is good,
+    but text labels are mixed.
+  - Improve: Standardize to one format across all displays (e.g., always `[FAST STRIKE]`), add
+    a legend in the Radar Lane header, or show icon badges.
+
+- **LRNA-110** — No indication of which counter mechanism is "active" at any given time
+  - Current: Player sees Emergency Counter button, Counter Missile window, Counter Planes window,
+    and AM batteries all firing independently. No visual link between threat and defender.
+  - Problem: New players don't understand who/what is shooting down their missiles. Feels random.
+  - Improve:
+    1. Draw a line from the point-defense node to the intercepting missile
+    2. Flash the AM battery when it fires
+    3. Add a subtitle to the INCOMING alert naming the defender (e.g., "INCOMING — INTERCEPTED BY AM-03")
+
+---
+
+## OPEN — Medium Priority Bugs
+
+- **LRNA-111** — MEDIUM: Camera follow can miss fast missiles if viewport resizes mid-flight
+  - Current: Camera velocity is computed once at launch time; viewport changes don't update `followVel`
+  - Problem: Launch on a maximized window, then minimize → camera lag appears suddenly
+  - Fix: Recalculate `followVel` in the frame update if `vw()` or `vh()` changed
+
+- **LRNA-112** — MEDIUM: Recon Plane discovery range doesn't match visual indicator
+  - Current: Discovery zone defined in code but not drawn on screen
+  - Problem: Player doesn't know where to fly the Recon Plane to trigger discovery
+  - Improve: Draw the discovery radius as a dashed circle around each hidden node target, fading
+    in as the player advances up the map
+
+- **LRNA-113** — MEDIUM: Reactor Boost upgrade (+1 Intel/sec) doesn't persist across saves
+  - Current: Upgrade flag stored in `loadout` array, but if a new player loads with a fresh
+    save (LRNA-094 scenario), the flag might be lost
+  - Verify: Buy Reactor Boost, reload page, check if it's still active
+
+- **LRNA-114** — MEDIUM: "NO INBOUND THREATS" state shows green in Incoming alert even if player
+  is losing health (Omega is attacking but all are below the 10s counter window)
+  - Current: Color tier is `remaining > 5 ? 'yellow' : 'red'`, and if `remaining > 10` (outside
+    the counter window), no target is returned at all
+  - Problem: Player sees green "NO INBOUND" but health is draining → confusion
+  - Fix: Show a distinct "CHARGING" or "INCOMING (NOT INTERCEPTABLE)" state if missiles exist but
+    are outside the 10s window
+
+---
+
+## OPEN — Medium Priority Improvements
+
+- **LRNA-115** — Difficulty progression is too smooth; no "spike" moments
+  - Current: Wave generation increases enemy frequency and size mix gradually
+  - Problem: Game lacks "aha!" moments or tutorial checkpoints. Player doesn't know when to expect
+    harder waves.
+  - Improve: At specific wave numbers (5, 10, 15...), announce "DIFFICULTY SPIKE" and spawn a
+    special "ELITE WAVE" with randomized 2-3x damage warheads
+
+- **LRNA-116** — No cooldown indicator for Omega's Counter Missile or Counter Attack Planes
+  - Current: Omega fires silently; player doesn't know if it's "out" or just rearmed
+  - Problem: Player can't predict when Omega will stop defending (e.g., send a high-value strike
+    after a massive volley when Omega is in cooldown)
+  - Improve: Draw a cooldown bar under Omega's base showing when the next counter will be ready
+
+- **LRNA-117** — Recon Plane path/destination not visible until launch
+  - Current: Player clicks, plane flies, player discovers if it found anything
+  - Problem: Trial-and-error discovery. New players waste INTEL on bad routes.
+  - Improve: Show a preview line from the Recon Plane icon to the three hidden nodes (dashed,
+    semi-transparent) so player can plan which one to "check first"
+
+- **LRNA-118** — EMP and CLUSTER are completely removed; no hint that they exist or can be re-enabled
+  - Current: LRNA-097/098 removed the buttons for "now" (temporary)
+  - Problem: Code is clean, but future players won't know these weapons ever existed
+  - Improve: Add a settings panel or a "hidden weapons" toggle so players can re-enable them
+    for sandbox/creative mode
+
+---
+
+## OPEN — Low Priority / Quality of Life
+
+- **LRNA-119** — Game pauses when the window loses focus; no "pause" button
+  - Current: Vanilla HTML5 Canvas, browser tab blur stops requestAnimationFrame
+  - Improve: Add explicit pause/resume buttons in the HUD, allow player to pause intentionally
+
+- **LRNA-120** — No audio mute button; sound initializes on first interaction
+  - Current: Sounds play if available, but no way to disable them mid-game
+  - Improve: Add a speaker icon in the HUD to toggle audio
+
+- **LRNA-121** — Tooltip text on buttons is cut off on mobile
+  - Current: HUD labels use long text (e.g., "COUNTER MISSILE — 1 target · 75% kill")
+  - Improve: Abbreviate on mobile (< 600px), show full text on desktop or on hover
+
+- **LRNA-122** — Dragging the map with the mouse doesn't work on mobile (only touch pinch/pan)
+  - Current: Only `touchmove` is handled for panning
+  - Improve: Add `pointerdown`/`pointermove` for cross-platform compatibility
+
+---
+
 ## Shipped
 
 - **LRNA-001** — DONE — Initial scaffold: two-player spectator radar demo,
