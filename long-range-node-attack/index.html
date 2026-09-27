@@ -1130,6 +1130,15 @@
         <div class="barOuter"><div class="barInner" style="background:var(--red); width:${pct}%"></div></div>
       </div>`;
     }
+    // LRNA-135: each plane can only kill one target, so scrambling never
+    // engages more than these `planeCount` threats - but if more are
+    // inbound, say so, rather than letting the player assume this covers
+    // everything currently on radar.
+    if (targets.length > planeCount) {
+      html += `<div class="counterPlanesThreat" style="opacity:0.6; text-align:center;">
+        +${targets.length - planeCount} more inbound - not covered by this scramble
+      </div>`;
+    }
     counterPlanesWindowThreatsEl.innerHTML = html;
     counterPlanesWindowCostEl.textContent = cost;
     counterPlanesWindowFireBtn.disabled = tokens.counter < cost;
