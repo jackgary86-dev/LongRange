@@ -2716,7 +2716,16 @@
     // most of the distance by the time anything shoots at them. Give a
     // seeker chasing a plane a realistically longer window instead of
     // reliably timing out before ever reaching it.
-    const totalSeconds = target.typeKey === 'plane' ? 20 : COUNTER.totalSeconds;
+    // LRNA-129: a flat 20s was tuned around Strike Bomber's own 20s leg
+    // and assumed an outbound (head-on, fast-closing) intercept. Omega's
+    // counter always launches from Omega's own fixed position, so a
+    // *returning* plane - flying away from Omega, back toward the Strike
+    // Platform - closes much more slowly (chased from behind), and Heavy
+    // Bomber's legs are 30s each way, longer than the flat cap allowed.
+    // Give the seeker exactly as long as the plane itself has left in its
+    // current leg, rather than a fixed guess - it's pointless to keep
+    // chasing past the moment the plane would complete that leg anyway.
+    const totalSeconds = target.typeKey === 'plane' ? Math.max(1, target.totalSeconds - target.age) : COUNTER.totalSeconds;
     const missile = {
       id: Math.random().toString(36).slice(2, 9),
       name: nextName('counter'),
