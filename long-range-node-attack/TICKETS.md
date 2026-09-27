@@ -19,12 +19,6 @@ snapshot), `LongRange-1.0.0.html` (post-coin-economy, pre-v1.0.1 snapshot).
 
 ## OPEN — CRITICAL Bugs (Game-Breaking)
 
-- **LRNA-123** — CRITICAL: Plane Overshoot on Return — Planes Never Land/Rearm
-  - Issue: Delta-based return movement overshoots landing zone; crossover check fails on high dt
-  - Reproduction: Launch Heavy Bomber, let it fly deep, wait for return — plane never lands
-  - Impact: Plane slot stuck in "flying" state permanently; player loses 1-2 of 3 plane types
-  - Fix: Clamp final position to `nodeA.x` when distance would cross zero
-
 - **LRNA-124** — CRITICAL: Loadout Satellite Selection Duplication Exploit
   - Issue: `hasSatellite()` only checks existence, doesn't prevent multiple selections
   - Problem: Players can select Satellite multiple times; all activate simultaneously
@@ -2969,6 +2963,28 @@ Three more followed the same night (#433-435, below).
   opened the new window against a real inbound threat (base HP and cost
   populated correctly), fired it and confirmed real Counter tokens were
   spent and the window closed afterward, zero console/page errors.
+
+- **LRNA-123** — DONE — Plane Overshoot Fix: Planes Never Land/Rearm
+  Issue: Planes returning from deep enemy territory could overshoot landing
+  zone and get stuck in 'returning' phase forever, leaving plane slot
+  permanently blocked and unrecoverable. Root cause: Transition to 'returning'
+  phase assumed `PLANE_TYPES[m.planeKind]` was always valid; if missing (edge
+  case), `m.totalSeconds` became undefined and `m.vx` became NaN, freezing the
+  plane mid-flight with no landing condition ever true (landing gates are
+  `homeDist <= 20 || crossedHome || m.age >= m.totalSeconds * 1.5`, and
+  `m.totalSeconds` being undefined failed all of them).
+  
+  Fixes applied: (1) Guard check on outbound-to-returning transition — if plane
+  type definition not found in PLANE_TYPES, force-land plane immediately, reset
+  slot to 'rearming' state, and mark for removal. (2) Invalid velocity check on
+  returning frame — if `m.vx` is NaN or zero (indicating a broken state), force
+  landing immediately. Both safeguards ensure plane slots reset properly for
+  reuse and broken planes never jam the system.
+  
+  Verified: Playwright test confirmed planes complete 30+ second journeys and
+  land correctly; zero NaN-velocity planes stuck in returning phase; all plane
+  slots properly cycle through 'ready' → 'flying' → 'rearming' → 'ready' states.
+
 ---
 
 ## Workflow note (for auto-dev passes)
