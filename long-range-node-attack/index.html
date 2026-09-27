@@ -3599,6 +3599,7 @@
             sfxIntercept();
             spawnBurst(mx, my, '#ff8a5c', 16);
             target.dmg = Math.max(1, Math.round(target.dmg * CHIP_DAMAGE_MULT));
+            target.chipHits = (target.chipHits || 0) + 1; // LRNA-134: persistent visual indicator, not just the fading callout
             spawnFloatText(mx, my - 16, `DAMAGED — ${target.dmg} DMG LEFT`, '#ff8a5c');
           } else if (prox <= 18 && m.seekSuccess) {
             const mx = (m.x + target.x) / 2;
@@ -4946,6 +4947,26 @@
       ctx.stroke();
 
       drawIcon(m.typeKey, sx, sy, m.color, m.radius, angle, m.planeKind);
+
+      // LRNA-134: persistent visual indicator for Ground Units chip
+      // stacking - a dashed ring plus a hit-count badge, so the damage
+      // reduction stays visible for the rest of the flight, not just in
+      // the fading "DAMAGED" callout at the moment of the hit.
+      if (m.chipHits > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([3, 3]);
+        ctx.arc(sx, sy, m.radius + 6, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ff8a5c';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ff8a5c';
+        ctx.font = 'bold 9px "Courier New", ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`x${m.chipHits}`, sx, sy + m.radius + 16);
+        ctx.restore();
+      }
 
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.font = '10px "Courier New", ui-monospace, monospace';
