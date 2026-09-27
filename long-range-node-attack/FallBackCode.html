@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Long Range Node Attack — Radar Demo</title>
+<style>
+  :root {
+    --bg: #030a06;
+    --green: #39ff88;
+    --green-dim: #1c7a45;
+    --amber: #ffb020;
+    --red: #ff4d4d;
+    --cyan: #4dd8ff;
+    --purple: #c07bff;
+    --font-display: "Courier New", ui-monospace, monospace;
+    --font-mono: "Courier New", ui-monospace, monospace;
+    color-scheme: dark;
+  }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    overflow: hidden;
+    font-family: "Courier New", ui-monospace, monospace;
+    color: var(--green);
+  }
+  #wrap { position: relative; width: 100vw; height: 100vh; }
+  canvas {
+    display: block;
+    background: radial-gradient(circle at center, #06150c 0%, #020705 70%, #010402 100%);
+    cursor: grab;
+  }
+  canvas.dragging { cursor: grabbing; }
+
+  #hud {
+    position: absolute;
+    top: env(safe-area-inset-top, 0px);
+    left: 0; right: 0;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: start;
+    gap: 8px 14px;
+    padding: 10px 14px;
+    pointer-events: none;
+    text-shadow: 0 0 6px rgba(57,255,136,0.5);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+  .panel { line-height: 1.55; min-width: 0; }
+  .panel.right { text-align: right; }
+  .barOuter { width: 150px; max-width: 100%; height: 9px; border: 1px solid var(--green-dim); margin-top: 3px; }
+  .panel.right .barOuter { margin-left: auto; }
+  .barInner { height: 100%; width: 100%; transition: width 0.2s linear, background 0.3s; }
+
+  #centerLabel {
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 10.5px;
+    color: var(--cyan);
+    letter-spacing: 2px;
+    text-align: center;
+    white-space: nowrap;
+    align-self: center;
+  }
+  #centerLabel .url { color: #fff; }
+
+  @media (max-width: 560px) {
+    #hud { grid-template-columns: 1fr 1fr; }
+    #centerLabel { grid-column: 1 / -1; order: -1; font-size: 9px; white-space: normal; }
+    #contacts { top: 86px; }
+  }
+
+  #contacts {
+    position: absolute;
+    top: 74px; right: 10px;
+    width: min(240px, calc(100vw - 20px));
+    max-height: 44vh;
+    overflow: hidden;
+    background: rgba(3,12,7,0.6);
+    border: 1px solid var(--green-dim);
+    padding: 8px 10px;
+    font-size: 10.5px;
+    backdrop-filter: blur(2px);
+  }
+  #contacts h3 {
+    margin: 0 0 6px 0;
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    border-bottom: 1px solid var(--green-dim);
+    padding-bottom: 4px;
+    pointer-events: none;
+  }
+  .contact-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; white-space: nowrap; pointer-events: none; }
+  .contact-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .contact-eta { color: #fff; font-variant-numeric: tabular-nums; }
+  .incomingTag {
+    color: var(--red);
+    font-size: 8.5px;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--red);
+    padding: 0 3px;
+    margin-left: 4px;
+  }
+  .interceptBtn {
+    pointer-events: auto;
+    cursor: pointer;
+    background: rgba(255,224,102,0.08);
+    border: 1px solid #ffe066;
+    color: #ffe066;
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 8.5px;
+    letter-spacing: 0.5px;
+    padding: 1px 5px;
+    margin-left: 4px;
+  }
+  .interceptBtn:disabled { opacity: 0.3; cursor: default; }
+  .interceptBtn:active { transform: scale(0.94); }
+
+  #minimapWrap {
+    height: 28px;
+    background: rgba(3,12,7,0.78);
+    border-top: 1px solid var(--green-dim);
+  }
+  #minimap { width: 100%; height: 100%; display: block; cursor: pointer; }
+
+  #bottomBar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 4;
+  }
+  #launchBar {
+    background: rgba(3,12,7,0.88);
+    border-top: 1px solid var(--green-dim);
+    padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  #launchBarHeader {
+    text-align: center;
+    font-size: 9.5px;
+    color: var(--green-dim);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #launchBarHeader .hot { color: #ffe066; }
+  #launchButtons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .launchBtn {
+    flex: 1 1 110px;
+    max-width: 170px;
+    min-width: 84px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--btncolor);
+    color: var(--btncolor);
+    font-family: "Courier New", ui-monospace, monospace;
+    padding: 8px 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: transform 0.08s, background 0.15s, opacity 0.15s;
+  }
+  .launchBtn:active { transform: scale(0.96); background: rgba(255,255,255,0.1); }
+  .launchBtn:disabled { opacity: 0.35; cursor: default; }
+  .btnLabel {
+    display: block;
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 6px currentColor;
+  }
+  .btnEta { display: block; font-size: 10px; color: #fff; opacity: 0.85; margin-top: 3px; }
+  .btnDmg { display: block; font-size: 9px; opacity: 0.65; margin-top: 1px; }
+
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: rgba(1,4,2,0.92);
+    gap: 10px;
+    padding: 24px 20px;
+    z-index: 5;
+    cursor: pointer;
+  }
+  #overlay h1 {
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: clamp(22px, 6vw, 32px);
+    letter-spacing: 3px;
+    color: var(--green);
+    text-shadow: 0 0 14px rgba(57,255,136,0.8);
+    margin: 0;
+    text-wrap: balance;
+  }
+  #overlay .tag { font-size: 11px; color: var(--amber); letter-spacing: 3px; margin-top: -6px; }
+  #overlay p { max-width: 540px; line-height: 1.7; color: #b7f7cf; font-size: 13px; }
+  #entrance {
+    margin-top: 6px;
+    border: 1px solid var(--cyan);
+    padding: 12px 24px;
+    color: var(--cyan);
+    font-size: 14px;
+    letter-spacing: 1px;
+    background: rgba(77,216,255,0.06);
+  }
+  #entrance .url { font-family: "Courier New", ui-monospace, monospace; color: #fff; font-size: 19px; letter-spacing: 1px; }
+  #entrance .path { color: var(--green-dim); font-size: 10.5px; margin-top: 4px; }
+  #overlay .prompt {
+    color: var(--cyan);
+    animation: blink 1.1s step-start infinite;
+    margin-top: 6px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  #overlay.hidden { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #overlay .prompt { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div class="panel">
+      <div>LAUNCH SILO — <span id="aHealth">100</span>/100</div>
+      <div class="barOuter"><div class="barInner" id="aBar" style="background:var(--green)"></div></div>
+      <div style="margin-top:3px;">IMPACTS <span id="aImpacts">0</span></div>
+    </div>
+    <div id="centerLabel">LONG RANGE NODE ATTACK<br><span class="url">192.168.1.36:2001</span></div>
+    <div class="panel right">
+      <div><span id="oHealth">100</span>/100 — NODE OMEGA</div>
+      <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
+      <div style="margin-top:3px;">IMPACTS <span id="oImpacts">0</span></div>
+    </div>
+  </div>
+
+  <div id="contacts"><h3>ACTIVE CONTACTS</h3><div id="contactList"></div></div>
+
+  <div id="bottomBar">
+    <div id="minimapWrap"><canvas id="minimap"></canvas></div>
+    <div id="launchBar">
+      <div id="launchBarHeader">ROCKETS 3/3 &nbsp;·&nbsp; ~85% HIT / 15% INTERCEPT &nbsp;·&nbsp; DRAG/ARROWS TO PAN</div>
+      <div id="launchButtons">
+        <button class="launchBtn" data-type="fast" style="--btncolor:#39ff88">
+          <span class="btnLabel">FAST</span>
+          <span class="btnEta">10s flight</span>
+          <span class="btnDmg">low yield</span>
+        </button>
+        <button class="launchBtn" data-type="medium" style="--btncolor:#4dd8ff">
+          <span class="btnLabel">MEDIUM</span>
+          <span class="btnEta">20s flight</span>
+          <span class="btnDmg">mid yield</span>
+        </button>
+        <button class="launchBtn" data-type="large" style="--btncolor:#ff4d4d">
+          <span class="btnLabel">LONG RANGE</span>
+          <span class="btnEta">30s flight</span>
+          <span class="btnDmg">high yield</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <h1>LONG RANGE NODE ATTACK</h1>
+    <div class="tag">MANUAL LAUNCH CONTROL</div>
+    <p>
+      Trade fire with Node Omega, a known hostile-held node at long range. You get 3
+      rockets per turn — spend them firing FAST/MEDIUM/LONG RANGE at Omega (~85% hit
+      chance), or hold one back: when Omega fires on your Launch Silo, its incoming
+      missiles show INBOUND in the contacts list with an intercept button. You choose
+      which one to counter — interceptors hit only about 15% of the time. Full launch,
+      ballistic flight and impact play out on the radar with the camera auto-following
+      your shot; drag or use arrow keys to look around yourself.
+    </p>
+    <div id="entrance">
+      ENTRANCE<br>
+      <span class="url">192.168.1.36:2001</span>
+      <div class="path">/long-range-node-attack/</div>
+    </div>
+    <div class="prompt">CLICK OR PRESS ANY KEY TO OPEN LAUNCH CONTROL</div>
+  </div>
+</div>
+<script>
+(function () {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const minimap = document.getElementById('minimap');
+  const mctx = minimap.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const contactListEl = document.getElementById('contactList');
+  const launchBarHeaderEl = document.getElementById('launchBarHeader');
+
+  let W, H, MW, MH;
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    MW = minimap.width = window.innerWidth;
+    MH = minimap.height = 32;
+    layout();
+  }
+
+  const MAP_W = 9000;
+  const LANE_SPAN = 140;
+
+  const nodeA = { id: 'A', name: 'LAUNCH SILO', x: 320, y: 0, color: '#39ff88', health: 100, impacts: 0 };
+  const nodeO = { id: 'O', name: 'NODE OMEGA', x: MAP_W - 320, y: 0, color: '#ffb020', health: 100, impacts: 0 };
+
+  function layout() {
+    nodeA.y = H / 2;
+    nodeO.y = H / 2;
+  }
+
+  // ---- pixel-art base sprite: a bunker dome on a footing, with a mast.
+  // Erosion order keeps the core longest; the mast and outer shell go first.
+  const BASE_R = 6;
+  const BASE_BLOCK = 6;
+  function buildBaseMask() {
+    const cells = [];
+    for (let gx = -BASE_R; gx <= BASE_R; gx++) {
+      for (let gy = -BASE_R - 3; gy <= BASE_R; gy++) {
+        const isMast = gx === 0 && gy < -BASE_R + 1;
+        const d = Math.sqrt(gx * gx + gy * gy);
+        let filled = false;
+        if (isMast) filled = true;
+        else if (gy <= 0) filled = d <= BASE_R;
+        else filled = d <= BASE_R && gy <= BASE_R * 0.55;
+        if (filled) {
+          const jitter = Math.random() * 2.2;
+          cells.push({ gx, gy, keep: -d - (isMast ? 60 : 0) + jitter });
+        }
+      }
+    }
+    cells.sort((a, b) => b.keep - a.keep);
+    return cells;
+  }
+  nodeA.pixels = buildBaseMask();
+  nodeO.pixels = buildBaseMask();
+
+  const TYPES = {
+    fast:   { label: 'FAST',        names: ['VIPER', 'ADDER', 'LANCE', 'WASP'],     eta: 10, dmg: 8,  radius: 5, color: '#39ff88', peak: 150 },
+    medium: { label: 'MEDIUM',      names: ['FALCON', 'KESTREL', 'RAVEN', 'HAWK'],  eta: 20, dmg: 20, radius: 7, color: '#4dd8ff', peak: 240 },
+    large:  { label: 'LONG RANGE',  names: ['HAMMER', 'TITAN', 'ANVIL', 'BASTION'], eta: 30, dmg: 45, radius: 9, color: '#ff4d4d', peak: 330 },
+  };
+  const COUNTER = { label: 'COUNTER', names: ['GUARDIAN', 'SENTRY', 'AEGIS', 'WARDEN'], color: '#ffe066', radius: 6, speed: 520, totalSeconds: 6, peak: 90, hitChance: 0.15 };
+  const HIT_CHANCE = 0.85;
+  const nameCounters = { fast: 0, medium: 0, large: 0, counter: 0 };
+
+  function nextName(typeKey) {
+    const pool = typeKey === 'counter' ? COUNTER.names : TYPES[typeKey].names;
+    const n = nameCounters[typeKey]++;
+    const base = pool[n % pool.length];
+    const suffix = String(Math.floor(n / pool.length) + 1).padStart(2, '0');
+    return `${base}-${suffix}`;
+  }
+
+  let missiles = [];
+  let particles = [];
+  let launchRings = [];
+  let scorchMarks = [];
+  let running = false;
+  let camX = 0;
+  let followId = null;
+  let lastFireTime = 0;
+  let stats = { fired: 0, hits: 0, intercepts: 0 };
+  const TURN_SIZE = 3;
+  const TURN_COOLDOWN = 6;
+  let shotsRemaining = TURN_SIZE;
+  let turnCooldown = 0;
+  let enemyTimer = 4;
+  let contactsRenderTimer = 0;
+  const camMin = () => 0;
+  const camMax = () => Math.max(0, MAP_W - W);
+
+  function reset(initial) {
+    missiles = [];
+    particles = [];
+    launchRings = [];
+    scorchMarks = [];
+    followId = null;
+    lastFireTime = 0;
+    nodeA.health = (initial && initial.aHealth) || 100; nodeA.impacts = (initial && initial.aImpacts) || 0;
+    nodeO.health = (initial && initial.oHealth) || 100; nodeO.impacts = (initial && initial.oImpacts) || 0;
+    stats = { fired: (initial && initial.fired) || 0, hits: (initial && initial.hits) || 0, intercepts: (initial && initial.intercepts) || 0 };
+    shotsRemaining = TURN_SIZE;
+    turnCooldown = 0;
+    enemyTimer = 4;
+    Object.keys(nameCounters).forEach(k => nameCounters[k] = 0);
+    camX = (initial && typeof initial.camX === 'number') ? initial.camX : Math.max(0, Math.min(camMax(), nodeA.x - W / 2));
+    updateHud();
+  }
+
+  function updateHud() {
+    document.getElementById('aHealth').textContent = Math.max(0, Math.round(nodeA.health));
+    document.getElementById('aImpacts').textContent = nodeA.impacts;
+    document.getElementById('aBar').style.width = Math.max(0, nodeA.health) + '%';
+    document.getElementById('oHealth').textContent = Math.max(0, Math.round(nodeO.health));
+    document.getElementById('oImpacts').textContent = nodeO.impacts;
+    document.getElementById('oBar').style.width = Math.max(0, nodeO.health) + '%';
+    updateTurnHud();
+  }
+
+  function updateTurnHud() {
+    if (shotsRemaining > 0) {
+      launchBarHeaderEl.innerHTML = `ROCKETS <span class="hot">${shotsRemaining}/${TURN_SIZE}</span> &nbsp;·&nbsp; ~85% HIT / 15% INTERCEPT &nbsp;·&nbsp; DRAG/ARROWS TO PAN`;
+    } else {
+      launchBarHeaderEl.innerHTML = `RECHARGING — <span class="hot">${Math.ceil(turnCooldown)}s</span> until next 3 rockets`;
+    }
+    launchButtons.forEach(b => b.disabled = shotsRemaining <= 0);
+  }
+
+  function launchAttack(origin, dest, typeKey) {
+    const t = TYPES[typeKey];
+    const dist = Math.abs(dest.x - origin.x);
+    const speed = dist / t.eta;
+    const dir = dest.x > origin.x ? 1 : -1;
+    const lane = (Math.random() - 0.5) * LANE_SPAN;
+    const hit = Math.random() < HIT_CHANCE;
+    const targetX = hit ? dest.x : dest.x + (Math.random() < 0.5 ? -1 : 1) * (50 + Math.random() * 160);
+    const missile = {
+      id: Math.random().toString(36).slice(2, 9),
+      name: nextName(typeKey),
+      typeKey, label: t.label,
+      color: t.color, radius: t.radius, dmg: t.dmg,
+      originId: origin.id, destId: dest.id,
+      dest, hit, targetX,
+      x: origin.x, laneY: lane,
+      vx: speed * dir,
+      totalSeconds: t.eta, age: 0,
+      peak: t.peak,
+      boost: 1.5,
+      boostTimer: 0,
+    };
+    missiles.push(missile);
+    if (origin.id === 'A') stats.fired += 1;
+    spawnLaunchFx(origin.x, origin.y + lane, t.color);
+    updateHud();
+    return missile;
+  }
+
+  function fireCounter(targetId) {
+    const target = missiles.find(m => m.id === targetId);
+    if (!target) return null;
+    const lane = (Math.random() - 0.5) * LANE_SPAN;
+    const success = Math.random() < COUNTER.hitChance;
+    const missile = {
+      id: Math.random().toString(36).slice(2, 9),
+      name: nextName('counter'),
+      typeKey: 'counter', label: COUNTER.label,
+      color: COUNTER.color, radius: COUNTER.radius, dmg: 0,
+      originId: 'A', destId: null, dest: null,
+      x: nodeA.x, laneY: lane, vx: 0,
+      seekTargetId: targetId, seekSuccess: success,
+      totalSeconds: COUNTER.totalSeconds, age: 0, peak: COUNTER.peak,
+      boost: 0.8, boostTimer: 0,
+    };
+    missiles.push(missile);
+    spawnLaunchFx(nodeA.x, nodeA.y + lane, COUNTER.color);
+    return missile;
+  }
+
+  function altitude(m) {
+    const t = Math.min(1, Math.max(0, m.age / m.totalSeconds));
+    return m.peak * Math.sin(Math.PI * t);
+  }
+
+  function altitudeVel(m) {
+    const t = Math.min(1, Math.max(0, m.age / m.totalSeconds));
+    return m.peak * (Math.PI / m.totalSeconds) * Math.cos(Math.PI * t);
+  }
+
+  function spawnLaunchFx(x, y, color) {
+    launchRings.push({ x, y, age: 0, color });
+    for (let i = 0; i < 20; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6;
+      const spd = 40 + Math.random() * 130;
+      particles.push({ x, y, vx: Math.cos(a) * spd * 0.5, vy: Math.sin(a) * spd, life: 1, color: '#ffcf7a' });
+    }
+    for (let i = 0; i < 10; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = 8 + Math.random() * 30;
+      particles.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - 12, life: 0.9, color: '#8fa89a', smoke: true });
+    }
+  }
+
+  function spawnBurst(x, y, color, n) {
+    for (let i = 0; i < (n || 16); i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = 30 + Math.random() * 120;
+      particles.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1, color });
+    }
+  }
+
+  function spawnScorch(x, radius, color) {
+    scorchMarks.push({ x, radius, age: 0, color });
+  }
+
+  function formatETA(seconds) {
+    seconds = Math.max(0, seconds);
+    if (seconds >= 86400) {
+      const d = Math.floor(seconds / 86400);
+      const h = Math.floor((seconds % 86400) / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      return `${d}d ${h}h ${m}m`;
+    }
+    if (seconds >= 3600) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  let lastTime = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+    if (running) update(dt);
+    draw();
+    drawMinimap();
+    requestAnimationFrame(loop);
+  }
+
+  const keys = {};
+  function update(dt) {
+    const panSpeed = 700;
+    const panning = keys['ArrowLeft'] || keys['a'] || keys['A'] || keys['ArrowRight'] || keys['d'] || keys['D'];
+    if (panning) {
+      followId = null;
+      if (keys['ArrowLeft'] || keys['a'] || keys['A']) camX -= panSpeed * dt;
+      if (keys['ArrowRight'] || keys['d'] || keys['D']) camX += panSpeed * dt;
+      camX = Math.max(camMin(), Math.min(camMax(), camX));
+    } else if (followId) {
+      const fm = missiles.find(mm => mm.id === followId);
+      if (fm) {
+        const targetCam = Math.max(camMin(), Math.min(camMax(), fm.x - W / 2));
+        camX += (targetCam - camX) * Math.min(1, dt * 3.5);
+      } else {
+        followId = null;
+      }
+    }
+
+    if (turnCooldown > 0) {
+      turnCooldown -= dt;
+      if (turnCooldown <= 0) { turnCooldown = 0; shotsRemaining = TURN_SIZE; }
+      updateTurnHud();
+    }
+
+    enemyTimer -= dt;
+    if (enemyTimer <= 0 && nodeA.health > 0 && nodeO.health > 0) {
+      const pick = Math.random();
+      const type = pick < 0.5 ? 'fast' : (pick < 0.82 ? 'medium' : 'large');
+      launchAttack(nodeO, nodeA, type);
+      enemyTimer = 6 + Math.random() * 6;
+    }
+
+    const toRemove = new Set();
+
+    for (const m of missiles) {
+      if (toRemove.has(m.id)) continue;
+      m.age += dt;
+
+      if (m.typeKey === 'counter') {
+        const target = missiles.find(mm => mm.id === m.seekTargetId && !toRemove.has(mm.id));
+        if (!target) {
+          spawnBurst(m.x, H / 2 + m.laneY, '#665', 10);
+          toRemove.add(m.id);
+          continue;
+        }
+        const dir = target.x > m.x ? 1 : -1;
+        m.vx = COUNTER.speed * dir;
+        m.x += m.vx * dt;
+
+        if (m.boost > 0) {
+          m.boost -= dt;
+          m.boostTimer -= dt;
+          if (m.boostTimer <= 0) {
+            m.boostTimer = 0.03;
+            const alt = altitude(m);
+            const ex = m.x - dir * (m.radius + 2);
+            const ey = H / 2 + m.laneY - alt + 6;
+            particles.push({ x: ex, y: ey, vx: -m.vx * 0.15, vy: 30 + Math.random() * 20, life: 0.8, color: '#fff2b0' });
+          }
+        }
+
+        const prox = Math.abs(target.x - m.x);
+        if (prox <= 18 || m.age >= m.totalSeconds) {
+          if (prox <= 18 && m.seekSuccess) {
+            const mx = (m.x + target.x) / 2;
+            spawnBurst(mx, H / 2 + ((m.laneY + target.laneY) / 2), '#4dd8ff', 28);
+            spawnScorch(mx, 34, 'rgba(77,216,255,0.35)');
+            stats.intercepts += 1;
+            toRemove.add(target.id);
+          } else if (prox <= 18) {
+            spawnBurst(m.x, H / 2 + m.laneY, '#8a8a7a', 14);
+          }
+          toRemove.add(m.id);
+        }
+        continue;
+      }
+
+      m.x += m.vx * dt;
+
+      if (m.boost > 0) {
+        m.boost -= dt;
+        m.boostTimer -= dt;
+        if (m.boostTimer <= 0) {
+          m.boostTimer = 0.03;
+          const alt = altitude(m);
+          const ex = m.x - (m.vx >= 0 ? 1 : -1) * (m.radius + 2);
+          const ey = H / 2 + m.laneY - alt + 6;
+          particles.push({ x: ex, y: ey, vx: -m.vx * 0.15, vy: 30 + Math.random() * 20, life: 0.8, color: '#ffb26b' });
+        }
+      }
+
+      const distToTarget = Math.abs(m.targetX - m.x);
+      if (distToTarget <= 14) {
+        if (m.hit) {
+          m.dest.health -= m.dmg;
+          m.dest.impacts += 1;
+          if (m.dest.id === 'O') stats.hits += 1;
+          spawnBurst(m.x, m.dest.y + m.laneY, m.color, 24);
+          spawnScorch(m.x, 30, m.color + '55');
+          if (m.dest.health <= 0) m.dest.health = 0;
+        } else {
+          spawnBurst(m.x, H / 2 + m.laneY, '#8a8a7a', 20);
+          spawnScorch(m.x, 22, 'rgba(120,120,110,0.4)');
+        }
+        if (followId === m.id) followId = null;
+        toRemove.add(m.id);
+      }
+    }
+
+    if (toRemove.size) missiles = missiles.filter(m => !toRemove.has(m.id));
+
+    nodeA.health = Math.min(100, nodeA.health + 0.6 * dt);
+    nodeO.health = Math.min(100, nodeO.health + 0.6 * dt);
+    updateHud();
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += (p.smoke ? -10 : 60) * dt;
+      p.life -= dt * (p.smoke ? 0.9 : 1.4);
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    for (let i = launchRings.length - 1; i >= 0; i--) {
+      launchRings[i].age += dt;
+      if (launchRings[i].age > 0.7) launchRings.splice(i, 1);
+    }
+
+    for (let i = scorchMarks.length - 1; i >= 0; i--) {
+      scorchMarks[i].age += dt;
+      if (scorchMarks[i].age > 10) scorchMarks.splice(i, 1);
+    }
+
+    contactsRenderTimer -= dt;
+    if (contactsRenderTimer <= 0) {
+      contactsRenderTimer = 0.2;
+      renderContacts();
+    }
+  }
+
+  function renderContacts() {
+    const relevant = missiles.filter(m => m.typeKey !== 'counter')
+      .slice().sort((a, b) => (a.totalSeconds - a.age) - (b.totalSeconds - b.age));
+    let html = '';
+    for (const m of relevant.slice(0, 14)) {
+      const remaining = m.totalSeconds - m.age;
+      const incoming = m.destId === 'A';
+      html += `<div class="contact-row"><span style="color:${m.color}">&#9670;</span>` +
+              `<span class="contact-name">${m.name}${incoming ? ' <span class="incomingTag">INBOUND</span>' : ''}</span>` +
+              `<span class="contact-eta">${formatETA(remaining)}</span>` +
+              (incoming ? `<button class="interceptBtn" data-target="${m.id}" ${shotsRemaining <= 0 ? 'disabled' : ''}>&#8857;</button>` : '') +
+              `</div>`;
+    }
+    if (!relevant.length) html = '<div style="opacity:0.6;">no active contacts</div>';
+    contactListEl.innerHTML = html;
+  }
+
+  function drawIcon(typeKey, x, y, color, r, angle) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (angle) ctx.rotate(angle);
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = typeKey === 'counter' ? 16 : (typeKey === 'large' ? 12 : 7);
+    if (typeKey === 'fast') {
+      ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r, -r * 0.7); ctx.lineTo(-r, r * 0.7); ctx.closePath(); ctx.fill();
+    } else if (typeKey === 'medium') {
+      ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(0, -r); ctx.lineTo(-r, 0); ctx.lineTo(0, r); ctx.closePath(); ctx.fill();
+    } else if (typeKey === 'large') {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 3) * i;
+        const px = Math.cos(a) * r, py = Math.sin(a) * r;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath(); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.moveTo(r * 1.3, 0); ctx.lineTo(0, -r); ctx.lineTo(-r * 1.3, 0); ctx.lineTo(0, r); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = color; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(0, 0, r + 5, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  function drawNode(node) {
+    const sx = node.x - camX;
+    if (sx < -70 || sx > W + 70) return;
+    const alive = node.health > 0;
+    const frac = Math.max(0, node.health) / 100;
+    const total = node.pixels.length;
+    const visibleCount = Math.round(total * frac);
+    for (let idx = 0; idx < total; idx++) {
+      const c = node.pixels[idx];
+      const px = sx + c.gx * BASE_BLOCK;
+      const py = node.y + c.gy * BASE_BLOCK;
+      if (idx < visibleCount) {
+        ctx.fillStyle = alive ? node.color : '#7a2222';
+        ctx.globalAlpha = 0.94;
+        ctx.fillRect(px - BASE_BLOCK / 2, py - BASE_BLOCK / 2, BASE_BLOCK - 1, BASE_BLOCK - 1);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.strokeStyle = 'rgba(255,90,90,0.15)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px - BASE_BLOCK / 2 + 0.5, py - BASE_BLOCK / 2 + 0.5, BASE_BLOCK - 2, BASE_BLOCK - 2);
+      }
+    }
+    ctx.fillStyle = alive ? node.color : '#a55';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(node.name, sx, node.y + BASE_R * BASE_BLOCK + 16);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(30,120,70,0.15)';
+    ctx.lineWidth = 1;
+    for (let x = -((camX) % 80); x < W; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+    ctx.strokeStyle = 'rgba(77,216,255,0.1)';
+    ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+
+    for (const s of scorchMarks) {
+      const sx = s.x - camX;
+      if (sx < -50 || sx > W + 50) continue;
+      const fade = Math.max(0, 1 - s.age / 10);
+      ctx.beginPath();
+      ctx.ellipse(sx, H / 2, s.radius, s.radius * 0.32, 0, 0, Math.PI * 2);
+      ctx.fillStyle = s.color;
+      ctx.globalAlpha = fade * 0.6;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    drawNode(nodeA);
+    drawNode(nodeO);
+
+    for (const m of missiles) {
+      const sx = m.x - camX;
+      if (sx < -60 || sx > W + 60) continue;
+      const baseY = H / 2 + m.laneY;
+      const alt = altitude(m);
+      const sy = baseY - alt;
+      const angle = Math.atan2(-altitudeVel(m), m.vx || 0.001);
+
+      if (alt > 4) {
+        ctx.strokeStyle = 'rgba(160,255,200,0.18)';
+        ctx.setLineDash([2, 4]);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, baseY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.ellipse(sx, baseY, 5, 2, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(160,255,200,0.15)';
+        ctx.fill();
+      }
+
+      const trailLen = m.typeKey === 'large' ? 30 : (m.typeKey === 'counter' ? 22 : 18);
+      ctx.strokeStyle = m.color + '66';
+      ctx.lineWidth = m.typeKey === 'large' ? 3.5 : 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx - Math.cos(angle) * trailLen, sy + Math.sin(angle) * trailLen);
+      ctx.stroke();
+
+      drawIcon(m.typeKey, sx, sy, m.color, m.radius, angle);
+
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(m.name, sx, sy - m.radius - 14);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText(formatETA(m.totalSeconds - m.age), sx, sy - m.radius - 4);
+    }
+
+    for (const ring of launchRings) {
+      const sx = ring.x - camX;
+      if (sx < -80 || sx > W + 80) continue;
+      const p = ring.age / 0.7;
+      const radius = 6 + p * 60;
+      ctx.beginPath();
+      ctx.arc(sx, ring.y, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = ring.color + Math.round((1 - p) * 200 + 20).toString(16).padStart(2, '0');
+      ctx.lineWidth = 2.5 * (1 - p) + 0.5;
+      ctx.stroke();
+    }
+
+    for (const p of particles) {
+      ctx.beginPath();
+      ctx.arc(p.x - camX, p.y, p.smoke ? 5 + (1 - p.life) * 6 : 2.4, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.max(0, p.life) * (p.smoke ? 0.5 : 1);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawMinimap() {
+    mctx.clearRect(0, 0, MW, MH);
+    const scale = MW / MAP_W;
+    mctx.fillStyle = 'rgba(57,255,136,0.4)';
+    mctx.fillRect(nodeA.x * scale - 2, 6, 4, MH - 12);
+    mctx.fillStyle = 'rgba(255,176,32,0.4)';
+    mctx.fillRect(nodeO.x * scale - 2, 6, 4, MH - 12);
+    for (const m of missiles) {
+      mctx.fillStyle = m.color;
+      mctx.fillRect(m.x * scale - 1, MH / 2 - 1, 2, 2);
+    }
+    mctx.strokeStyle = 'rgba(77,216,255,0.9)';
+    mctx.lineWidth = 1;
+    mctx.strokeRect(camX * scale, 1, Math.max(2, W * scale), MH - 2);
+  }
+
+  let dragging = false, dragStartX = 0, camStartX = 0;
+
+  function startDemo(initial) {
+    if (running) return;
+    reset(initial);
+    running = true;
+    overlay.classList.add('hidden');
+  }
+
+  overlay.addEventListener('click', () => startDemo());
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (!running) return;
+    followId = null;
+    dragging = true; dragStartX = e.clientX; camStartX = camX;
+    canvas.classList.add('dragging');
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    camX = Math.max(camMin(), Math.min(camMax(), camStartX - (e.clientX - dragStartX)));
+  });
+  window.addEventListener('mouseup', () => { dragging = false; canvas.classList.remove('dragging'); });
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (!running) { startDemo(); return; }
+    followId = null;
+    if (e.touches.length === 1) { dragging = true; dragStartX = e.touches[0].clientX; camStartX = camX; }
+  }, { passive: true });
+  canvas.addEventListener('touchmove', (e) => {
+    if (!dragging || !e.touches.length) return;
+    camX = Math.max(camMin(), Math.min(camMax(), camStartX - (e.touches[0].clientX - dragStartX)));
+  }, { passive: true });
+  canvas.addEventListener('touchend', () => { dragging = false; });
+
+  minimap.addEventListener('click', (e) => {
+    if (!running) return;
+    followId = null;
+    const rect = minimap.getBoundingClientRect();
+    const frac = (e.clientX - rect.left) / rect.width;
+    camX = Math.max(camMin(), Math.min(camMax(), frac * MAP_W - W / 2));
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (!running) { startDemo(); return; }
+    keys[e.key] = true;
+    if (e.key === 'r' || e.key === 'R') { reset(); }
+  });
+  window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+  const launchButtons = Array.from(document.querySelectorAll('.launchBtn'));
+  function attemptFire(typeKey) {
+    if (shotsRemaining <= 0) return;
+    const now = performance.now();
+    if (now - lastFireTime < 350) return;
+    lastFireTime = now;
+    const m = launchAttack(nodeA, nodeO, typeKey);
+    shotsRemaining -= 1;
+    if (shotsRemaining <= 0) turnCooldown = TURN_COOLDOWN;
+    followId = m.id;
+    updateTurnHud();
+  }
+  launchButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!running) { startDemo(); return; }
+      attemptFire(btn.dataset.type);
+    });
+  });
+
+  function attemptIntercept(targetId) {
+    if (shotsRemaining <= 0) return;
+    const now = performance.now();
+    if (now - lastFireTime < 350) return;
+    const target = missiles.find(m => m.id === targetId);
+    if (!target) return;
+    lastFireTime = now;
+    const m = fireCounter(targetId);
+    if (!m) return;
+    shotsRemaining -= 1;
+    if (shotsRemaining <= 0) turnCooldown = TURN_COOLDOWN;
+    followId = m.id;
+    updateTurnHud();
+  }
+  contactListEl.addEventListener('click', (e) => {
+    if (!running) return;
+    const btn = e.target.closest('.interceptBtn');
+    if (!btn || btn.disabled) return;
+    attemptIntercept(btn.dataset.target);
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(loop);
+
+  if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
+    window.claude.hot.snapshot(() => ({
+      camX,
+      aHealth: nodeA.health, aImpacts: nodeA.impacts,
+      oHealth: nodeO.health, oImpacts: nodeO.impacts,
+      fired: stats.fired, hits: stats.hits, intercepts: stats.intercepts,
+    }));
+  }
+})();
+</script>
+</body>
+</html>
