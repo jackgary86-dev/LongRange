@@ -1930,7 +1930,7 @@
         if (m.antiPlaneEngaged || m.laneIndex !== ap.laneIndex) continue;
         if (Math.abs(m.x - ap.x) > ANTIPLANE_ENGAGE_RANGE) continue;
         m.antiPlaneEngaged = true;
-        fireCounter(ap, m.id);
+        fireCounter(ap, m.id, 'antiplane');
       }
     }
   }
@@ -2766,6 +2766,39 @@
     return missile;
   }
 
+  // LRNA-110: names which defender fired a given counter missile, for the
+  // "INTERCEPTED BY ..." callout on a successful hit - players couldn't
+  // tell which of the many independent defense systems (Emergency
+  // Counter, Counter Missile/Planes, Omega, AM batteries, loadout nodes,
+  // AntiPlane nodes, a defending field target) shot down a given threat.
+  // Explicitly-tagged player/Omega abilities resolve directly; everything
+  // else (AM batteries, defending field targets - fired through the
+  // generic getDefender() auto-defend loop with no tag) falls back to a
+  // live lookup by the counter's originId.
+  function describeDefender(m) {
+    const SOURCE_LABELS = {
+      emergency: 'EMERGENCY COUNTER',
+      countermissile: 'COUNTER MISSILE',
+      counterplanes: 'COUNTER ATTACK PLANES',
+      loadout: null, // resolved by name below - each node has its own
+      antiplane: null,
+      omega: 'NODE OMEGA',
+    };
+    if (m.source && SOURCE_LABELS[m.source]) return SOURCE_LABELS[m.source];
+    if (m.source === 'loadout') {
+      const node = loadoutNodes.find(n => n.id === m.originId);
+      return node ? node.name : 'GROUND DEFENSE';
+    }
+    if (m.originId === nodeO.id) return 'NODE OMEGA';
+    const amNode = amNodes.find(n => n.id === m.originId);
+    if (amNode) return amNode.name || 'AM BATTERY';
+    const ft = fieldTargets.find(t => t.id === m.originId);
+    if (ft) return ft.name;
+    const ap = antiPlaneNodes.find(n => n.id === m.originId);
+    if (ap) return ap.name || 'ANTIPLANE';
+    return 'DEFENSE GRID';
+  }
+
   // ---- Emergency Counter: a manual, player-triggered backup intercept the
   // Strike Platform itself can fire at an inbound enemy strike, stacking on
   // top of (not replacing) the automatic AM-battery shot above. Only
@@ -2861,7 +2894,7 @@
     if (planeCount === 0 || tokens.counter < cost) return;
     spendTokens('counter', cost, nodeA.x, nodeA.y - 90);
     const origin = { id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#8fd8ff', hitChance: COUNTER_PLANES_HIT_CHANCE };
-    for (let i = 0; i < planeCount; i++) fireCounter(origin, targets[i].id);
+    for (let i = 0; i < planeCount; i++) fireCounter(origin, targets[i].id, 'counterplanes');
   }
   function updateCounterPlanesBtn() {
     if (!counterPlanesBtnEl) return;
@@ -2882,7 +2915,7 @@
     const target = findInboundEnemyMissiles()[0];
     if (!target) return;
     spendTokens('counter', COUNTER_MISSILE_COST, nodeA.x, nodeA.y - 90);
-    fireCounter({ id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#c6e8ff', hitChance: COUNTER_MISSILE_HIT_CHANCE }, target.id);
+    fireCounter({ id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#c6e8ff', hitChance: COUNTER_MISSILE_HIT_CHANCE }, target.id, 'countermissile');
   }
   function updateCounterMissileBtn() {
     if (!counterMissileBtnEl) return;
@@ -2923,7 +2956,7 @@
   function fireOmegaCounter(hitChance, targetId) {
     const target = missiles.find(m => m.id === targetId);
     if (target) target.omegaCounterUsed = (target.omegaCounterUsed || 0) + 1;
-    fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#ff2ea6', hitChance }, targetId);
+    fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#ff2ea6', hitChance }, targetId, 'omega');
   }
 
   // player-launched, still airborne warheads Omega hasn't already sent a
@@ -3642,6 +3675,7 @@
             sfxIntercept();
             spawnBurst(mx, my, '#8f6bff', 28);
             spawnScorch(mx, 34, 'rgba(143,107,255,0.35)');
+            spawnFloatText(mx, my - 20, `INTERCEPTED BY ${describeDefender(m)}`, '#8f6bff'); // LRNA-110
             stats.intercepts += 1;
             // LRNA-078/#435: a shot-down plane frees its slot for a rearm,
             // same as one that lands safely - it just skips the "safe
