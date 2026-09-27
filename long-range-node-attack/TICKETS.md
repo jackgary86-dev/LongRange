@@ -17,9 +17,101 @@ snapshot), `LongRange-1.0.0.html` (post-coin-economy, pre-v1.0.1 snapshot).
 
 ---
 
+## OPEN — CRITICAL Bugs (Game-Breaking)
+
+- **LRNA-123** — CRITICAL: Plane Overshoot on Return — Planes Never Land/Rearm
+  - Issue: Delta-based return movement overshoots landing zone; crossover check fails on high dt
+  - Reproduction: Launch Heavy Bomber, let it fly deep, wait for return — plane never lands
+  - Impact: Plane slot stuck in "flying" state permanently; player loses 1-2 of 3 plane types
+  - Fix: Clamp final position to `nodeA.x` when distance would cross zero
+
+- **LRNA-124** — CRITICAL: Loadout Satellite Selection Duplication Exploit
+  - Issue: `hasSatellite()` only checks existence, doesn't prevent multiple selections
+  - Problem: Players can select Satellite multiple times; all activate simultaneously
+  - Impact: Players gain map-reveal redundantly, economy exploit (free repeatable ability)
+  - Fix: Add to loadout only once; second selection should fail with "already selected" message
+
+- **LRNA-125** — CRITICAL: Omega Rebuild Hits Players Immediately After Death
+  - Issue: `onOmegaDestroyedForWaves()` rebuilds Omega with 250 health instantly
+  - Problem: Player missiles in-flight still deal damage to rebuilt Omega; cluster splits can hit twice
+  - Impact: Player loses health due to lag between death and rebuild handoff
+  - Fix: Add brief invulnerability window (0.5s) after rebuild before Omega counters
+
+---
+
 ## OPEN — High Priority Bugs
 
-- **LRNA-101** — CRITICAL: Emergency Counter can target FAST missiles despite 5s window gate
+- **LRNA-126** — HIGH: Missile Target Validation at Creation, Not Impact
+  - Issue: Hit/miss decided at launch time via `Math.random() < HIT_CHANCE`
+  - Problem: If target dies before impact, missile uses stale hit result (ghosts hit destroyed targets)
+  - Impact: Missile might miss live target or hit dead one
+  - Fix: Revalidate target existence and recompute hit chance at impact time
+
+- **LRNA-127** — HIGH: Emergency Counter Stops Working After ~20 Uses
+  - Issue: `EMERGENCY_MAX_PER_TARGET = 2` limits per-missile, but counter never resets
+  - Problem: After 10 inbound threats (~20 total shots), Emergency Counter becomes non-functional
+  - Impact: Mid-run button suddenly stops firing even with tokens + threats available
+  - Fix: Reset `emergencyUsed` counter when threat is destroyed or misses
+
+- **LRNA-128** — HIGH: Lifetime Token Tracking Double-Counts Passive Income
+  - Issue: Line 2876 adds `(TOKEN_PASSIVE_RATE * 2 + ...)` instead of `* 1`
+  - Problem: Lifetime tokens grow 2x faster than actual earned tokens
+  - Impact: Lifetime stats inflated; replay/audit impossible
+  - Fix: Remove the `* 2` multiplier
+
+- **LRNA-129** — HIGH: Counter Plane Shot Takes Wrong Flight Time Against Returning Planes
+  - Issue: Counter Planes inherit 20s flight time, but returning planes have 30s total flight
+  - Problem: Intercepting Heavy Bomber on return (last 20 seconds) actually impossible
+  - Impact: Returning planes nearly unkillable on return trip
+  - Fix: Counter Planes should intercept within final 10s (match Missile rule), or adjust flight times
+
+- **LRNA-130** — HIGH: Radar Lane Dots Missing Bounds Checking
+  - Issue: `left: ${(c.dist / 10).toFixed(1)}%` — if dist > 1000, dot goes off-screen
+  - Problem: Radar lane dots disappear; contact list shows impossible distances
+  - Impact: Visual feedback breaks for far-range contacts
+  - Fix: Clamp position to `Math.max(0, Math.min(100, ...))`
+
+---
+
+## OPEN — Medium Priority Bugs
+
+- **LRNA-131** — MEDIUM: Omega Crumble Art and Health State Divergence
+  - Issue: `omegaRemainingNodes` (visual) self-repairs, but `omegaHealth` (real) doesn't
+  - Problem: After several repairs, Omega looks alive but is actually dead (or reverse)
+  - Impact: Visual confusion; false sense of damage progress
+  - Fix: Sync repair logic — either both repair or neither
+
+- **LRNA-132** — MEDIUM: Flak Only Targets Nearest Missile (Overkill)
+  - Issue: Each node fires at single nearest missile; doesn't prioritize undefended targets
+  - Problem: Flak wastes shots on decoys already tracked by seekers
+  - Impact: Loadout nodes + AM batteries less effective than intended
+  - Fix: Implement target reservation so nodes spread fire across threats
+
+- **LRNA-133** — MEDIUM: Seek & Destroy Window Stale Data
+  - Issue: `renderSeekDestroy()` only called on drone hit, not on timer
+  - Problem: Player leaves window open, drone discovers off-screen, UI doesn't update until window closes
+  - Impact: Player doesn't see discovered nodes; has to close/reopen to refresh
+  - Fix: Set a 500ms render loop for this window (like Contacts)
+
+- **LRNA-134** — MEDIUM: Ground Units Chip Stacking Unvisualised
+  - Issue: Multiple hits stack multiplicatively (0.6^N damage remaining), no UI feedback
+  - Problem: After 2 hits, missile does 36% damage; players don't understand why
+  - Impact: Missiles feel inconsistent; damage scaling unclear
+  - Fix: Show hit count badge on missile icon or draw rings around it
+
+- **LRNA-135** — MEDIUM: Counter Planes Only Shows First 2 Threats
+  - Issue: Window displays only soonest-to-impact threats (hardcoded max 2)
+  - Problem: If 3+ missiles inbound, player can't see/choose which to counter
+  - Impact: Player feels cheated when "wrong" missile gets hit
+  - Fix: Increase window threat display from 2 to 4-5, or add scrollable list
+
+- **LRNA-136** — MEDIUM: Particle Array Unbounded Growth
+  - Issue: Particles spawn at 6-26+ per frame (launch FX, explosions, flak) with no culling
+  - Problem: Long games (30+ minutes) accumulate thousands of particles
+  - Impact: Frame rate degrades; off-screen particles still update
+  - Fix: Implement max particle cap (5000), cull off-screen particles
+
+- **LRNA-101** — MEDIUM: Emergency Counter can target FAST missiles despite 5s window gate
   - Current: `findEmergencyTarget()` filters `m.sizeKey === 'fast'` with continue, skipping them
   - Problem: At 10/sec passive income (100 coins/10s), players will accumulate Emergency tokens
     for many waves without a way to spend them efficiently - the gate is too restrictive,
@@ -193,6 +285,116 @@ snapshot), `LongRange-1.0.0.html` (post-coin-economy, pre-v1.0.1 snapshot).
 - **LRNA-122** — Dragging the map with the mouse doesn't work on mobile (only touch pinch/pan)
   - Current: Only `touchmove` is handled for panning
   - Improve: Add `pointerdown`/`pointermove` for cross-platform compatibility
+
+---
+
+## OPEN — Balance Issues (High Impact)
+
+- **LRNA-137** — EMP Too Powerful Without Direct Damage Cost
+  - Issue: Single EMP jams ALL enemy defenses for 15 seconds, costs 500 ATTACK, 0 direct damage
+  - Problem: On Easy, player can land one EMP and have 15s completely free-fire window
+  - Impact: EMP trivializes waves 1-3; weapon feels mandatory, breaks balance
+  - Consider: Add 200 damage to EMP, or reduce jam duration to 8s, or increase cost to 800
+
+- **LRNA-138** — Token Economy Too Generous for Fresh Players
+  - Issue: New player starts with 3000 tokens + 300/sec passive (18,000/min)
+  - Problem: After 2 minutes, player has 3600+ tokens with no pressure
+  - Impact: No resource scarcity; game feels grindy, mechanics don't matter early game
+  - Consider: Reduce starting tokens to 500/500/500, or passive to 30/sec
+
+- **LRNA-139** — Omega Hit Chance Escalation Unbounded
+  - Issue: Each rebuild: `hitChance = Math.min(0.85, oldChance + 0.05)`
+  - Problem: By wave 17, Omega hits 85% (player missiles also 85%); game becomes pure RNG
+  - Impact: Late-game is just attrition; player skill doesn't matter
+  - Consider: Cap at 70%, or introduce player dodge mechanic
+
+- **LRNA-140** — Enemy Strike Damage Fixed Regardless of Difficulty
+  - Issue: Enemy strikes are 20/40/65 damage; only size mix changes with difficulty
+  - Problem: Hard difficulty gets same damage-per-second as Normal (just different timing)
+  - Impact: Difficulty scaling broken; hard mode isn't actually harder
+  - Fix: Scale damage by difficulty multiplier (Normal 1.0x, Hard 1.5x, Impossible 2.0x)
+
+- **LRNA-141** — Strike Fighter Dodge Single-Use Per Sortie
+  - Issue: Dodge only works on outbound leg; Omega can fire again on return
+  - Problem: Dodge doesn't live up to its name; effectively one-time use
+  - Impact: Damage variability unfair; players forced into single-use mindset
+  - Consider: Make dodge persist across entire flight, or reduce cooldown
+
+- **LRNA-142** — Omega Rebuild Resets Visual Crumble But Not Health Tracking
+  - Issue: `omegaRemainingNodes = OMEGA_TOTAL_NODES` (reset) but damage history lives on
+  - Problem: After rebuild #3, Omega's crumble is misleading; looks pristine but is fragile
+  - Impact: Player can't track cumulative damage; feels like bugs or exploits
+  - Fix: Track damage as percentage (1.0 = pristine, 0.7 = 70% damaged), render proportionally
+
+---
+
+## OPEN — Code Quality Issues (Refactoring)
+
+- **LRNA-143** — Dead Code: CLUSTER/EMP Partially Removed
+  - Issue: LRNA-097/098 removed UI buttons, but TYPES.cluster/TYPES.emp still exist + can be fired via code
+  - Problem: Inconsistent state; maintenance nightmare
+  - Impact: Hard to enable/disable weapons cleanly
+  - Fix: Create a `DISABLED_WEAPONS = ['cluster', 'emp']` config array, gate all references
+
+- **LRNA-144** — Silent localStorage Failures Throughout Codebase
+  - Issue: All catch blocks swallow errors: `catch (e) { /* ignore */ }`
+  - Problem: If storage quota exceeded or disabled, player loses all progress silently
+  - Impact: Data loss without warning; no feedback mechanism
+  - Fix: At minimum, log to console and set a flag so UI can warn player
+
+- **LRNA-145** — Missing Null Checks on DOM Elements
+  - Issue: Many `querySelector` calls don't check if element exists before use
+  - Problem: If HTML structure changes, code silently fails with no error
+  - Impact: Browser console errors; very hard to debug
+  - Fix: Add assertions or optional chaining (`element?.addEventListener(...)`)
+
+- **LRNA-146** — Inefficient Contact Rendering at 5fps (200ms Interval)
+  - Issue: Contacts render every 0.2s while missiles update every frame (60fps)
+  - Problem: Contact list can be 200ms out-of-date; player sees stale data
+  - Impact: Players can't accurately track fast-moving missiles
+  - Fix: Render contacts every frame (60fps) or at least every 50ms (20fps)
+
+- **LRNA-147** — Magic Numbers Scattered Throughout Code
+  - Issue: No centralized config (ZOOM=0.5, BASE_BLOCK=6, OMEGA_RES=200, etc.)
+  - Problem: Tweaking balance requires editing multiple locations; high refactoring risk
+  - Impact: Inconsistent tuning; easy to introduce bugs
+  - Fix: Create `CONFIG = { ZOOM: 0.5, BASE_BLOCK: 6, ... }` object, reference only that
+
+- **LRNA-148** — Stale Target Selection Across Runs
+  - Issue: `selectedTargetId` can point to destroyed targets; reset to 'O' but 'O' may also be rebuilding
+  - Problem: Rare crash on edge case: select Field Target → destroyed → Omega rebuilds simultaneously
+  - Impact: Very hard to reproduce; crashes unpredictably
+  - Fix: Validate `selectedTargetId` every frame, auto-reset to 'O' if target invalid
+
+- **LRNA-149** — Emergency Counter Cost Buried in Button Text
+  - Issue: Cost shown in button label, not in launch bar header like other abilities
+  - Problem: Players overspend or don't realize cost until too late
+  - Impact: UX confusion; poor feedback
+  - Fix: Extract cost to HUD display (like CLUSTER/EMP/etc.)
+
+- **LRNA-150** — Incoming Alert Doesn't Show All Threats
+  - Issue: Only displays soonest threat; if 5 missiles inbound, alert shows only 1
+  - Problem: Player can't see "wall of missiles" coming
+  - Impact: False sense of threat level; player unprepared
+  - Fix: Show count (e.g., "INCOMING — 5 THREATS") or list top 3
+
+- **LRNA-151** — Double-Jam Visual Confusion
+  - Issue: Two separate jam timers (empGlobalJamTimer + omegaCountersJamTimer); HUD shows only one
+  - Problem: Player can't distinguish which defenses are jammed
+  - Impact: Player doesn't know if Counter Missile will work
+  - Fix: Show separate indicators for "POINT DEFENSE JAMMED" vs "COUNTERS JAMMED"
+
+- **LRNA-152** — Radar Lane Contact List Truncates at 20 Items Silently
+  - Issue: `.slice(0, 20)` drops excess contacts; no indicator that more exist
+  - Problem: Large waves feel mysterious; player doesn't know what's off-list
+  - Impact: Players feel blind during heavy attacks
+  - Fix: Show "20+ contacts" indicator, or implement scrollable list
+
+- **LRNA-153** — Target List Shows "No Targets" Without Warning on Invalid Selection
+  - Issue: If all field targets destroyed, list shows "no targets left"; player's selected target becomes invalid
+  - Problem: Clicking on target list doesn't auto-switch to Omega
+  - Impact: Player expects Omega, list is empty, confusion
+  - Fix: Auto-switch to Omega ('O') when selected target is destroyed
 
 ---
 
