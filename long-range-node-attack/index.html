@@ -2894,11 +2894,22 @@
   const OMEGA_COUNTER_MISSILE_COOLDOWN = 6;
   const OMEGA_COUNTER_PLANES_COOLDOWN = 10;
   const OMEGA_COUNTERS_JAM_DURATION = 15;
+  // LRNA-102: with no cap, a 6s cooldown gives Omega ~4 shots at a LARGE
+  // (30s flight) and ~3 at a CLUSTER (24s) before it ever arrives - at 75%
+  // hit chance that's ~98%/~93% cumulative, making the game's two highest-
+  // damage, highest-cost warheads nearly unreachable against an active
+  // Omega, while FAST/MEDIUM (fewer shots fit in their shorter flights)
+  // stay comparatively easy. Capping attempts per target, matching the
+  // same convention Emergency Counter already uses, keeps a slower/pricier
+  // warhead from being punished for spending more time in Omega's range.
+  const OMEGA_COUNTER_MAX_PER_TARGET = 2;
   let omegaCounterMissileTimer = 0;
   let omegaCounterPlanesTimer = 0;
   let omegaCountersJamTimer = 0;
 
   function fireOmegaCounter(hitChance, targetId) {
+    const target = missiles.find(m => m.id === targetId);
+    if (target) target.omegaCounterUsed = (target.omegaCounterUsed || 0) + 1;
     fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#ff2ea6', hitChance }, targetId);
   }
 
@@ -2922,6 +2933,7 @@
       // DRONE's own dmg is trivial (10) either way; this is about making
       // that already-coded "eventually attacks" outcome actually reachable.
       if (m.typeKey === 'drone') continue;
+      if ((m.omegaCounterUsed || 0) >= OMEGA_COUNTER_MAX_PER_TARGET) continue;
       if (m.omegaReactionDelay == null) {
         m.omegaReactionDelay = OMEGA_COUNTER_REACTION_MIN + Math.random() * (OMEGA_COUNTER_REACTION_MAX - OMEGA_COUNTER_REACTION_MIN);
       }
