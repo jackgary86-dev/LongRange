@@ -3712,12 +3712,22 @@
           }
           if (arrived) {
             const def = PLANE_TYPES[m.planeKind];
-            const backDist = Math.max(1, Math.abs(nodeA.x - m.x));
-            const dir = nodeA.x > m.x ? 1 : -1;
-            m.phase = 'returning';
-            m.age = 0;
-            m.totalSeconds = def.eta;
-            m.vx = (backDist / def.eta) * dir;
+            // LRNA-123 safety: if plane type is invalid/removed, force-land it now
+            if (!def) {
+              m.x = nodeA.x;
+              const slot = planeSlots[m.planeKind];
+              if (slot) { slot.state = 'rearming'; slot.cooldown = PLANE_REARM_COOLDOWN; }
+              spawnBurst(nodeA.x, vh() / 2 + m.laneY, m.color, 12);
+              toRemove.add(m.id);
+              updatePlaneButtons();
+            } else {
+              const backDist = Math.max(1, Math.abs(nodeA.x - m.x));
+              const dir = nodeA.x > m.x ? 1 : -1;
+              m.phase = 'returning';
+              m.age = 0;
+              m.totalSeconds = def.eta;
+              m.vx = (backDist / def.eta) * dir;
+            }
           }
           continue;
         }
@@ -3731,12 +3741,14 @@
         // as the plane "flying through"/overshooting the base at speed
         // instead of landing - catch it by also checking whether this
         // frame's move crossed nodeA.x, not just whether it's currently
-        // close to it.
+        // close to it. LRNA-123: added guards for NaN velocity and forced
+        // landing if velocity is invalid.
         const prevX = m.x;
         m.x += m.vx * dt;
         const homeDist = Math.abs(nodeA.x - m.x);
         const crossedHome = (prevX - nodeA.x) * (m.x - nodeA.x) <= 0;
-        if (homeDist <= 20 || crossedHome || m.age >= m.totalSeconds * 1.5) {
+        const invalidVelocity = !isFinite(m.vx) || m.vx === 0;
+        if (invalidVelocity || homeDist <= 20 || crossedHome || m.age >= m.totalSeconds * 1.5) {
           m.x = nodeA.x;
           const slot = planeSlots[m.planeKind];
           if (slot) { slot.state = 'rearming'; slot.cooldown = PLANE_REARM_COOLDOWN; }
