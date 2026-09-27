@@ -2106,7 +2106,15 @@
       if (!loadoutNodeActive(node)) continue;
       node.fireTimer -= dt;
       if (node.fireTimer > 0) continue;
+      // LRNA-108: every node independently chasing "the single soonest
+      // threat" piles all 3 onto the same target when only 1-2 are
+      // inbound, stacking odds well past useful while other threats get
+      // no defender at all. Two passes: first prefer a target no other
+      // loadout node currently has an in-flight shot against; only fall
+      // back to overkill (any eligible target) if nothing else qualifies -
+      // still better than leaving the node idle.
       let best = null, bestRemaining = Infinity;
+      let bestAny = null, bestAnyRemaining = Infinity;
       for (const m of missiles) {
         if (m.typeKey !== 'enemyStrike') continue;
         if (!node.def.engages(m.sizeKey)) continue;
@@ -2114,11 +2122,16 @@
         if (m.loadoutHitBy[node.id]) continue;
         const remaining = m.totalSeconds - m.age;
         if (remaining <= 0) continue;
+        if (remaining < bestAnyRemaining) { bestAnyRemaining = remaining; bestAny = m; }
+        const alreadyEngagedByOtherNode = missiles.some(c =>
+          c.typeKey === 'counter' && c.source === 'loadout' && c.originId !== node.id && c.seekTargetId === m.id);
+        if (alreadyEngagedByOtherNode) continue;
         if (remaining < bestRemaining) { bestRemaining = remaining; best = m; }
       }
+      if (!best) best = bestAny;
       if (best) {
         best.loadoutHitBy[node.id] = true;
-        fireCounter(node, best.id);
+        fireCounter(node, best.id, 'loadout');
         node.fireTimer = node.def.cooldown;
       } else {
         node.fireTimer = 0.3;
