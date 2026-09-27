@@ -2244,6 +2244,7 @@
 
   let missiles = [];
   let particles = [];
+  const MAX_PARTICLES = 5000; // LRNA-136: hard cap so a big battle can't spike frame time
   let launchRings = [];
   let scorchMarks = [];
   let running = false;
@@ -3949,6 +3950,10 @@
       p.life -= dt * (p.smoke ? 0.9 : p.tracer ? 3.2 : p.flash ? 9 : 1.4);
       if (p.life <= 0) particles.splice(i, 1);
     }
+    // LRNA-136: hard cap regardless of how many effects fired this frame -
+    // trims the oldest excess (spawned earliest, at the front of the
+    // array) rather than letting a heavy battle spike the array unbounded.
+    if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
 
     for (let i = launchRings.length - 1; i >= 0; i--) {
       launchRings[i].age += dt;
