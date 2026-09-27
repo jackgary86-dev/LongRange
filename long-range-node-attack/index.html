@@ -1451,6 +1451,8 @@
   // pixel pool can keep its own slow self-repair, that's unchanged.
   const OMEGA_HEALTH_DMG_RATIO = 0.03;
   let omegaHealth = PLAYER_MAX_HEALTH;
+  const OMEGA_REBUILD_INVULN = 0.5; // Invulnerability window after rebuild (LRNA-125)
+  let omegaInvulnTimer = 0;
 
   function damageOmegaAt(offsetX, offsetY, nodeCount) {
     const rx = OMEGA_RES / 2 + offsetX / OMEGA_PX_SCALE;
@@ -1512,6 +1514,8 @@
   // field target's plain health pool) and reports whether this hit just destroyed it.
   function applyDamage(dest, x, laneY, dmg) {
     if (dest.id === 'O') {
+      // Skip damage during rebuild invulnerability window (LRNA-125)
+      if (omegaInvulnTimer > 0) return false;
       const wasAlive = omegaHealth > 0;
       damageOmegaAt(x - dest.x, laneY, dmg); // cosmetic crumble only
       omegaHealth = Math.max(0, omegaHealth - Math.max(1, Math.round(dmg * OMEGA_HEALTH_DMG_RATIO)));
@@ -2173,6 +2177,7 @@
     omegaHealth = PLAYER_MAX_HEALTH;
     buildOmegaBase();
     nodeO.hitChance = Math.min(0.85, (nodeO.hitChance || COUNTER.hitChance * DIFFICULTIES[difficulty].interceptMult) + 0.05);
+    omegaInvulnTimer = OMEGA_REBUILD_INVULN; // Add invulnerability window (LRNA-125)
   }
   function updateWaveDirector(dt) {
     if (omegaHealth <= 0) return; // mid-rebuild this frame, applyDamage's caller handles it
@@ -2545,6 +2550,7 @@
     omegaHealth = (initial && typeof initial.omegaHealth === 'number') ? initial.omegaHealth : PLAYER_MAX_HEALTH;
     for (const t of fieldTargets) { t.health = t.maxHealth; t.destroyed = false; t.impacts = 0; }
     empGlobalJamTimer = 0;
+    omegaInvulnTimer = 0; // Reset Omega invulnerability timer (LRNA-125)
     initAntiPlaneNodes();
     initSeekDestroyNodes();
     initLoadoutNodes();
@@ -3490,6 +3496,7 @@
     updatePlaneButtons();
 
     if (empGlobalJamTimer > 0) empGlobalJamTimer = Math.max(0, empGlobalJamTimer - dt);
+    if (omegaInvulnTimer > 0) omegaInvulnTimer = Math.max(0, omegaInvulnTimer - dt); // LRNA-125
 
     for (const m of missiles) {
       // LRNA-078/#435: planes are a separate arsenal with their own
