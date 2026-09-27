@@ -4012,9 +4012,15 @@
     const list = [];
     for (const m of missiles) {
       const role = m.typeKey === 'counter' ? 'DEF' : (m.originId === 'A' ? 'ATK' : 'INBOUND');
+      // LRNA-109: enemy strikes of every size all share one type label
+      // ("STRIKE"), while the INCOMING alert distinguishes them by size -
+      // append the size here too so the contact list carries the same
+      // information instead of collapsing FAST/MEDIUM/LARGE strikes into
+      // one indistinguishable label.
+      const type = m.sizeKey ? `${m.label} [${m.sizeKey.toUpperCase()}]` : m.label;
       list.push({
         id: m.id, kind: 'missile', x: m.x, color: m.color, name: m.name,
-        dist: dist1000(m.x), speed: Math.round(Math.abs(m.vx || 0)), type: m.label, role,
+        dist: dist1000(m.x), speed: Math.round(Math.abs(m.vx || 0)), type, role,
       });
     }
     for (const ap of antiPlaneNodes) {
