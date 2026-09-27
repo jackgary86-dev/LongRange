@@ -2701,7 +2701,7 @@
     return Math.max(0.65, Math.min(1.7, refSpeed / speed));
   }
 
-  function fireCounter(origin, targetId) {
+  function fireCounter(origin, targetId, source) {
     const target = missiles.find(m => m.id === targetId);
     if (!target) return null;
     const lane = (Math.random() - 0.5) * LANE_SPAN;
@@ -2724,7 +2724,7 @@
       color: origin.color || COUNTER.color, radius: COUNTER.radius, dmg: 0,
       originId: origin.id, destId: null, dest: null,
       x: origin.x, laneY: lane, vx: 0,
-      seekTargetId: targetId, seekSuccess: success,
+      seekTargetId: targetId, seekSuccess: success, source,
       totalSeconds, age: 0, peak: COUNTER.peak,
       boost: 0.8, boostTimer: 0,
       chipOnly: !!origin.chipOnly,
@@ -2759,7 +2759,14 @@
     for (const m of missiles) {
       if (m.typeKey !== 'enemyStrike' || m.sizeKey === 'fast') continue;
       if ((m.emergencyUsed || 0) >= EMERGENCY_MAX_PER_TARGET) continue;
-      if (missiles.some(c => c.typeKey === 'counter' && c.seekTargetId === m.id)) continue;
+      // LRNA-127: only exclude a target while *Emergency Counter's own*
+      // shot at it is still in flight - the always-on auto-defenses (AM
+      // batteries, loadout nodes) fire their own independent counters at
+      // the same inbound threats constantly, and those used to count here
+      // too, which meant some other system's counter already seeking a
+      // target permanently blocked Emergency's own 2nd charge on it, even
+      // though emergencyUsed hadn't reached EMERGENCY_MAX_PER_TARGET yet.
+      if (missiles.some(c => c.typeKey === 'counter' && c.source === 'emergency' && c.seekTargetId === m.id)) continue;
       const remaining = m.totalSeconds - m.age;
       if (remaining <= 0 || remaining > EMERGENCY_WINDOW) continue;
       if (remaining < bestRemaining) { bestRemaining = remaining; best = m; }
@@ -2773,7 +2780,7 @@
     if (!target) return false;
     target.emergencyUsed = (target.emergencyUsed || 0) + 1;
     spendTokens('counter', EMERGENCY_COUNTER_COST, nodeA.x, nodeA.y - 60);
-    fireCounter({ id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#fff2b0', hitChance: EMERGENCY_HIT_CHANCE }, target.id);
+    fireCounter({ id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#fff2b0', hitChance: EMERGENCY_HIT_CHANCE }, target.id, 'emergency');
     emergencyCooldown = EMERGENCY_COOLDOWN;
     return true;
   }
