@@ -5062,6 +5062,12 @@
     const slot = parseInt(sel.dataset.slot, 10);
     sel.value = loadout[slot];
     sel.addEventListener('change', () => {
+      // Prevent duplicate satellite selection (LRNA-124)
+      if (sel.value === 'satellite' && loadout.some((k, i) => i !== slot && k === 'satellite')) {
+        alert('Satellite can only be selected once');
+        sel.value = loadout[slot];
+        return;
+      }
       loadout[slot] = sel.value;
       saveLoadout();
       updateSatelliteWarning();
