@@ -287,6 +287,27 @@
   }
   #pausedBanner.hidden { display: none; }
 
+  /* LRNA-080: persistent, non-blocking (unlike PAUSED) reminder during
+     the recon-gated opening - the player needs to keep looking at/
+     navigating the map while this is up, not have it covered. */
+  #openingLockedBanner {
+    position: absolute;
+    top: 96px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    pointer-events: none;
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: #9fffcf;
+    background: rgba(3,12,7,0.75);
+    border: 1px solid #9fffcf88;
+    padding: 6px 14px;
+    text-align: center;
+    animation: omegaJamPulse 1.6s infinite;
+  }
+  #openingLockedBanner.hidden { display: none; }
+
   /* Emergency Counter (LRNA-074/#431): moved out of its old floating
      top-left HUD position into the COUNTER ability group, styled like
      every other launch-bar button now instead of a standalone floater. */
@@ -867,6 +888,7 @@
   <button id="pauseBtn">PAUSE</button>
   <button id="muteBtn">MUTE</button>
   <div id="pausedBanner" class="hidden">PAUSED</div>
+  <div id="openingLockedBanner" class="hidden">RECON REQUIRED — LOCATE A HIDDEN NODE TO BEGIN THE ASSAULT (send a DRONE or RECON PLANE)</div>
   <div id="storageWarning" class="hidden">⚠ PROGRESS NOT SAVING — storage unavailable</div>
   <div id="opsCenterPanel" class="hidden">
     <div class="opsHeader">
@@ -1890,6 +1912,24 @@
   let waveStrikeTimer = 0;
   let waveBreakTimer = 0;
   let omegaRebuildCount = 0;
+  // LRNA-080: recon-gated opening. No attacking (and no Wave 1) until the
+  // player has located at least one of the 3 hidden SEEK AND DESTROY
+  // nodes - "find the enemy before you can hit it" instead of combat
+  // starting immediately on startGame. Lifts permanently on first
+  // discovery; the other 2 undiscovered nodes stay individually
+  // non-attackable same as always (SEEK AND DESTROY's existing gating).
+  let openingLocked = true;
+  function updateOpeningLockUi() {
+    const el = document.getElementById('openingLockedBanner');
+    if (el) el.classList.toggle('hidden', !openingLocked);
+  }
+  function checkOpeningUnlock() {
+    if (openingLocked && seekDestroyNodes.some(n => n.discovered)) {
+      openingLocked = false;
+      spawnFloatText(nodeA.x, nodeA.y - 190, 'RECON COMPLETE — ATTACK SYSTEMS ONLINE', '#7bffa0');
+      updateOpeningLockUi();
+    }
+  }
   let bestWave = 1;
   function loadBestWave() {
     try {
@@ -2165,11 +2205,20 @@
       const bandStart = start + i * third;
       return {
         id: `sd-${def.kind}`, name: def.label, kind: def.kind,
-        discovered: hasSatellite(), destroyed: false,
+        // LRNA-080: unlike AntiPlane nodes, Satellite does NOT auto-reveal
+        // these - the whole point of the recon-gated opening is that the
+        // player has to actually go find one, and an instant global
+        // reveal from a loadout pick made before the run even starts
+        // would trivialize that requirement entirely.
+        discovered: false, destroyed: false,
         health: def.maxHealth, maxHealth: def.maxHealth,
         x: bandStart + Math.random() * third,
         y: vh() / 2, yOffset: (Math.random() - 0.5) * NODE_SCATTER,
         color: def.kind === 'base' ? '#ff2ea6' : '#ff5a36', faction: 'enemy',
+        // LRNA-080: the recon zone boundary this node lives in - drawn
+        // as a scannable region before discovery (see drawReconZones),
+        // distinct from the node's own exact (still hidden) position.
+        zoneStart: bandStart, zoneEnd: bandStart + third,
       };
     });
   }
@@ -2198,6 +2247,7 @@
         // DMG_TO_COIN_RATIO on an actual landed hit.
         renderIntel();
         renderSeekDestroy();
+        checkOpeningUnlock(); // LRNA-080
       }
     }
   }
@@ -2421,6 +2471,7 @@
     omegaInvulnTimer = OMEGA_REBUILD_INVULN; // Add invulnerability window (LRNA-125)
   }
   function updateWaveDirector(dt) {
+    if (openingLocked) return; // LRNA-080: no Wave 1 until initial recon
     if (omegaHealth <= 0) return; // mid-rebuild this frame, applyDamage's caller handles it
     if (waveState === 'active') {
       if (waveStrikesLaunched < waveStrikesTotal) {
@@ -2810,6 +2861,10 @@
     initAntiPlaneNodes();
     initSeekDestroyNodes();
     initLoadoutNodes();
+    // LRNA-080: a genuinely fresh run starts locked until recon finds a
+    // node; a hot-reload dev snapshot resume (`initial` set) is already
+    // mid-game and shouldn't suddenly re-lock attacking.
+    openingLocked = !initial;
     // Omega's own interceptor chance vs the player's outgoing missiles
     // (getDefender('O') -> fireCounter, otherwise COUNTER.hitChance)
     // scales with difficulty (LRNA-071/#428).
@@ -2836,6 +2891,7 @@
     updateModeStatus();
     renderIntel();
     renderSeekDestroy();
+    updateOpeningLockUi(); // LRNA-080
   }
 
   function updateHud() {
@@ -2890,7 +2946,10 @@
     launchButtons.forEach(b => {
       const typeKey = b.dataset.type;
       const cost = TYPES[typeKey].cost;
-      b.disabled = shotsRemaining <= 0 || atCap || tokens[ABILITY_PILLARS[typeKey]] < cost;
+      const pillar = ABILITY_PILLARS[typeKey];
+      // LRNA-080: attack-pillar buttons stay visibly disabled during the
+      // recon-gated opening, not just silently no-op'd on click.
+      b.disabled = shotsRemaining <= 0 || atCap || tokens[pillar] < cost || (openingLocked && pillar === 'attack');
     });
   }
 
@@ -3225,14 +3284,11 @@
     for (const m of missiles) {
       if (m.typeKey === 'counter' || m.originId !== 'A') continue;
       if (m.typeKey === 'plane' && !includePlanes) continue;
-      // Direct request: let a recon DRONE eventually reach and hit the
-      // base instead of Omega always shooting it down first - a 120s
-      // flight gives Omega's Counter Missile (6s cooldown, 75% hit) up to
-      // ~20 shot opportunities, functionally guaranteeing interception
-      // before a drone could ever complete its recon run and arrive.
-      // DRONE's own dmg is trivial (10) either way; this is about making
-      // that already-coded "eventually attacks" outcome actually reachable.
-      if (m.typeKey === 'drone') continue;
+      // LRNA-080: recon DRONE used to be fully exempt from Omega's
+      // defenses here (direct request, so it could eventually survive to
+      // attack the base), but that made it a "free look" during the new
+      // recon-gated opening. Direct request superseded: DRONE is now a
+      // normal candidate like every other plane/missile.
       if ((m.omegaCounterUsed || 0) >= OMEGA_COUNTER_MAX_PER_TARGET) continue;
       if (m.omegaReactionDelay == null) {
         m.omegaReactionDelay = OMEGA_COUNTER_REACTION_MIN + Math.random() * (OMEGA_COUNTER_REACTION_MAX - OMEGA_COUNTER_REACTION_MIN);
@@ -3337,6 +3393,7 @@
   function firePlane(key) {
     if (paused) return; // LRNA-119
     const def = PLANE_TYPES[key];
+    if (openingLocked && def && def.pillar === 'attack') return; // LRNA-080: intel planes (recon) still fly
     const slot = planeSlots[key];
     if (!def || !slot || slot.state !== 'ready') return;
     if (tokens[def.pillar] < def.cost) return;
@@ -3400,6 +3457,7 @@
         spawnBurst(target.x, target.y, '#9fffcf', 16);
         renderIntel();
         renderSeekDestroy();
+        checkOpeningUnlock(); // LRNA-080
       }
       return;
     }
@@ -4872,6 +4930,30 @@
     ctx.fillText(label, sx, sy + 20);
   }
 
+  // ---- Recon zone marker (LRNA-080): a scannable region boundary shown
+  // BEFORE discovery - the player knows *where* to send a drone/recon
+  // plane without knowing *what's* hidden there yet (the node itself
+  // stays fully invisible per drawAntiPlaneNode below, same hidden-until-
+  // discovered rule as LRNA-039/LRNA-117). Disappears once its node is
+  // found, since the real node marker takes over from there.
+  function drawReconZone(sd) {
+    if (sd.discovered) return;
+    const sx0 = sd.zoneStart - camX, sx1 = sd.zoneEnd - camX;
+    if (sx1 < -20 || sx0 > vw() + 20) return;
+    const top = vh() / 2 - 220, bottom = vh() / 2 + 220;
+    ctx.save();
+    ctx.strokeStyle = '#9fffcf55';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 6]);
+    ctx.strokeRect(sx0, top, sx1 - sx0, bottom - top);
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#9fffcf88';
+    ctx.font = '9px "Courier New", ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('RECON ZONE — UNSCANNED', (sx0 + sx1) / 2, top - 6);
+    ctx.restore();
+  }
+
   // ---- AntiPlane lane defense (LRNA-039): hidden until discovered by a
   // recon DRONE, so it draws nothing at all before that - a small angular
   // radar/turret silhouette, distinct from the AM-battery family, once
@@ -5316,6 +5398,7 @@
     for (const t of fieldTargets) drawFieldTarget(t);
     for (const n of amNodes) drawAmNode(n);
     for (const n of loadoutNodes) drawLoadoutNode(n);
+    for (const sd of seekDestroyNodes) drawReconZone(sd); // LRNA-080: zone boundary, drawn under the node itself
     for (const ap of antiPlaneNodes) drawAntiPlaneNode(ap);
     for (const sd of seekDestroyNodes) drawAntiPlaneNode(sd);
 
@@ -5680,6 +5763,7 @@
     if (paused) return; // LRNA-119
     const cost = TYPES[typeKey].cost;
     const pillar = ABILITY_PILLARS[typeKey];
+    if (openingLocked && pillar === 'attack') return; // LRNA-080: intel/counter tools still work (recon needs to fly)
     const dest = getTarget(selectedTargetId) || nodeO;
     if (shotsRemaining <= 0 || activeCount('A') >= currentMaxActive() || tokens[pillar] < cost) return;
     const now = performance.now();
@@ -5742,6 +5826,15 @@
         btn.classList.remove('away');
         etaEl.classList.remove('rearming');
         etaEl.textContent = 'ALL LOCATED';
+        continue;
+      }
+      // LRNA-080: attack-pillar planes stay grounded during the
+      // recon-gated opening; intel/counter planes (recon) still fly.
+      if (key !== 'reconPlane' && def.pillar === 'attack' && openingLocked && slot.state === 'ready') {
+        btn.disabled = true;
+        btn.classList.remove('away');
+        etaEl.classList.remove('rearming');
+        etaEl.textContent = 'RECON REQUIRED';
         continue;
       }
       if (slot.state === 'ready') {
@@ -5898,6 +5991,12 @@
       get masterGainValue() { return masterGain ? masterGain.gain.value : null; },
       get MASTER_VOLUME() { return MASTER_VOLUME; },
       get UI_DISABLED_TYPES() { return UI_DISABLED_TYPES; },
+      get openingLocked() { return openingLocked; },
+      forceOpeningUnlock() { openingLocked = false; updateOpeningLockUi(); },
+      checkOpeningUnlock: () => checkOpeningUnlock(),
+      updateTurnHud: () => updateTurnHud(),
+      updatePlaneButtons: () => updatePlaneButtons(),
+      omegaCounterCandidates: (includePlanes) => omegaCounterCandidates(includePlanes),
       get storageWriteFailed() { return storageWriteFailed; },
       get CONTACTS_RENDER_INTERVAL() { return CONTACTS_RENDER_INTERVAL; },
       trySaveStorage: (key, value) => trySaveStorage(key, value),

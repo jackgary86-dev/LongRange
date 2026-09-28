@@ -19,6 +19,7 @@ test('LRNA-123: planes complete their flight and land (no NaN-velocity stuck pla
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
       T.tokens.attack = 99999;
+      T.forceOpeningUnlock(); // LRNA-080: a fresh game starts recon-locked, attack planes can't fire yet
       T.firePlane('strikeFighter'); // 10s outbound + 10s return = ~20s round trip
       return { firedCount: T.missiles.filter(m => m.typeKey === 'plane').length };
     });
@@ -470,6 +471,7 @@ test('LRNA-117: Recon Plane button disables once every hidden node is already fo
 
 test('LRNA-119: pause button freezes real-time simulation and blocks actions', async () => {
   await withGame(async (page, errors) => {
+    await page.evaluate(() => window.__TEST__.forceOpeningUnlock()); // LRNA-080: this test fires attack-pillar weapons directly
     // sanity: passive token income should accrue in real time before pausing
     const t0 = await page.evaluate(() => window.__TEST__.tokens.attack);
     await page.waitForTimeout(700);
@@ -718,6 +720,7 @@ test('LRNA-141: Strike Fighter dodge refreshes for the return leg', async () => 
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
       T.tokens.attack = 99999;
+      T.forceOpeningUnlock(); // LRNA-080: a fresh game starts recon-locked, attack planes can't fire yet
       // isolate from Omega's REAL Counter Planes ability - this test
       // deliberately zeroes dodgesLeft below, leaving the plane genuinely
       // vulnerable, so without this it could occasionally get shot down
@@ -982,6 +985,135 @@ test('LRNA-126-adjacent: a missile that tunnels past its 14-unit hit radius in o
     assert(result.distAfter > 14, `sanity check - single tick should jump clean over the hit radius, landing outside it again: ${result.distAfter}`);
     assert(!result.stillPresent, 'missile should resolve (via the age fallback) instead of tunneling past forever');
     assert(result.after < result.before, `tunneling past the target should not mean it deals no damage: ${result.before} -> ${result.after}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-080: fresh game starts recon-locked - no Wave 1, no attacking, intel tools still work', async () => {
+  await withGame(async (page, errors) => {
+    const initial = await page.evaluate(() => {
+      const T = window.__TEST__;
+      return {
+        locked: T.openingLocked,
+        bannerHidden: document.getElementById('openingLockedBanner').classList.contains('hidden'),
+      };
+    });
+    assert(initial.locked, 'a fresh game should start with the opening locked');
+    assert(!initial.bannerHidden, 'the recon-required banner should be visible');
+
+    const noWaveYet = await page.evaluate(() => {
+      const T = window.__TEST__;
+      for (let i = 0; i < 400; i++) T.tickUpdate(0.05); // 20 simulated seconds - plenty for Wave 1 to have started strikes normally
+      return T.missiles.filter(m => m.typeKey === 'enemyStrike').length;
+    });
+    assertEqual(noWaveYet, 0, 'Wave 1 should not launch any strikes while the opening is locked, no matter how long real/simulated time passes');
+
+    const attackBlocked = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.attack = 99999;
+      T.attemptFire('fast');
+      T.firePlane('strikeFighter');
+      return {
+        fastCount: T.missiles.filter(m => m.typeKey === 'fast').length,
+        planeCount: T.missiles.filter(m => m.typeKey === 'plane').length,
+      };
+    });
+    assertEqual(attackBlocked.fastCount, 0, 'attack-pillar attemptFire should refuse to launch while locked');
+    assertEqual(attackBlocked.planeCount, 0, 'attack-pillar firePlane should refuse to launch while locked');
+
+    const intelStillWorks = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.intel = 99999;
+      T.attemptFire('drone');
+      return T.missiles.filter(m => m.typeKey === 'drone').length;
+    });
+    assertEqual(intelStillWorks, 1, 'intel-pillar attemptFire (recon drone) should still work while locked - it\'s the way OUT of the lock');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-080: discovering a hidden node unlocks the opening and Wave 1 begins', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.attack = 99999;
+      // exercise the real unlock condition (a discovered node) rather than
+      // just flipping the lock flag directly - every real discovery path
+      // (drone tick, recon plane) calls this same function.
+      T.seekDestroyNodes[0].discovered = true;
+      T.checkOpeningUnlock();
+      const beforeAttack = T.missiles.filter(m => m.typeKey === 'fast').length;
+      T.attemptFire('fast');
+      const afterAttack = T.missiles.filter(m => m.typeKey === 'fast').length;
+      for (let i = 0; i < 400; i++) T.tickUpdate(0.05);
+      return {
+        locked: T.openingLocked,
+        bannerHidden: document.getElementById('openingLockedBanner').classList.contains('hidden'),
+        beforeAttack, afterAttack,
+        strikesAfterUnlock: T.missiles.filter(m => m.typeKey === 'enemyStrike').length,
+      };
+    });
+    assert(!result.locked, 'opening should no longer be locked');
+    assert(result.bannerHidden, 'recon-required banner should hide once unlocked');
+    assertEqual(result.afterAttack - result.beforeAttack, 1, 'attack-pillar attemptFire should work once unlocked');
+    assert(result.strikesAfterUnlock > 0, 'Wave 1 should actually start producing strikes once unlocked');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-080: Satellite no longer auto-reveals SEEK AND DESTROY nodes (still reveals AntiPlane)', async () => {
+  await withGame(async (page, errors) => {
+    await page.selectOption('.loadoutSelect[data-slot="0"]', 'satellite');
+    await page.click('#startGameBtn');
+    await page.waitForTimeout(200);
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      return {
+        seekDestroyDiscovered: T.seekDestroyNodes.map(n => n.discovered),
+        antiPlaneDiscovered: T.antiPlaneNodes.map(n => n.discovered),
+        locked: T.openingLocked,
+      };
+    });
+    assert(result.seekDestroyDiscovered.every(d => d === false), `Satellite should not reveal SEEK AND DESTROY nodes: ${result.seekDestroyDiscovered}`);
+    assert(result.antiPlaneDiscovered.every(d => d === true), `Satellite should still reveal AntiPlane nodes as before: ${result.antiPlaneDiscovered}`);
+    assert(result.locked, 'the opening should still be locked even with Satellite equipped - no bypass');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('LRNA-080: recon Drone is no longer exempt from Omega\'s Counter Planes candidates', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.intel = 99999;
+      T.forceOpeningUnlock();
+      T.disableOmegaCounters(); // don't let it actually get shot down while we age it past the reaction delay below
+      T.attemptFire('drone');
+      const drone = T.missiles.filter(m => m.typeKey === 'drone').pop();
+      drone.defended = true; // skip the generic getDefender() auto-defend loop - a separate mechanism from Omega's own counters
+      // Omega's candidates require a short reaction delay (1-2s) to have
+      // elapsed since the missile appeared - age it past that first.
+      // omegaCounterCandidates() itself doesn't consult the cooldown
+      // timers disableOmegaCounters() freezes, so this is still a real
+      // check of candidacy, just without Omega actually firing on it.
+      for (let i = 0; i < 60; i++) T.tickUpdate(0.05); // 3s
+      const candidates = T.omegaCounterCandidates(true);
+      return { droneExists: !!drone, isCandidate: candidates.some(c => c.typeKey === 'drone') };
+    });
+    assert(result.droneExists, 'sanity check - a drone missile should exist');
+    assert(result.isCandidate, 'drone should now be a valid Omega Counter Planes candidate, not exempt');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-080: SEEK AND DESTROY nodes carry a recon zone boundary for the pre-discovery map marker', async () => {
+  await withGame(async (page, errors) => {
+    const zones = await page.evaluate(() => window.__TEST__.seekDestroyNodes.map(n => ({ zoneStart: n.zoneStart, zoneEnd: n.zoneEnd, x: n.x })));
+    for (const z of zones) {
+      assert(typeof z.zoneStart === 'number' && typeof z.zoneEnd === 'number', `node should carry zone bounds: ${JSON.stringify(z)}`);
+      assert(z.zoneEnd > z.zoneStart, `zone should be a real, non-empty range: ${JSON.stringify(z)}`);
+      assert(z.x >= z.zoneStart && z.x <= z.zoneEnd, `node's own position should fall inside its own zone: ${JSON.stringify(z)}`);
+    }
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
