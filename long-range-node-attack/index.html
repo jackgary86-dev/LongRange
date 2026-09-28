@@ -4789,13 +4789,18 @@
   // instantly as "drone" instead of falling through to the generic rocket
   // body every other unlabeled type still uses. A quadcopter doesn't bank
   // nose-first like a plane, so it stays symmetric regardless of heading.
-  function drawDrone(r) {
+  // ART-1: `armed` adds small slung ordnance pods on the front two arms -
+  // the same unarmed/armed distinction the plane silhouettes below draw,
+  // so attackDrone reads as a weapon and the recon DRONE reads as a pure
+  // scout, not just two different colors on one identical shape.
+  function drawDrone(r, armed) {
     ctx.beginPath();
     ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
     ctx.fill();
     ctx.lineWidth = r * 0.16;
     ctx.strokeStyle = ctx.fillStyle;
-    for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+    const arms = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+    for (const [dx, dy] of arms) {
       const ax = dx * r * 0.95, ay = dy * r * 0.65;
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -4805,61 +4810,150 @@
       ctx.arc(ax, ay, r * 0.38, 0, Math.PI * 2);
       ctx.fill();
     }
+    if (armed) {
+      ctx.fillStyle = 'rgba(20,10,8,0.7)';
+      for (const [dx, dy] of [[1, 1], [1, -1]]) {
+        const ax = dx * r * 0.6, ay = dy * r * 0.42;
+        ctx.beginPath();
+        ctx.rect(ax - r * 0.12, ay, r * 0.24, r * 0.5);
+        ctx.fill();
+      }
+    }
     ctx.beginPath();
     ctx.arc(0, r * 0.1, r * 0.18, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.fill();
   }
 
-  // heavier bomber silhouette for LONG RANGE (and, at smaller scale, each
-  // body in a CLUSTER formation) - long fuselage, broad straight wings.
+  // ART-1: heavy delta/flying-wing silhouette for LONG RANGE (and, at
+  // smaller scale, each body in a CLUSTER formation) - broad aft-swept
+  // wings blending straight into the fuselage, no separate tail (unlike
+  // every other silhouette here). Reworked from the original straight-
+  // wing design, which read as a plain symmetric cross at small size and
+  // didn't contrast clearly against the recon glider's own straight
+  // wings (drawReconPlane, below) - a proper swept arrow/boomerang shape
+  // is unmistakably the "heavy" one at a glance.
   function drawBomber(r) {
     ctx.beginPath();
-    ctx.moveTo(r * 1.8, 0);
-    ctx.lineTo(r * 0.9, -r * 0.22);
-    ctx.lineTo(-r * 1.4, -r * 0.22);
-    ctx.lineTo(-r * 1.6, 0);
-    ctx.lineTo(-r * 1.4, r * 0.22);
-    ctx.lineTo(r * 0.9, r * 0.22);
+    ctx.moveTo(r * 1.6, 0);
+    ctx.lineTo(r * 0.3, -r * 0.3);
+    ctx.lineTo(-r * 0.4, -r * 1.55);
+    ctx.lineTo(-r * 1.0, -r * 1.35);
+    ctx.lineTo(-r * 0.55, -r * 0.25);
+    ctx.lineTo(-r * 1.15, -r * 0.15);
+    ctx.lineTo(-r * 1.5, 0);
+    ctx.lineTo(-r * 1.15, r * 0.15);
+    ctx.lineTo(-r * 0.55, r * 0.25);
+    ctx.lineTo(-r * 1.0, r * 1.35);
+    ctx.lineTo(-r * 0.4, r * 1.55);
+    ctx.lineTo(r * 0.3, r * 0.3);
     ctx.closePath();
     ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(-r * 0.1, -r * 0.2);
-    ctx.lineTo(-r * 0.3, -r * 1.5);
-    ctx.lineTo(-r * 0.75, -r * 1.45);
-    ctx.lineTo(-r * 0.55, -r * 0.18);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.1, r * 0.2);
-    ctx.lineTo(-r * 0.3, r * 1.5);
-    ctx.lineTo(-r * 0.75, r * 1.45);
-    ctx.lineTo(-r * 0.55, r * 0.18);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(-r * 1.3, 0);
-    ctx.lineTo(-r * 1.65, -r * 0.45);
-    ctx.lineTo(-r * 1.45, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(r * 1.8, 0);
-    ctx.lineTo(r * 0.9, -r * 0.22);
-    ctx.lineTo(r * 0.9, r * 0.22);
+    ctx.moveTo(r * 1.6, 0);
+    ctx.lineTo(r * 0.3, -r * 0.3);
+    ctx.lineTo(r * 0.3, r * 0.3);
     ctx.closePath();
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.fill();
   }
 
-  // planeKind (LRNA-078/#435) reuses the existing plane/bomber
-  // silhouettes rather than inventing 5 new ones from scratch - fighters
-  // and the interceptor read as nimble planes, bombers as heavier ones,
-  // matching the "reuse drawAttackPlane/drawBomber where they fit" ask.
+  // ART-1: a dedicated unarmed silhouette for RECON PLANE - long straight
+  // tapered wings (not swept, unlike every armed type), a slender
+  // fuselage, a single small tail fin, and a sensor pod under the nose
+  // instead of any weapon hardpoint. Before this it fell through to the
+  // exact same shape as an armed strike fighter (drawAttackPlane) - the
+  // one gap ART-1's own ask specifically called out ("recon (unarmed,
+  // light) vs strike fighter/bomber (armed, heavier)... distinct read").
+  function drawReconPlane(r) {
+    ctx.beginPath();
+    ctx.moveTo(r * 1.5, 0);
+    ctx.lineTo(r * 0.6, -r * 0.16);
+    ctx.lineTo(-r * 1.3, -r * 0.12);
+    ctx.lineTo(-r * 1.55, 0);
+    ctx.lineTo(-r * 1.3, r * 0.12);
+    ctx.lineTo(r * 0.6, r * 0.16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(r * 0.05, -r * 0.12);
+    ctx.lineTo(-r * 0.2, -r * 1.7);
+    ctx.lineTo(-r * 0.5, -r * 1.65);
+    ctx.lineTo(-r * 0.35, -r * 0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(r * 0.05, r * 0.12);
+    ctx.lineTo(-r * 0.2, r * 1.7);
+    ctx.lineTo(-r * 0.5, r * 1.65);
+    ctx.lineTo(-r * 0.35, r * 0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 1.1, 0);
+    ctx.lineTo(-r * 1.4, -r * 0.3);
+    ctx.lineTo(-r * 1.25, 0);
+    ctx.closePath();
+    ctx.fill();
+    // sensor pod under the nose - the "equipment, not ordnance" tell
+    ctx.beginPath();
+    ctx.arc(r * 0.7, r * 0.05, r * 0.14, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fill();
+  }
+
+  // ART-1: a distinct armed silhouette for STRIKE FIGHTER, built on the
+  // shared attack-plane base (drawAttackPlane, still used unchanged for
+  // the FAST/MEDIUM missile icon - that's ART-2's territory) plus small
+  // underwing ordnance pylons, so it visibly contrasts with the now-
+  // unarmed recon plane above instead of being pixel-identical to it.
+  function drawStrikeFighter(r) {
+    drawAttackPlane(r);
+    ctx.fillStyle = 'rgba(15,10,10,0.65)';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(-r * 0.5, s * r * 0.55, r * 0.22, r * 0.09, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ART-1: strike bomber and heavy bomber used to be the exact same
+  // silhouette (drawBomber) at two different scales - real engine
+  // nacelles now separate them further: one pair for the lighter strike
+  // bomber, two pairs for the heaviest airframe in the roster.
+  function drawStrikeBomber(r) {
+    drawBomber(r * 0.85);
+    ctx.fillStyle = 'rgba(15,10,10,0.6)';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(-r * 0.15, s * r * 0.85, r * 0.16, r * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  function drawHeavyBomber(r) {
+    drawBomber(r * 1.15);
+    ctx.fillStyle = 'rgba(15,10,10,0.6)';
+    for (const s of [-1, 1]) {
+      for (const t of [0.55, 1.05]) {
+        ctx.beginPath();
+        ctx.ellipse(-r * 0.1, s * r * t, r * 0.16, r * 0.32, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // planeKind (LRNA-078/#435) dispatches to a dedicated silhouette per
+  // kind (ART-1) rather than the original 2-way reuse of
+  // drawAttackPlane/drawBomber - interceptorJet is unreachable today (a
+  // direct request removed it as a player-fireable option; every
+  // resolution path already gates on the key, so it's dead code, not a
+  // live sprite need) but still falls through to the fighter look if it
+  // were ever reintroduced.
   function drawPlaneIcon(r, planeKind) {
-    if (planeKind === 'strikeBomber') drawBomber(r * 0.85);
-    else if (planeKind === 'heavyBomber') drawBomber(r * 1.15);
-    else drawAttackPlane(r); // strikeFighter, interceptorJet, reconPlane
+    if (planeKind === 'strikeBomber') drawStrikeBomber(r);
+    else if (planeKind === 'heavyBomber') drawHeavyBomber(r);
+    else if (planeKind === 'reconPlane') drawReconPlane(r);
+    else drawStrikeFighter(r); // strikeFighter, interceptorJet
   }
 
   function drawIcon(typeKey, x, y, color, r, angle, planeKind, weaponClass) {
@@ -4896,7 +4990,7 @@
     } else if (typeKey === 'large') {
       drawBomber(r);
     } else if (typeKey === 'drone' || typeKey === 'attackDrone') {
-      drawDrone(r);
+      drawDrone(r, typeKey === 'attackDrone');
     } else if (typeKey === 'plane') {
       drawPlaneIcon(r, planeKind);
     } else {

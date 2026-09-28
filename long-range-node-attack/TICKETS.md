@@ -26,7 +26,46 @@ currently 100% procedural Canvas2D drawing with zero external image
 assets - see the epic issue for the full rendering-approach writeup handed
 to whoever picks these up.
 
-- **ART-1** — Redesign plane sprites (jackgary86-dev/LongRange#54)
+- **ART-1** — DONE (2026-09-28) — Redesign plane sprites
+  (jackgary86-dev/LongRange#54). Kept it procedural (still zero external
+  asset files, matching the epic's own "single self-contained HTML file"
+  constraint) rather than introducing sprite assets - the tradeoff the
+  issue asked to call out either way. Gave every plane kind a real,
+  distinct silhouette instead of the original 2-way reuse
+  (`drawAttackPlane`/`drawBomber` covering all 5 kinds between them):
+  - **`drawReconPlane`** (new) - the actual gap the issue called out by
+    name: RECON PLANE used to be pixel-identical to STRIKE FIGHTER
+    (both `drawAttackPlane`). Now a slender, unarmed glider - long
+    straight tapered wings, small fuselage, a sensor pod under the nose
+    instead of any weapon hardpoint.
+  - **`drawStrikeFighter`** (new) - the existing `drawAttackPlane` shape
+    (left untouched - it's also the FAST/MEDIUM missile icon, `ART-2`'s
+    territory) plus small underwing ordnance pylons, so it visibly
+    contrasts as armed against the now-unarmed recon glider.
+  - **`drawBomber`** reworked from a straight-wing shape (which read as
+    a plain symmetric cross at small size, indistinguishable in kind
+    from the recon glider) into a heavy delta/flying-wing silhouette -
+    broad aft-swept wings blending into the fuselage, no separate tail.
+    Shared with the LARGE missile icon and CLUSTER's 3-body split
+    (pre-existing reuse, left in place) - a genuinely better bomber
+    shape benefits those too, not just STRIKE BOMBER/HEAVY BOMBER.
+  - **`drawStrikeBomber`/`drawHeavyBomber`** (new) - the same bomber
+    base at their existing scales (0.85x/1.15x) plus real engine
+    nacelles - one pair for the lighter tier, two pairs for the
+    heaviest airframe in the roster, so the two aren't just the same
+    shape at two sizes.
+  - **`drawDrone`** gained an `armed` param - attackDrone now shows two
+    small slung ordnance pods on its front arms; the recon DRONE stays
+    the plain quadcopter. Previously the two were colored identically-
+    shaped icons, distinguished by color alone.
+  Verified with instrumented screenshots at several zoom levels (the
+  real in-game scale is tiny, ~radius 6-9, where fine silhouette detail
+  barely registers - color and rough shape carry most of the read there;
+  a moderate inspection zoom, ~radius 16-22, is what actually shows
+  whether the shapes read as genuinely different families, which was the
+  real goal). Zero console errors. Pure rendering change - the existing
+  regression suite (now 45 tests) passes unmodified, since it asserts on
+  game state/behavior, never pixels, exactly as the epic issue requires.
 - **ART-2** — Redesign missile/warhead sprites and trails (jackgary86-dev/LongRange#55)
 - **ART-3** — Redesign map/battlefield background and minimap (jackgary86-dev/LongRange#56)
 - **ART-4** — Redesign HUD buttons and UI chrome (jackgary86-dev/LongRange#57)
