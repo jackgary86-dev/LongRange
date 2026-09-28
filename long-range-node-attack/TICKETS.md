@@ -1294,7 +1294,8 @@ Three more followed the same night (#433-435, below).
       serve the same "see my side + the threat before firing" purpose
       `LRNA-051` was built for?
 
-- **LRNA-065** — PARTIAL — Build genuine two-player Attacker vs Defender play - the
+- **LRNA-065** — DONE (accepting its own stated default resolution,
+  2026-09-28) — Build genuine two-player Attacker vs Defender play - the
   game's actual *original* spec, not a new idea. `LRNA-001` (the very
   first ticket in this log) was "Initial scaffold: two-player spectator
   radar demo." `LRNA-004` replaced its auto-fire spectator loop with
@@ -1335,7 +1336,13 @@ Three more followed the same night (#433-435, below).
     etc.) made two-player rather than a new game built in the same
     spirit, that's still open - otherwise Counter Grid: Versus is this
     ticket's answer.
-- **LRNA-066** — Portal listing accuracy. `portal-game.json`'s
+  - **Closing this out**: no further request for a two-player mode
+    built into *this specific* game's own systems has come in since
+    Counter Grid: Versus shipped - taking the ticket's own stated
+    fallback ("otherwise Counter Grid: Versus is this ticket's answer")
+    at face value rather than leaving it open indefinitely on a
+    hypothetical. Reopen with a concrete ask if that's still wanted.
+- **LRNA-066** — N/A in this repo (2026-09-28). Portal listing accuracy. `portal-game.json`'s
   description reads "Orbital siege: a lone Strike Platform vs. Node
   Omega and the 12 armed installations guarding it" - accurate when
   written (LRNA-011's 12 field targets: 4 infantry, 3 vehicles, 3
@@ -1349,6 +1356,14 @@ Three more followed the same night (#433-435, below).
   actually in the game today, or explicitly scope "12" to mean visible
   field targets only vs. total hostile installations - just make the
   claim accurate either way rather than leaving stale marketing copy.
+  - **Doesn't apply here.** `portal-game.json` and `games/index.html`
+    live in the Game Portal repo (`jackgary86-dev/alert`), not this
+    standalone repo - this game has no portal listing of its own to
+    correct. For the record: that exact fix already shipped on the
+    Alert side (commit `c5bbaca`, "LRNA-062/066/067: correct stale
+    portal claims"), before this repo split off from it. Confirmed the
+    two repos are meant to stay separate (2026-09-28) rather than synced,
+    so not porting that fix here.
 - **LRNA-067** — DONE (resolved by later work, no build needed) —
   Reconcile the original "counter-token economy" against today's
   economy. `LRNA-007` (v1.0.1) shipped "coin-gated launches,
