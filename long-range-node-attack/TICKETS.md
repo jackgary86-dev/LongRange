@@ -40,6 +40,10 @@ to whoever picks these up.
 - **ART-7** — Mission Map visuals: full-screen consolidated
   attack/counter/recon view (jackgary86-dev/LongRange#60). Follow-up
   from LRNA-084's placeholder zone-strip/counter/recon DOM schematic.
+- **ART-8** — Distinct silhouettes for the 6 loadout node types
+  (jackgary86-dev/LongRange#61). Resolves `LRNA-056`'s "new node icons"
+  reading (the unblocked one - see that ticket's own resolution note for
+  why the other reading is out of scope here).
 
 ---
 
@@ -1907,6 +1911,14 @@ Three more followed the same night (#433-435, below).
   confirm which reading is intended, or if both, scope them as separate
   passes given how different "new node icons" vs. "rework the existing
   main bases" are as tasks.
+  **Partially resolved (2026-09-28), without guessing at the genuinely
+  ambiguous part:** the "new node icons" reading is unblocked (all 6
+  loadout node types now have shipped mechanics, most recently
+  `LRNA-049`'s Base node) and needs no confirmation to sequence, so it's
+  filed as `ART-8` (jackgary86-dev/LongRange#61) rather than left
+  waiting on the other reading. "Rework the existing Strike
+  Platform/Node Omega art" remains genuinely open, not assumed either
+  way - still needs its own confirmation before anyone touches it.
 - **LRNA-057** — PARTIALLY RESOLVED — Map(s) for the new windows.
   **Reading (1) (each new window needs its own scoped map/camera view)
   is now moot rather than answered**: it was originally resolved by
