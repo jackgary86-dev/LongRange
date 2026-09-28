@@ -17,44 +17,34 @@ snapshot), `LongRange-1.0.0.html` (post-coin-economy, pre-v1.0.1 snapshot).
 
 ---
 
+## OPEN — Art Remodel (Epic)
+
+Tracked as GitHub issues, not LRNA-numbered (separate ticket prefix: `ART-#`)
+since this is purely visual/rendering work, orthogonal to the gameplay
+ticket backlog below. Epic: jackgary86-dev/LongRange#53. The game is
+currently 100% procedural Canvas2D drawing with zero external image
+assets - see the epic issue for the full rendering-approach writeup handed
+to whoever picks these up.
+
+- **ART-1** — Redesign plane sprites (jackgary86-dev/LongRange#54)
+- **ART-2** — Redesign missile/warhead sprites and trails (jackgary86-dev/LongRange#55)
+- **ART-3** — Redesign map/battlefield background and minimap (jackgary86-dev/LongRange#56)
+- **ART-4** — Redesign HUD buttons and UI chrome (jackgary86-dev/LongRange#57)
+
+---
+
 ## OPEN — Medium Priority Improvements
 
-- **LRNA-115** — Difficulty progression is too smooth; no "spike" moments
-  - Current: Wave generation increases enemy frequency and size mix gradually
-  - Problem: Game lacks "aha!" moments or tutorial checkpoints. Player doesn't know when to expect
-    harder waves.
-  - Improve: At specific wave numbers (5, 10, 15...), announce "DIFFICULTY SPIKE" and spawn a
-    special "ELITE WAVE" with randomized 2-3x damage warheads
-
-- **LRNA-116** — No cooldown indicator for Omega's Counter Missile or Counter Attack Planes
-  - Current: Omega fires silently; player doesn't know if it's "out" or just rearmed
-  - Problem: Player can't predict when Omega will stop defending (e.g., send a high-value strike
-    after a massive volley when Omega is in cooldown)
-  - Improve: Draw a cooldown bar under Omega's base showing when the next counter will be ready
-
-- **LRNA-117** — Recon Plane path/destination not visible until launch
-  - Current: Player clicks, plane flies, player discovers if it found anything
-  - Problem: Trial-and-error discovery. New players waste INTEL on bad routes.
-  - Improve: Show a preview line from the Recon Plane icon to the three hidden nodes (dashed,
-    semi-transparent) so player can plan which one to "check first"
-
-- **LRNA-118** — EMP and CLUSTER are completely removed; no hint that they exist or can be re-enabled
-  - Current: LRNA-097/098 removed the buttons for "now" (temporary)
-  - Problem: Code is clean, but future players won't know these weapons ever existed
-  - Improve: Add a settings panel or a "hidden weapons" toggle so players can re-enable them
-    for sandbox/creative mode
+(none currently - LRNA-115 through LRNA-117 shipped; see the resolution log below)
 
 ---
 
 ## OPEN — Low Priority / Quality of Life
 
-- **LRNA-119** — Game pauses when the window loses focus; no "pause" button
-  - Current: Vanilla HTML5 Canvas, browser tab blur stops requestAnimationFrame
-  - Improve: Add explicit pause/resume buttons in the HUD, allow player to pause intentionally
-
 - **LRNA-120** — No audio mute button; sound initializes on first interaction
   - Current: Sounds play if available, but no way to disable them mid-game
   - Improve: Add a speaker icon in the HUD to toggle audio
+  - Status: IN PROGRESS this pass
 
 - **LRNA-121** — Tooltip text on buttons is cut off on mobile
   - Current: HUD labels use long text (e.g., "COUNTER MISSILE — 1 target · 75% kill")
@@ -2895,6 +2885,39 @@ Three more followed the same night (#433-435, below).
   regardless of remaining time, so "NO INBOUND THREATS" (green) only shows
   when the list is genuinely empty; a real threat always shows as
   INCOMING, colored by its actual remaining time.
+
+- **LRNA-115** — DONE — Every 5th wave (and every multiple of 5) is now
+  announced as an "⚠ ELITE WAVE", deals 2x damage per strike
+  (`ELITE_WAVE_DMG_MULT`), and gets a pulsing ring on each elite strike
+  plus a flagged wave HUD for its duration.
+
+- **LRNA-116** — DONE — Added `#omegaCounterStatus` to the HUD, showing
+  live "CM READY"/"CM 0:0X" and "PLANES READY"/cooldown text for both of
+  Omega's counter abilities, driven by `updateOmegaCountersHud()`.
+
+- **LRNA-117** — DONE, but not as literally described. Recon Plane
+  actually force-discovers the next undiscovered hidden node in a fixed
+  deterministic order (`resolvePlaneOutboundJob`) - there's no
+  player-chosen destination to preview a line toward, and drawing one to
+  the real node position would leak it before discovery (violates
+  LRNA-039). The real underlying complaint (wasted INTEL) was that
+  launching Recon Plane after every node is already found silently wastes
+  a full sortie for nothing; `updatePlaneButtons()` now disables the
+  button and shows "ALL LOCATED" once nothing is left to discover.
+
+- **LRNA-118** — Closed, not planned. `TYPES.cluster`/`TYPES.emp` are
+  still fully implemented; only their launch-bar buttons were removed,
+  deliberately ("direct request", per an existing code comment). Building
+  a player-facing way to re-enable them would reverse that explicit prior
+  decision rather than fix a defect, so not doing that without a new
+  explicit instruction. The dead-code-cleanliness half of this ticket is
+  the same complaint as LRNA-143, tracked there instead.
+
+- **LRNA-119** — DONE — Added an explicit PAUSE/RESUME button (separate
+  `paused` flag, not reusing `running` since that also means "game over").
+  Gates the real update loop in `loop()` plus every token-spending action
+  function directly, so a stray click can't sneak an action through while
+  paused. Centered "PAUSED" banner makes the state visible.
 
 ---
 
