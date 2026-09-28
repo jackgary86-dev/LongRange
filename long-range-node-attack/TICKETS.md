@@ -41,10 +41,6 @@ to whoever picks these up.
 
 ## OPEN — Low Priority / Quality of Life
 
-- **LRNA-121** — Tooltip text on buttons is cut off on mobile
-  - Current: HUD labels use long text (e.g., "COUNTER MISSILE — 1 target · 75% kill")
-  - Improve: Abbreviate on mobile (< 600px), show full text on desktop or on hover
-
 - **LRNA-122** — Dragging the map with the mouse doesn't work on mobile (only touch pinch/pan)
   - Current: Only `touchmove` is handled for panning
   - Improve: Add `pointerdown`/`pointermove` for cross-platform compatibility
@@ -2923,6 +2919,20 @@ Three more followed the same night (#433-435, below).
   order always picked the base rule regardless of viewport) - moved it to
   the end of the stylesheet so it and the new mobile button positions
   actually apply.
+
+- **LRNA-121** — DONE — The ability-bar buttons now swap to short text
+  below 560px (`isMobileViewport()`) instead of wrapping the full desktop
+  text across 3-5 lines: Emergency Counter drops to time-to-impact + cost,
+  Counter Missile/Counter Planes subtext drops to "Nx · 75%", and "COUNTER
+  ATTACK PLANES" drops the redundant "COUNTER" prefix.
+
+- **LRNA-122** — Investigated, not reproducing. Both mouse-drag
+  (`mousedown`/`mousemove`/`mouseup`) and single-finger touch-drag
+  (`touchstart`/`touchmove`/`touchend`) panning already exist as a
+  symmetric handler pair sharing the same drag state - verified by
+  dispatching synthetic touch events and confirming the camera actually
+  panned. No pinch-to-zoom exists either way, so the ticket's description
+  of current behavior doesn't match the code.
 
 ---
 
