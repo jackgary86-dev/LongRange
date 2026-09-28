@@ -520,4 +520,58 @@ test('LRNA-119: pause button freezes real-time simulation and blocks actions', a
   }); // NOT skipStart: relies on the real requestAnimationFrame loop and passive token income
 });
 
+test('LRNA-120: mute button silences audio and persists across reload', async () => {
+  await withGame(async (page, errors) => {
+    const initial = await page.evaluate(() => ({
+      muted: window.__TEST__.muted,
+      gain: window.__TEST__.masterGainValue,
+      volume: window.__TEST__.MASTER_VOLUME,
+      label: document.getElementById('muteBtn').textContent,
+    }));
+    assert(!initial.muted, 'should start unmuted by default');
+    // GainNode.gain.value is a float32 AudioParam, so it round-trips with
+    // tiny precision loss vs. the float64 MASTER_VOLUME constant - compare
+    // with a tolerance instead of exact equality.
+    assert(Math.abs(initial.gain - initial.volume) < 0.001, `audio should play at full volume when unmuted: ${initial.gain} vs ${initial.volume}`);
+    assertEqual(initial.label, 'MUTE');
+
+    await page.click('#muteBtn');
+    const afterMute = await page.evaluate(() => ({
+      muted: window.__TEST__.muted,
+      gain: window.__TEST__.masterGainValue,
+      label: document.getElementById('muteBtn').textContent,
+    }));
+    assert(afterMute.muted, 'clicking MUTE should mute');
+    assertEqual(afterMute.gain, 0, 'master gain should drop to 0 while muted');
+    assertEqual(afterMute.label, 'UNMUTE');
+
+    // the preference must survive a reload, and apply immediately to a
+    // freshly-created audio context on the next game start - not just to
+    // the AudioContext that happened to exist when it was set.
+    await page.reload();
+    await page.waitForTimeout(300);
+    const beforeStart = await page.evaluate(() => window.__TEST__.muted);
+    assert(beforeStart, 'muted preference should persist across reload, even before starting a new game');
+
+    await page.click('#startGameBtn');
+    await page.waitForTimeout(200);
+    const afterReloadStart = await page.evaluate(() => ({
+      gain: window.__TEST__.masterGainValue,
+      label: document.getElementById('muteBtn').textContent,
+    }));
+    assertEqual(afterReloadStart.gain, 0, 'a freshly created audio context should honor the persisted mute preference immediately');
+    assertEqual(afterReloadStart.label, 'UNMUTE');
+
+    await page.click('#muteBtn');
+    const afterUnmute = await page.evaluate(() => ({
+      muted: window.__TEST__.muted,
+      gain: window.__TEST__.masterGainValue,
+      volume: window.__TEST__.MASTER_VOLUME,
+    }));
+    assert(!afterUnmute.muted, 'clicking UNMUTE should unmute');
+    assert(Math.abs(afterUnmute.gain - afterUnmute.volume) < 0.001, `master gain should be restored on unmute: ${afterUnmute.gain} vs ${afterUnmute.volume}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 run();

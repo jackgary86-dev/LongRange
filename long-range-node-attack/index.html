@@ -106,15 +106,6 @@
   #waveHud.break { color: #7bffa0; }
   #waveHud.elite { color: #ff2ea6; animation: omegaJamPulse 0.9s infinite; }
 
-  @media (max-width: 560px) {
-    #hud { grid-template-columns: 1fr 1fr; }
-    #centerLabel { grid-column: 1 / -1; order: -1; font-size: 9px; white-space: normal; }
-    #contacts { top: 72px; }
-    #opsCenterBtn { top: 72px; }
-    #opsCenterPanel { top: 72px; }
-    #pauseBtn { top: 110px; }
-  }
-
   /* Radar Lane (LRNA-076, issue #433): absorbs the old ACTIVE CONTACTS
      panel - a 0-1000 distance scale (0 = Strike Platform, 1000 = Node
      Omega) instead of raw map coordinates, a thin lane strip with one
@@ -226,6 +217,24 @@
   #pauseBtn:hover { background: rgba(53,230,255,0.12); }
   #pauseBtn.hidden { display: none; }
   #pauseBtn.active { color: #fff066; border-color: #fff066; background: rgba(255,240,102,0.12); }
+
+  /* LRNA-120: mute toggle, same visual language as PAUSE right above it. */
+  #muteBtn {
+    position: absolute;
+    top: 136px; left: 6px;
+    z-index: 3;
+    pointer-events: auto;
+    cursor: pointer;
+    background: rgba(3,12,7,0.7);
+    border: 1px solid var(--green-dim);
+    color: var(--green);
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    padding: 7px 10px;
+  }
+  #muteBtn:hover { background: rgba(53,230,255,0.12); }
+  #muteBtn.active { color: #ff8a5c; border-color: #ff8a5c; background: rgba(255,138,92,0.12); }
 
   #pausedBanner {
     position: absolute;
@@ -771,6 +780,24 @@
     #overlay .prompt { animation: none; }
     #overlay h1 { animation: none; }
   }
+
+  /* This block must stay LAST in the stylesheet: every rule inside it
+     overrides a same-specificity (single-ID-selector) rule declared
+     earlier above, and CSS breaks ties on source order - placed earlier,
+     these silently lose to the later unconditional rule regardless of
+     whether the media condition matches. (Discovered while adding
+     #pauseBtn/#muteBtn for LRNA-119/120: the pre-existing #contacts/
+     #opsCenterBtn/#opsCenterPanel mobile overrides had the same bug and
+     were never actually taking effect.) */
+  @media (max-width: 560px) {
+    #hud { grid-template-columns: 1fr 1fr; }
+    #centerLabel { grid-column: 1 / -1; order: -1; font-size: 9px; white-space: normal; }
+    #contacts { top: 72px; }
+    #opsCenterBtn { top: 72px; }
+    #opsCenterPanel { top: 72px; }
+    #pauseBtn { top: 110px; }
+    #muteBtn { top: 148px; }
+  }
 </style>
 
 <div id="wrap">
@@ -799,6 +826,7 @@
   </div>
   <button id="opsCenterBtn">OPERATIONS CENTER</button>
   <button id="pauseBtn">PAUSE</button>
+  <button id="muteBtn">MUTE</button>
   <div id="pausedBanner" class="hidden">PAUSED</div>
   <div id="opsCenterPanel" class="hidden">
     <div class="opsHeader">
@@ -1077,6 +1105,14 @@
     sfxUi();
     setPaused(!paused);
   });
+
+  // ---- LRNA-120: mute toggle. Sound only ever plays through masterGain
+  // (see initAudio), so muting is just zeroing that one gain node - no
+  // per-effect flag needed. Works even before the first user gesture has
+  // created audioCtx: setMuted still records the preference, and initAudio
+  // reads `muted` when it creates masterGain.
+  const muteBtnEl = document.getElementById('muteBtn');
+  muteBtnEl.addEventListener('click', () => { setMuted(!muted); sfxUi(); });
 
   const emergencyBtnEl = document.getElementById('emergencyBtn');
   emergencyBtnEl.addEventListener('click', () => {
@@ -3393,12 +3429,33 @@
   // (startDemo) since browsers block audio before interaction.
   let audioCtx = null;
   let masterGain = null;
+  const MASTER_VOLUME = 0.35;
+  // LRNA-120: everything above (playTone/playNoiseBurst/every sfxX helper)
+  // routes through this one gain node, so muting is a single choke point -
+  // no need to touch each sound effect individually.
+  const MUTED_KEY = 'lrna_muted_v1';
+  let muted = false;
+  function loadMuted() {
+    try { muted = localStorage.getItem(MUTED_KEY) === '1'; } catch (e) { /* private/blocked storage: default unmuted */ }
+  }
+  function saveMuted() {
+    try { localStorage.setItem(MUTED_KEY, muted ? '1' : '0'); } catch (e) { /* ignore */ }
+  }
+  loadMuted();
+  function setMuted(next) {
+    muted = next;
+    saveMuted();
+    if (masterGain) masterGain.gain.value = muted ? 0 : MASTER_VOLUME;
+    muteBtnEl.textContent = muted ? 'UNMUTE' : 'MUTE';
+    muteBtnEl.classList.toggle('active', muted);
+  }
+  setMuted(muted); // sync the button label/style to the persisted preference on load
   function initAudio() {
     if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       masterGain = audioCtx.createGain();
-      masterGain.gain.value = 0.35;
+      masterGain.gain.value = muted ? 0 : MASTER_VOLUME;
       masterGain.connect(audioCtx.destination);
     } catch (e) { audioCtx = null; }
   }
@@ -5659,6 +5716,10 @@
       get running() { return running; },
       get paused() { return paused; },
       setPaused: (v) => setPaused(v),
+      get muted() { return muted; },
+      setMuted: (v) => setMuted(v),
+      get masterGainValue() { return masterGain ? masterGain.gain.value : null; },
+      get MASTER_VOLUME() { return MASTER_VOLUME; },
       fireAttackDrone: (apId) => fireAttackDrone(apId),
       fireCounterMissile: () => fireCounterMissile(),
       fireCounterAttackPlanes: () => fireCounterAttackPlanes(),
