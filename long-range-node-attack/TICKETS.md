@@ -49,35 +49,7 @@ to whoever picks these up.
 
 ## OPEN — Balance Issues (High Impact)
 
-- **LRNA-137** — EMP Too Powerful Without Direct Damage Cost
-  - Issue: Single EMP jams ALL enemy defenses for 15 seconds, costs 500 ATTACK, 0 direct damage
-  - Problem: On Easy, player can land one EMP and have 15s completely free-fire window
-  - Impact: EMP trivializes waves 1-3; weapon feels mandatory, breaks balance
-  - Consider: Add 200 damage to EMP, or reduce jam duration to 8s, or increase cost to 800
-
-- **LRNA-138** — Token Economy Too Generous for Fresh Players
-  - Issue: New player starts with 3000 tokens + 300/sec passive (18,000/min)
-  - Problem: After 2 minutes, player has 3600+ tokens with no pressure
-  - Impact: No resource scarcity; game feels grindy, mechanics don't matter early game
-  - Consider: Reduce starting tokens to 500/500/500, or passive to 30/sec
-
-- **LRNA-139** — Omega Hit Chance Escalation Unbounded
-  - Issue: Each rebuild: `hitChance = Math.min(0.85, oldChance + 0.05)`
-  - Problem: By wave 17, Omega hits 85% (player missiles also 85%); game becomes pure RNG
-  - Impact: Late-game is just attrition; player skill doesn't matter
-  - Consider: Cap at 70%, or introduce player dodge mechanic
-
-- **LRNA-140** — Enemy Strike Damage Fixed Regardless of Difficulty
-  - Issue: Enemy strikes are 20/40/65 damage; only size mix changes with difficulty
-  - Problem: Hard difficulty gets same damage-per-second as Normal (just different timing)
-  - Impact: Difficulty scaling broken; hard mode isn't actually harder
-  - Fix: Scale damage by difficulty multiplier (Normal 1.0x, Hard 1.5x, Impossible 2.0x)
-
-- **LRNA-141** — Strike Fighter Dodge Single-Use Per Sortie
-  - Issue: Dodge only works on outbound leg; Omega can fire again on return
-  - Problem: Dodge doesn't live up to its name; effectively one-time use
-  - Impact: Damage variability unfair; players forced into single-use mindset
-  - Consider: Make dodge persist across entire flight, or reduce cooldown
+(LRNA-137 through LRNA-141 shipped - see the resolution log below)
 
 - **LRNA-142** — Omega Rebuild Resets Visual Crumble But Not Health Tracking
   - Issue: `omegaRemainingNodes = OMEGA_TOTAL_NODES` (reset) but damage history lives on
@@ -2933,6 +2905,34 @@ Three more followed the same night (#433-435, below).
   dispatching synthetic touch events and confirming the camera actually
   panned. No pinch-to-zoom exists either way, so the ticket's description
   of current behavior doesn't match the code.
+
+- **LRNA-137** — DONE — EMP now deals 200 real damage (via the same
+  `applyDamage()` path every other warhead uses) on top of its existing
+  15s counter-jam, instead of being a pure 0-damage utility weapon.
+  Against Node Omega specifically this converts through
+  `OMEGA_HEALTH_DMG_RATIO` (0.03) same as every other weapon, landing as
+  6 points of Omega's 0-250 health.
+
+- **LRNA-138** — DONE — Starting tokens cut from 1000/1000/1000 to
+  500/500/500; passive income (100/sec/category) left unchanged.
+
+- **LRNA-139** — DONE — Omega's rebuild hit-chance escalation now caps
+  at `OMEGA_HIT_CHANCE_CAP = 0.70` instead of 0.85, so the late game
+  never fully closes the gap with the player's own fixed 0.85 hit chance.
+
+- **LRNA-140** — DONE — Enemy strike damage now scales by difficulty via
+  a new `dmgMult` per `DIFFICULTIES` entry (0.75x/1.0x/1.5x for
+  easy/normal/hard), applied in `launchEnemyStrike()` on top of the
+  existing size-mix scaling and stacking correctly with the elite-wave
+  2x multiplier (LRNA-115). No "Impossible" tier exists in this game
+  (only easy/normal/hard), so the ticket's suggested 2.0x figure for it
+  doesn't apply.
+
+- **LRNA-141** — DONE — Strike Fighter's dodge now refreshes when the
+  plane transitions from its outbound leg to its return leg
+  (`dodgesLeft` was never phase-gated in code - Omega's Counter Planes
+  just typically got its first shot at it outbound, spending the single
+  charge and leaving it defenseless on the way back).
 
 ---
 
