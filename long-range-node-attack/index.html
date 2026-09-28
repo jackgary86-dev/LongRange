@@ -1775,9 +1775,13 @@
     // is MEDIUM, else LARGE (same shape pickEnemyStrikeSize always used).
     // waveSizeMult (LRNA-072/#430) scales how many strikes each wave
     // sends, per the issue's "difficulty also scales wave size" follow-up.
-    easy:   { key: 'easy', label: 'EASY', intervalMult: 1.6, sizeMix: [0.75, 0.95], resourceMult: 1.5, interceptMult: 0.7, waveSizeMult: 0.75 },
-    normal: { key: 'normal', label: 'NORMAL', intervalMult: 1.0, sizeMix: [0.4, 0.75], resourceMult: 1.0, interceptMult: 1.0, waveSizeMult: 1.0 },
-    hard:   { key: 'hard', label: 'HARD', intervalMult: 0.6, sizeMix: [0.15, 0.55], resourceMult: 0.5, interceptMult: 1.2, waveSizeMult: 1.35 },
+    // dmgMult (LRNA-140): enemy strike damage used to be fixed (20/40/65)
+    // regardless of difficulty - only the size mix changed, so Hard had
+    // the same damage-per-hit as Normal, just arriving faster. Now scales
+    // with the same easy/normal/hard progression the other multipliers use.
+    easy:   { key: 'easy', label: 'EASY', intervalMult: 1.6, sizeMix: [0.75, 0.95], resourceMult: 1.5, interceptMult: 0.7, waveSizeMult: 0.75, dmgMult: 0.75 },
+    normal: { key: 'normal', label: 'NORMAL', intervalMult: 1.0, sizeMix: [0.4, 0.75], resourceMult: 1.0, interceptMult: 1.0, waveSizeMult: 1.0, dmgMult: 1.0 },
+    hard:   { key: 'hard', label: 'HARD', intervalMult: 0.6, sizeMix: [0.15, 0.55], resourceMult: 0.5, interceptMult: 1.2, waveSizeMult: 1.35, dmgMult: 1.5 },
   };
   let difficulty = 'normal';
   function loadDifficulty() {
@@ -1847,7 +1851,7 @@
     // no splash damage - on impact it jams the target's defenses (auto-counter
     // engagement and flak) for EMP_JAM_DURATION seconds instead, opening a
     // window to land a real strike unopposed.
-    emp:     { label: 'EMP',         names: ['STORM', 'PULSE', 'SURGE', 'ARC'],        eta: 18, dmg: 0,    radius: 7, color: '#fff066', peak: 260, cost: 500 },
+    emp:     { label: 'EMP',         names: ['STORM', 'PULSE', 'SURGE', 'ARC'],        eta: 18, dmg: 200,  radius: 7, color: '#fff066', peak: 260, cost: 500 },
     // extremely cheap, extremely slow recon/cheap-attack - a genuinely
     // wandering flight path (see weaveOffset's drone branch) instead of a
     // straight line, and periodically calls out live intel on whatever
@@ -1894,6 +1898,7 @@
     const sizeKey = pickEnemyStrikeSize();
     const missile = launchAttack(origin, dest, 'enemyStrike', ENEMY_STRIKE_SIZES[sizeKey]);
     missile.sizeKey = sizeKey;
+    missile.dmg = Math.round(missile.dmg * DIFFICULTIES[difficulty].dmgMult); // LRNA-140
     if (waveIsElite) {
       missile.dmg = Math.round(missile.dmg * ELITE_WAVE_DMG_MULT);
       missile.elite = true;
@@ -2323,13 +2328,19 @@
     waveResultEl.classList.remove('hidden');
   }
 
+  // LRNA-139: was capped at 0.85 - by wave ~17 Omega's counter-hit-chance
+  // matched the player's own 85% HIT_CHANCE, and the late game degenerated
+  // into pure coin-flip attrition regardless of player skill. Capping
+  // below the player's own hit chance keeps late-game rebuilds tougher
+  // without ever fully closing the skill gap.
+  const OMEGA_HIT_CHANCE_CAP = 0.70;
   function onOmegaDestroyedForWaves() {
     omegaRebuildCount += 1;
     spawnFloatText(nodeO.x, nodeO.y - 160, 'NODE OMEGA DESTROYED — REBUILDING STRONGER', '#ff2ea6');
     omegaRemainingNodes = OMEGA_TOTAL_NODES;
     omegaHealth = PLAYER_MAX_HEALTH;
     buildOmegaBase();
-    nodeO.hitChance = Math.min(0.85, (nodeO.hitChance || COUNTER.hitChance * DIFFICULTIES[difficulty].interceptMult) + 0.05);
+    nodeO.hitChance = Math.min(OMEGA_HIT_CHANCE_CAP, (nodeO.hitChance || COUNTER.hitChance * DIFFICULTIES[difficulty].interceptMult) + 0.05);
     omegaInvulnTimer = OMEGA_REBUILD_INVULN; // Add invulnerability window (LRNA-125)
   }
   function updateWaveDirector(dt) {
@@ -2504,9 +2515,12 @@
         return;
       }
     } catch (e) { /* ignore */ }
-    // genuinely fresh player (direct request): flat 1000 of EACH
-    // category, no difficulty scaling.
-    tokens = { attack: 1000, counter: 1000, intel: 1000 };
+    // LRNA-138: starting tokens cut from a flat 1000/1000/1000 to
+    // 500/500/500 - at 1000 each plus 100/sec passive per category, a
+    // fresh player had no real resource pressure for the first couple of
+    // minutes regardless of difficulty. Still flat across categories, no
+    // difficulty scaling.
+    tokens = { attack: 500, counter: 500, intel: 500 };
   })();
   function saveTokens() {
     try { localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens)); } catch (e) { /* ignore */ }
@@ -4018,6 +4032,14 @@
               m.age = 0;
               m.totalSeconds = def.eta;
               m.vx = (backDist / def.eta) * dir;
+              // LRNA-141: dodge used to be spent for the whole round trip
+              // the moment Omega's Counter Planes first tried it outbound,
+              // leaving the plane defenseless for the entire return leg -
+              // effectively single-use per sortie despite the per-flight
+              // framing. A fresh dodge charge for the return leg makes it
+              // actually persist across the whole flight, not just the
+              // first half of it.
+              if (def.dodge) m.dodgesLeft = 1;
             }
           }
           continue;
@@ -4139,6 +4161,13 @@
             // point defense/field targets and stays exactly as it was.
             omegaCountersJamTimer = OMEGA_COUNTERS_JAM_DURATION;
             spawnEmpBurst(m.x, dest.y + m.laneY, m.color);
+            // LRNA-137: EMP used to be a pure utility weapon (0 direct
+            // damage) that bought a 15s free-fire window for 500 ATTACK -
+            // strong enough to trivialize early waves on its own. Now
+            // deals real (if modest) damage too, same applyDamage() path
+            // every other warhead uses, so it costs something even if the
+            // jam window goes to waste.
+            justDestroyed = applyDamage(dest, m.x, m.laneY, m.dmg);
           } else if (m.splitCount > 0) {
             // cluster warhead: several smaller impacts spread across the target area
             const perHit = Math.round(m.dmg / m.splitCount);

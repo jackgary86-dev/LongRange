@@ -584,6 +584,11 @@ test('LRNA-121: ability-bar buttons abbreviate on mobile instead of wrapping/rea
       T.disableOmegaCounters();
       const strike = T.launchEnemyStrike(T.nodeO, T.nodeA);
       strike.defended = true; // keep the generic getDefender() auto-defend loop off it too
+      // Emergency Counter excludes 'fast' strikes entirely (too little
+      // reaction time by design) - force a non-fast size so this test
+      // isn't at the mercy of pickEnemyStrikeSize()'s RNG roll.
+      strike.sizeKey = 'medium';
+      strike.totalSeconds = T.ENEMY_STRIKE_SIZES.medium.eta;
       // Emergency Counter only targets threats within EMERGENCY_WINDOW (5s)
       // of impact - fast-forward close to that without letting it land.
       const steps = Math.round((strike.totalSeconds - 3) / 0.05);
@@ -621,6 +626,100 @@ test('LRNA-121: ability-bar buttons abbreviate on mobile instead of wrapping/rea
     assertEqual(mobile.counterMissileEta, '1x · 75%');
     assertEqual(mobile.counterPlanesLabel, 'ATTACK PLANES', '"COUNTER" is redundant with the group header once on one line');
     assertEqual(mobile.counterPlanesEta, '1x · 75%');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-137: EMP deals real damage on top of its jam effect', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.attack = 99999;
+      T.disableOmegaCounters();
+      const before = T.omegaHealth;
+      const m = T.launchAttack(T.nodeA, T.nodeO, 'emp');
+      m.defended = true;
+      for (let i = 0; i < 1000 && T.missiles.some(x => x.id === m.id); i++) T.tickUpdate(0.05);
+      return { before, after: T.omegaHealth };
+    });
+    assert(result.after < result.before, `EMP should deal real damage: ${result.before} -> ${result.after}`);
+    // Omega's health is a 0-250 scale while warhead dmg values are in the
+    // hundreds (see OMEGA_HEALTH_DMG_RATIO = 0.03, applyDamage()) - EMP's
+    // configured 200 dmg lands as 200 * 0.03 = 6 points of Omega health,
+    // same conversion every other warhead goes through against Omega.
+    assertEqual(result.before - result.after, 6, "EMP's 200 configured damage should land as Omega's usual damage-to-health conversion");
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-138: fresh players start with 500 of each token, not 1000', async () => {
+  await withGame(async (page, errors) => {
+    const tokens = await page.evaluate(() => window.__TEST__.tokens);
+    // withGame waits ~200ms after clicking start before handing control
+    // back, and passive income accrues the whole time (100/sec/category),
+    // so allow a little headroom above the exact starting value.
+    assert(tokens.attack >= 500 && tokens.attack < 550, `starting attack tokens should be ~500: got ${tokens.attack}`);
+    assert(tokens.counter >= 500 && tokens.counter < 550, `starting counter tokens should be ~500: got ${tokens.counter}`);
+    assert(tokens.intel >= 500 && tokens.intel < 550, `starting intel tokens should be ~500: got ${tokens.intel}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-139: Omega hit-chance escalation caps at 70%, not 85%', async () => {
+  await withGame(async (page, errors) => {
+    const finalChance = await page.evaluate(() => {
+      const T = window.__TEST__;
+      // force enough rebuilds to blow well past any reasonable cap
+      for (let i = 0; i < 20; i++) T.forceOmegaDamage(999999);
+      return T.nodeO.hitChance;
+    });
+    assert(finalChance <= 0.70 + 1e-9, `Omega hit chance should cap at 0.70: got ${finalChance}`);
+    assert(finalChance > 0.5, `sanity check - 20 rebuilds should have escalated it well above its starting value: got ${finalChance}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-140: enemy strike damage scales with difficulty', async () => {
+  // one browser instance per difficulty, comparing the resulting damage
+  // against the same size table's base dmg rather than against each
+  // other, since the size roll is randomized independently each time.
+  for (const [difficulty, expectedMult] of [['easy', 0.75], ['normal', 1.0], ['hard', 1.5]]) {
+    await withGame(async (page, errors) => {
+      await page.click(`[data-difficulty="${difficulty}"]`);
+      await page.click('#startGameBtn');
+      await page.waitForTimeout(150);
+      const result = await page.evaluate(() => {
+        const T = window.__TEST__;
+        T.freezeWaves();
+        const strike = T.launchEnemyStrike(T.nodeO, T.nodeA);
+        return { dmg: strike.dmg, sizeKey: strike.sizeKey, baseDmg: T.ENEMY_STRIKE_SIZES[strike.sizeKey].dmg };
+      });
+      assertEqual(result.dmg, Math.round(result.baseDmg * expectedMult),
+        `${difficulty} enemy strike damage should be baseDmg * ${expectedMult}`);
+      assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+    }, { skipStart: true });
+  }
+});
+
+test('LRNA-141: Strike Fighter dodge refreshes for the return leg', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.attack = 99999;
+      const plane = T.firePlane('strikeFighter');
+      plane.dodgesLeft = 0; // simulate the outbound dodge already having been spent
+      // fast-forward to just before it reaches its outbound destination
+      const steps = Math.round((plane.totalSeconds - 0.2) / 0.05);
+      for (let i = 0; i < steps; i++) T.tickUpdate(0.05);
+      const beforeTransition = plane.dodgesLeft;
+      // a couple more ticks should push it past the arrival distance and
+      // flip it into the returning phase
+      for (let i = 0; i < 20 && plane.phase !== 'returning'; i++) T.tickUpdate(0.05);
+      return { beforeTransition, phase: plane.phase, dodgesLeft: plane.dodgesLeft };
+    });
+    assertEqual(result.beforeTransition, 0, 'sanity check - dodge should still read as spent right before landing outbound');
+    assertEqual(result.phase, 'returning', 'plane should have transitioned to its return leg');
+    assertEqual(result.dodgesLeft, 1, 'dodge should refresh for the return leg instead of staying spent for the whole sortie');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
