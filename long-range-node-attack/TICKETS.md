@@ -49,13 +49,7 @@ to whoever picks these up.
 
 ## OPEN — Balance Issues (High Impact)
 
-(LRNA-137 through LRNA-141 shipped - see the resolution log below)
-
-- **LRNA-142** — Omega Rebuild Resets Visual Crumble But Not Health Tracking
-  - Issue: `omegaRemainingNodes = OMEGA_TOTAL_NODES` (reset) but damage history lives on
-  - Problem: After rebuild #3, Omega's crumble is misleading; looks pristine but is fragile
-  - Impact: Player can't track cumulative damage; feels like bugs or exploits
-  - Fix: Track damage as percentage (1.0 = pristine, 0.7 = 70% damaged), render proportionally
+(none currently - LRNA-137 through LRNA-142 all resolved, see the resolution log below)
 
 ---
 
@@ -2933,6 +2927,13 @@ Three more followed the same night (#433-435, below).
   (`dodgesLeft` was never phase-gated in code - Omega's Counter Planes
   just typically got its first shot at it outbound, spending the single
   charge and leaving it defenseless on the way back).
+
+- **LRNA-142** — Investigated, duplicate of LRNA-131 (issue #8). Verified
+  live by forcing 3 consecutive rebuilds: `omegaHealth` reads exactly 250
+  (full) after every one, matching the reset crumble - there's no
+  persistent damage history that survives a rebuild. The one thing that
+  does escalate across rebuilds is `nodeO.hitChance` (tougher defense),
+  the opposite of "fragile."
 
 ---
 
