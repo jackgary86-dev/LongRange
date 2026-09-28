@@ -17,222 +17,6 @@ snapshot), `LongRange-1.0.0.html` (post-coin-economy, pre-v1.0.1 snapshot).
 
 ---
 
-## OPEN — CRITICAL Bugs (Game-Breaking)
-
-- **LRNA-124** — CRITICAL: Loadout Satellite Selection Duplication Exploit
-  - Issue: `hasSatellite()` only checks existence, doesn't prevent multiple selections
-  - Problem: Players can select Satellite multiple times; all activate simultaneously
-  - Impact: Players gain map-reveal redundantly, economy exploit (free repeatable ability)
-  - Fix: Add to loadout only once; second selection should fail with "already selected" message
-
-- **LRNA-125** — CRITICAL: Omega Rebuild Hits Players Immediately After Death
-  - Issue: `onOmegaDestroyedForWaves()` rebuilds Omega with 250 health instantly
-  - Problem: Player missiles in-flight still deal damage to rebuilt Omega; cluster splits can hit twice
-  - Impact: Player loses health due to lag between death and rebuild handoff
-  - Fix: Add brief invulnerability window (0.5s) after rebuild before Omega counters
-
----
-
-## OPEN — High Priority Bugs
-
-- **LRNA-126** — HIGH: Missile Target Validation at Creation, Not Impact
-  - Issue: Hit/miss decided at launch time via `Math.random() < HIT_CHANCE`
-  - Problem: If target dies before impact, missile uses stale hit result (ghosts hit destroyed targets)
-  - Impact: Missile might miss live target or hit dead one
-  - Fix: Revalidate target existence and recompute hit chance at impact time
-
-- **LRNA-127** — HIGH: Emergency Counter Stops Working After ~20 Uses
-  - Issue: `EMERGENCY_MAX_PER_TARGET = 2` limits per-missile, but counter never resets
-  - Problem: After 10 inbound threats (~20 total shots), Emergency Counter becomes non-functional
-  - Impact: Mid-run button suddenly stops firing even with tokens + threats available
-  - Fix: Reset `emergencyUsed` counter when threat is destroyed or misses
-
-- **LRNA-128** — HIGH: Lifetime Token Tracking Double-Counts Passive Income
-  - Issue: Line 2876 adds `(TOKEN_PASSIVE_RATE * 2 + ...)` instead of `* 1`
-  - Problem: Lifetime tokens grow 2x faster than actual earned tokens
-  - Impact: Lifetime stats inflated; replay/audit impossible
-  - Fix: Remove the `* 2` multiplier
-
-- **LRNA-129** — HIGH: Counter Plane Shot Takes Wrong Flight Time Against Returning Planes
-  - Issue: Counter Planes inherit 20s flight time, but returning planes have 30s total flight
-  - Problem: Intercepting Heavy Bomber on return (last 20 seconds) actually impossible
-  - Impact: Returning planes nearly unkillable on return trip
-  - Fix: Counter Planes should intercept within final 10s (match Missile rule), or adjust flight times
-
-- **LRNA-130** — HIGH: Radar Lane Dots Missing Bounds Checking
-  - Issue: `left: ${(c.dist / 10).toFixed(1)}%` — if dist > 1000, dot goes off-screen
-  - Problem: Radar lane dots disappear; contact list shows impossible distances
-  - Impact: Visual feedback breaks for far-range contacts
-  - Fix: Clamp position to `Math.max(0, Math.min(100, ...))`
-
----
-
-## OPEN — Medium Priority Bugs
-
-- **LRNA-131** — MEDIUM: Omega Crumble Art and Health State Divergence
-  - Issue: `omegaRemainingNodes` (visual) self-repairs, but `omegaHealth` (real) doesn't
-  - Problem: After several repairs, Omega looks alive but is actually dead (or reverse)
-  - Impact: Visual confusion; false sense of damage progress
-  - Fix: Sync repair logic — either both repair or neither
-
-- **LRNA-132** — MEDIUM: Flak Only Targets Nearest Missile (Overkill)
-  - Issue: Each node fires at single nearest missile; doesn't prioritize undefended targets
-  - Problem: Flak wastes shots on decoys already tracked by seekers
-  - Impact: Loadout nodes + AM batteries less effective than intended
-  - Fix: Implement target reservation so nodes spread fire across threats
-
-- **LRNA-133** — MEDIUM: Seek & Destroy Window Stale Data
-  - Issue: `renderSeekDestroy()` only called on drone hit, not on timer
-  - Problem: Player leaves window open, drone discovers off-screen, UI doesn't update until window closes
-  - Impact: Player doesn't see discovered nodes; has to close/reopen to refresh
-  - Fix: Set a 500ms render loop for this window (like Contacts)
-
-- **LRNA-134** — MEDIUM: Ground Units Chip Stacking Unvisualised
-  - Issue: Multiple hits stack multiplicatively (0.6^N damage remaining), no UI feedback
-  - Problem: After 2 hits, missile does 36% damage; players don't understand why
-  - Impact: Missiles feel inconsistent; damage scaling unclear
-  - Fix: Show hit count badge on missile icon or draw rings around it
-
-- **LRNA-135** — MEDIUM: Counter Planes Only Shows First 2 Threats
-  - Issue: Window displays only soonest-to-impact threats (hardcoded max 2)
-  - Problem: If 3+ missiles inbound, player can't see/choose which to counter
-  - Impact: Player feels cheated when "wrong" missile gets hit
-  - Fix: Increase window threat display from 2 to 4-5, or add scrollable list
-
-- **LRNA-136** — MEDIUM: Particle Array Unbounded Growth
-  - Issue: Particles spawn at 6-26+ per frame (launch FX, explosions, flak) with no culling
-  - Problem: Long games (30+ minutes) accumulate thousands of particles
-  - Impact: Frame rate degrades; off-screen particles still update
-  - Fix: Implement max particle cap (5000), cull off-screen particles
-
-- **LRNA-101** — MEDIUM: Emergency Counter can target FAST missiles despite 5s window gate
-  - Current: `findEmergencyTarget()` filters `m.sizeKey === 'fast'` with continue, skipping them
-  - Problem: At 10/sec passive income (100 coins/10s), players will accumulate Emergency tokens
-    for many waves without a way to spend them efficiently - the gate is too restrictive,
-    defeats the purpose. If unskippable, should be documented; if unintended, needs removal.
-  - Verify: Fire FAST missiles, try to emergency-counter during the 5s window - confirm no target appears
-  
-- **LRNA-102** — HIGH: Omega's Counter Missile (6s cooldown, 75% hit) gets ~4 shots at a LARGE
-  warhead (30s flight) - cumulative interception odds ~98.2%, making LARGE essentially unreachable
-  against active defenses. CLUSTER (24s) gets ~3 shots (~93% odds). MEDIUM (20s) gets ~3 shots.
-  - Problem: Asymmetric difficulty - player's LARGE/CLUSTER are high-risk, low-reward when Omega
-    is actively defending. FAST/MEDIUM are more practical but deal less damage (FAST 50→1 damage coin
-    after Omega heal, MEDIUM 250→~75 coin after heal).
-  - Consider: Buff CLUSTER/LARGE damage-to-coin ratio, increase Omega Counter cooldown, or add
-    brief invulnerability windows after recent hits so players can land follow-ups.
-
-- **LRNA-103** — HIGH: Counter window (Missile & Planes) can open to a stale threat mid-flight
-  - Current: `openCounterWindow()` fetches `findInboundEnemyMissiles()[0]` at open time, but
-    if that threat is destroyed (via AM battery) while the window is open, the threat stale-closes
-    the window (renderCounterWindow's auto-close). However, a NEW threat can enter the 10s window
-    while that modal is open → no auto-popup (popup only fires once per threat via `counterPopupShown`)
-    → player doesn't realize there's a fresh threat.
-  - Problem: Player launches window at T=1s (threat incoming, auto-popup), focuses on aiming,
-    threat lands/is destroyed, window closes. New threat enters window at T=5s but window stays
-    closed. Player misses interception opportunity because the auto-popup flag blocks re-opening.
-  - Fix: Track `lastThreatId` in the window, and if `findInboundEnemyMissiles()[0].id` differs
-    from that, allow re-popup (or just re-open automatically on threat change).
-
-- **LRNA-104** — HIGH: Loadout nodes (GML/MGAA/CB) can fire at targets outside their engagement
-  range during the first frame of eligibility
-  - Current: `updateLoadoutNodes()` does target search with `remaining <= 0 || remaining > COUNTER_WINDOW_SECONDS`
-    but no distance/range check. All nodes at any X coordinate can intercept any target.
-  - Problem: Loadout nodes at X=200 (far left) should not be engaging missiles at X=700 (center).
-    This gives geographically distant nodes overlapping coverage and makes early game trivial.
-  - Fix: Add range gate based on each node's position (`Math.abs(node.x - m.x) < LOADOUT_RANGE`),
-    or keep it asymmetric and document.
-
-- **LRNA-105** — HIGH: Player's plane launches (Strike Fighter, Strike Bomber, Recon Plane) don't
-  respect the COUNTER_WINDOW_SECONDS gate for their own arrival targets
-  - Current: Planes are launched via `firePlane()`, which doesn't check whether their destination
-    is interceptable within the 10s window. A player can launch a plane at a field target that
-    will arrive in 25 seconds, and it will fly the full distance even if intercepted late.
-  - Problem: Asymmetric with missile/drone behavior (which gate on 10s window). Player planes should
-    only be launchable if their destination is currently under counter threat, OR planes should have
-    their own separate engagement window (different rule).
-  - Verify: Launch a Strike Bomber at a stationary field target 20+ seconds away → observe it
-    completes its flight. Confirm this is intended or needs a fix.
-
----
-
-## OPEN — High Priority Improvements
-
-- **LRNA-106** — Game balance: 10/sec passive income vs. weapon costs creates feast/famine cycles
-  - Current: FAST costs 100 (10s of passive income), MEDIUM 300 (30s), LARGE 500 (50s). Emergency
-    Counter costs 150 (15s). Counter Missile costs 500 (50s). Counter Planes costs 1000 (100s).
-  - Problem: Long passive wait between high-cost abilities (e.g., 100s for Counter Planes means
-    ~10 "waves" of doing nothing but passive accumulation before one can be used). This flattens
-    moment-to-moment decision-making.
-  - Possible fixes:
-    1. Increase passive to 20/sec (200 coins per 10s), allowing faster ability cycling
-    2. Reduce weapon costs by 50% (FAST 50, LARGE 250, Counter Planes 500)
-    3. Add a "burst income" mechanic when player achieves 2+ consecutive hits (temporary boost)
-    4. Introduce difficulty scaling where later waves grant passive bonuses
-
-- **LRNA-107** — Omega "defeat" state (health ≤ 0) leads to wave reset, not game over
-  - Current: `resetGame(false)` respawns Omega at full health and cranks difficulty
-  - Problem: This creates an awkward "Omega survives infinitely" loop where Omega keeps coming
-    back. There's no real win condition - player can rack up high damage scores forever.
-  - Possible fixes:
-    1. Add a "survival time" score metric (how long until Omega reforms)
-    2. Introduce a "final wave" threshold where defeating Omega N times ends the run
-    3. Implement a leaderboard based on "time before first Omega kill" or "total damage on final Omega"
-
-- **LRNA-108** — Loadout node targeting priority is unclear; they fire at the soonest threat
-  - Current: Each loadout node finds the closest-to-impact inbound missile (`bestRemaining`)
-  - Problem: This can lead to "overkill" where multiple nodes fire at the same target (stacking
-    interception odds to 99%+), while other threats slip through. No load-balancing or shared state.
-  - Improve: Add "target reservation" so nodes can see what their neighbors are already engaging
-    and spread fire across multiple threats. Or add a visual indicator on the Radar Lane showing
-    which targets are "locked" by ground units.
-
-- **LRNA-109** — HUD display of threat type/size inconsistent across panels
-  - Current: INCOMING alert shows `[FAST]`, contact list shows `FASTMis`, Radar Lane shows only
-    dot color coding
-  - Problem: New players can't quickly scan which size missile is which. Color-coding is good,
-    but text labels are mixed.
-  - Improve: Standardize to one format across all displays (e.g., always `[FAST STRIKE]`), add
-    a legend in the Radar Lane header, or show icon badges.
-
-- **LRNA-110** — No indication of which counter mechanism is "active" at any given time
-  - Current: Player sees Emergency Counter button, Counter Missile window, Counter Planes window,
-    and AM batteries all firing independently. No visual link between threat and defender.
-  - Problem: New players don't understand who/what is shooting down their missiles. Feels random.
-  - Improve:
-    1. Draw a line from the point-defense node to the intercepting missile
-    2. Flash the AM battery when it fires
-    3. Add a subtitle to the INCOMING alert naming the defender (e.g., "INCOMING — INTERCEPTED BY AM-03")
-
----
-
-## OPEN — Medium Priority Bugs
-
-- **LRNA-111** — MEDIUM: Camera follow can miss fast missiles if viewport resizes mid-flight
-  - Current: Camera velocity is computed once at launch time; viewport changes don't update `followVel`
-  - Problem: Launch on a maximized window, then minimize → camera lag appears suddenly
-  - Fix: Recalculate `followVel` in the frame update if `vw()` or `vh()` changed
-
-- **LRNA-112** — MEDIUM: Recon Plane discovery range doesn't match visual indicator
-  - Current: Discovery zone defined in code but not drawn on screen
-  - Problem: Player doesn't know where to fly the Recon Plane to trigger discovery
-  - Improve: Draw the discovery radius as a dashed circle around each hidden node target, fading
-    in as the player advances up the map
-
-- **LRNA-113** — MEDIUM: Reactor Boost upgrade (+1 Intel/sec) doesn't persist across saves
-  - Current: Upgrade flag stored in `loadout` array, but if a new player loads with a fresh
-    save (LRNA-094 scenario), the flag might be lost
-  - Verify: Buy Reactor Boost, reload page, check if it's still active
-
-- **LRNA-114** — MEDIUM: "NO INBOUND THREATS" state shows green in Incoming alert even if player
-  is losing health (Omega is attacking but all are below the 10s counter window)
-  - Current: Color tier is `remaining > 5 ? 'yellow' : 'red'`, and if `remaining > 10` (outside
-    the counter window), no target is returned at all
-  - Problem: Player sees green "NO INBOUND" but health is draining → confusion
-  - Fix: Show a distinct "CHARGING" or "INCOMING (NOT INTERCEPTABLE)" state if missiles exist but
-    are outside the 10s window
-
----
-
 ## OPEN — Medium Priority Improvements
 
 - **LRNA-115** — Difficulty progression is too smooth; no "spike" moments
@@ -2984,6 +2768,133 @@ Three more followed the same night (#433-435, below).
   Verified: Playwright test confirmed planes complete 30+ second journeys and
   land correctly; zero NaN-velocity planes stuck in returning phase; all plane
   slots properly cycle through 'ready' → 'flying' → 'rearming' → 'ready' states.
+
+- **LRNA-124** — DONE — Loadout Satellite Selection Duplication Exploit fixed.
+  Selecting Satellite in a slot where it's already selected elsewhere now
+  shows an alert and reverts the selection, instead of allowing duplicates
+  that stacked its map-reveal effect for free. Verified with an instrumented
+  Playwright build.
+- **LRNA-125** — DONE — Omega rebuild invulnerability window added
+  (`OMEGA_REBUILD_INVULN`, 0.5s). Previously, missiles already in flight
+  toward Omega at the moment of its death would still land on the freshly
+  rebuilt Omega, dealing "free" damage across the death/rebuild handoff.
+  Verified: forcing a killing blow then an immediate follow-up hit shows the
+  follow-up dealing zero damage during the window.
+- **LRNA-126** — DONE — Missiles no longer "ghost hit" a target destroyed
+  mid-flight. Hit/miss used to be decided once at launch and stored on the
+  missile; now the target's existence is revalidated and the hit chance is
+  rerolled fresh at the moment of arrival. Verified: destroying a field
+  target right after launching a missile at it produces zero ghost hits on
+  arrival, while a live control target still takes hits normally.
+- **LRNA-127** — DONE — Emergency Counter's per-target cap
+  (`EMERGENCY_MAX_PER_TARGET`) was being tripped by *other* systems' counters
+  (AM batteries, loadout nodes) also in flight against the same target, not
+  just Emergency's own shots - `findEmergencyTarget()`'s "already engaged"
+  check now only looks for Emergency's own tagged counter
+  (`fireCounter(..., 'emergency')`). Verified: with 4 concurrent unrelated
+  counters also chasing the same target, Emergency's second shot still fires
+  correctly once its own first counter resolves.
+- **LRNA-128** — Investigated, not a bug. The cited `TOKEN_PASSIVE_RATE * 2`
+  is the correct sum across two token pillars sharing that rate (attack +
+  counter), not a double-count of one - `lifetimeTokensTotal`'s delta exactly
+  matched the real sum of all three pillars' gains over a 5s live check.
+- **LRNA-129** — DONE — Counter Plane chase timeout now uses the target's own
+  remaining flight time (`target.totalSeconds - target.age`) instead of a
+  flat 20s, fixing Heavy Bomber's 30s legs (previously undercut) and
+  correctly shortening the window for planes near the end of a leg. Regular
+  missile targets are unaffected (still `COUNTER.totalSeconds`).
+- **LRNA-130** — Investigated, not a bug. `dist1000()` already clamps to
+  [0, 1000] at the source for every Radar Lane contact type; verified
+  missiles spawned far outside the corridor still render exactly at the 0%/
+  100% edges, never off-scale.
+- **LRNA-131** — Investigated, by design (LRNA-092). `omegaRemainingNodes`
+  is documented as a purely cosmetic pixel-erosion count driving crumble
+  art; `omegaHealth` is the sole real gate on alive/dead/targetable. The
+  main HUD only displays `omegaHealth` now, not the raw node count.
+- **LRNA-132** — Investigated, not a bug. Flak (`updateFlak`/`spawnFlak`) is
+  purely cosmetic tracer fire with no `applyDamage`/hit-chance roll of its
+  own; it has no bearing on actual interception effectiveness to "fix."
+- **LRNA-133** — Investigated, not a bug. `updateHud()` already calls
+  `renderSeekDestroy()` every frame while the window is open (61 calls
+  measured in 1s live), not just on a drone hit.
+- **LRNA-134** — DONE — Ground Units chip stacking now gets a persistent
+  visual indicator (dashed ring + "xN" badge) on the missile for the rest of
+  its flight, not just the fading "DAMAGED" callout at the moment of the
+  hit. Verified: chipHits and the 0.6x damage multiplier stay in sync across
+  two successive chips (50 → 30 → 18).
+- **LRNA-135** — DONE — Counter Attack Planes' window now shows a "+N more
+  inbound - not covered by this scramble" note when more threats exist than
+  the 2 planes being sent can cover (each plane can only kill one target, so
+  this was always an accurate 2-of-N preview, not an arbitrary truncation).
+- **LRNA-136** — DONE — Hard cap added (`MAX_PARTICLES = 5000`), trimming
+  the oldest excess each frame. Verified: flooding 8000 particles in one
+  burst settles to exactly 5000 on the next tick.
+- **LRNA-101** — Investigated, by design. The FAST-missile exclusion is
+  already documented at the source ("FAST ones move too quick for the
+  system to lock onto"); Counter Missile/Counter Attack Planes have no size
+  gate and can engage FAST threats, so excess Counter tokens aren't stuck.
+- **LRNA-102** — DONE — Omega's Counter Missile is now capped at 2 attempts
+  per target (`OMEGA_COUNTER_MAX_PER_TARGET`, matching Emergency Counter's
+  own convention), so a LARGE/CLUSTER's longer flight time no longer buys
+  Omega more cumulative shots (previously ~98%/~93% interception odds vs.
+  FAST/MEDIUM's fewer-shots-fit advantage). Verified: forcing 6 consecutive
+  engagement cycles at the same target shows the counter climb to exactly 2
+  and hold there.
+- **LRNA-103** — Investigated, not a bug. The described `counterPopupShown`
+  auto-popup mechanic doesn't exist in the current Counter Missile window
+  (LRNA-051 rewrote it); `renderCounterWindow()` re-fetches the live soonest
+  threat every frame while open, so it already switches to a fresh threat
+  automatically rather than sitting stale.
+- **LRNA-104** — Investigated, by design (LRNA-070). Loadout nodes having no
+  range gate is documented as intentional at ship time, explicitly matching
+  AM batteries' own equally range-agnostic behavior.
+- **LRNA-105** — Investigated, not a bug. `COUNTER_WINDOW_SECONDS` doesn't
+  exist anywhere in the codebase; no weapon type (missiles, drones, planes)
+  has a launch-time distance/time-to-impact gate to be asymmetric with.
+- **LRNA-106** — Investigated, stale. Built entirely on a "10/sec passive
+  income" figure; the current rate is 100/sec per pillar (10x higher, from
+  the LRNA-073 economy rework) - e.g. Counter Planes now recharges in 10s,
+  not the cited "~10 waves of doing nothing."
+- **LRNA-107** — Already resolved via LRNA-072. `resetGame(false)` no longer
+  exists; the Waves of Battle system already ships the "survival time score
+  metric" this ticket asked for, measured in waves survived (`bestWave`)
+  rather than a flat timer.
+- **LRNA-108** — DONE — Loadout nodes now prefer a target no other loadout
+  node currently has an in-flight shot against, falling back to the
+  original any-eligible-target search only when nothing else qualifies.
+  Verified: with 2 simultaneous threats and 3 active nodes, fire spreads
+  across both instead of all 3 landing on one; a lone threat still draws
+  fire from every node (fallback intact).
+- **LRNA-109** — DONE — Enemy strike contacts in the Radar Lane list now
+  append their size (e.g. "STRIKE [MEDIUM]"), matching the INCOMING alert's
+  existing size distinction instead of collapsing all sizes into one label.
+- **LRNA-110** — DONE — A floating "INTERCEPTED BY ..." callout now names
+  the defender on every successful intercept. `fireCounter()` takes an
+  optional `source` tag (used by Emergency Counter, Counter Missile,
+  Counter Attack Planes, loadout nodes, AntiPlane nodes, Omega); a
+  `describeDefender()` helper resolves a name from that tag or falls back
+  to a live origin-id lookup (AM battery/field target/Omega) for the
+  untagged generic auto-defend path. Verified: all 8 defender-naming cases
+  (4 tagged abilities, an untagged Omega fallback, real loadout/AM-battery
+  names, and a graceful unknown-origin fallback) resolve correctly.
+- **LRNA-111** — Investigated, not a bug. The `followVel` variable this
+  ticket describes doesn't exist; camera-follow (LRNA-010) recomputes the
+  missile's live `vx` and the live `vw()` (updated on window resize) fresh
+  every frame, with nothing cached from launch time to go stale.
+- **LRNA-112** — DONE — Recon Drone now shows its own discovery detection
+  radius (`ANTIPLANE_DISCOVERY_RANGE`) as a dashed circle while flying,
+  drawn around the drone itself rather than around hidden nodes (which
+  stay intentionally invisible per LRNA-039) - helps gauge detection range
+  without revealing hidden positions.
+- **LRNA-113** — Investigated, not a bug. Reactor Boost (and every Reactor
+  Upgrade) persists via its own dedicated `ownedUpgrades`/`lrna_upgrades_v1`
+  storage, completely separate from the `loadout` array this ticket
+  describes. Verified across a full page reload, not just a game reset.
+- **LRNA-114** — Investigated, not a bug. `findInboundEnemyMissiles()` has
+  no window filter at all - every inbound enemy strike is a candidate
+  regardless of remaining time, so "NO INBOUND THREATS" (green) only shows
+  when the list is genuinely empty; a real threat always shows as
+  INCOMING, colored by its actual remaining time.
 
 ---
 
