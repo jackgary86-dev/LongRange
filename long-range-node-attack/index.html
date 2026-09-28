@@ -5047,6 +5047,23 @@
         ctx.restore();
       }
 
+      // LRNA-112: show the drone's own discovery detection radius as it
+      // flies, so the player can gauge how close they need to fly to find
+      // a hidden node - without drawing anything around the hidden nodes
+      // themselves, which would reveal their position and defeat the
+      // "hidden until discovered" premise (LRNA-039).
+      if (m.typeKey === 'drone') {
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([5, 5]);
+        ctx.arc(sx, sy, ANTIPLANE_DISCOVERY_RANGE, 0, Math.PI * 2);
+        ctx.strokeStyle = '#9fffcf55';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.font = '10px "Courier New", ui-monospace, monospace';
       ctx.textAlign = 'center';
