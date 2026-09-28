@@ -960,12 +960,12 @@
             <button class="launchBtn" id="counterMissileBtn" style="--btncolor:#c6e8ff" disabled>
               <span class="btnKey">4</span>
               <span class="btnLabel">COUNTER MISSILE</span>
-              <span class="btnEta">1 target &middot; 75% kill</span>
+              <span class="btnEta" id="counterMissileEta">1 target &middot; 75% kill</span>
               <span class="btnDmg">&#9679; 500 COUNTER</span>
             </button>
             <button class="launchBtn" id="counterPlanesBtn" style="--btncolor:#8fd8ff" disabled>
               <span class="btnKey">5</span>
-              <span class="btnLabel">COUNTER ATTACK PLANES</span>
+              <span class="btnLabel" id="counterPlanesLabel">COUNTER ATTACK PLANES</span>
               <span class="btnEta" id="counterPlanesEta">2 planes &middot; 75% kill</span>
               <span class="btnDmg" id="counterPlanesCost">&#9679; 1000 COUNTER</span>
             </button>
@@ -1122,6 +1122,7 @@
   });
 
   const counterPlanesBtnEl = document.getElementById('counterPlanesBtn');
+  const counterPlanesLabelEl = document.getElementById('counterPlanesLabel');
   const counterPlanesEtaEl = document.getElementById('counterPlanesEta');
   const counterPlanesCostEl = document.getElementById('counterPlanesCost');
   counterPlanesBtnEl.addEventListener('click', () => {
@@ -1130,10 +1131,16 @@
   });
 
   const counterMissileBtnEl = document.getElementById('counterMissileBtn');
+  const counterMissileEtaEl = document.getElementById('counterMissileEta');
   counterMissileBtnEl.addEventListener('click', () => {
     if (!running) return;
     openCounterWindow();
   });
+
+  // LRNA-121: below this width, the ability-bar buttons are narrow enough
+  // that the full desktop label/stat text wraps across 2-3 lines and reads
+  // as cut off - swap to short forms instead of just shrinking the font.
+  function isMobileViewport() { return window.matchMedia('(max-width: 560px)').matches; }
 
   // ---- Counter Missile Intercept window (LRNA-051, scoped down): the
   // Counter Missile button now opens a focused overlay - the player's own
@@ -2990,8 +2997,14 @@
       const sizeLabel = (target.sizeKey || '').toUpperCase();
       const spd = Math.round(Math.abs(target.vx));
       const remaining = Math.max(0, target.totalSeconds - target.age);
-      emergencyBtnEl.textContent =
-        `EMERGENCY — ${target.name} [${sizeLabel}] · SPD ${spd} · IMPACT ${formatETA(remaining)} (${left}) · ${EMERGENCY_COUNTER_COST}● COUNTER`;
+      // LRNA-121: the full desktop string is the longest text in the
+      // whole ability bar - on a narrow screen it wraps across 4-5 lines
+      // and reads as cut off, so mobile drops to just what matters for
+      // the decision (time left, cost) and lets the button's own tooltip
+      // hover / the counter window carry the rest.
+      emergencyBtnEl.textContent = isMobileViewport()
+        ? `EMERGENCY · ${formatETA(remaining)} · ${EMERGENCY_COUNTER_COST}●`
+        : `EMERGENCY — ${target.name} [${sizeLabel}] · SPD ${spd} · IMPACT ${formatETA(remaining)} (${left}) · ${EMERGENCY_COUNTER_COST}● COUNTER`;
     } else {
       emergencyBtnEl.textContent = 'EMERGENCY COUNTER';
     }
@@ -3030,7 +3043,13 @@
     if (!counterPlanesBtnEl) return;
     const { planeCount, cost } = counterPlanesPlan();
     counterPlanesBtnEl.disabled = planeCount === 0 || tokens.counter < cost;
-    counterPlanesEtaEl.textContent = planeCount === 1 ? '1 plane · 75% kill' : '2 planes · 75% kill';
+    if (isMobileViewport()) {
+      counterPlanesLabelEl.textContent = 'ATTACK PLANES'; // "COUNTER" is already the group header
+      counterPlanesEtaEl.textContent = planeCount === 1 ? '1x · 75%' : '2x · 75%';
+    } else {
+      counterPlanesLabelEl.textContent = 'COUNTER ATTACK PLANES';
+      counterPlanesEtaEl.textContent = planeCount === 1 ? '1 plane · 75% kill' : '2 planes · 75% kill';
+    }
     counterPlanesCostEl.textContent = `● ${cost} COUNTER`;
   }
 
@@ -3052,6 +3071,7 @@
     if (!counterMissileBtnEl) return;
     const target = findInboundEnemyMissiles()[0];
     counterMissileBtnEl.disabled = !target || tokens.counter < COUNTER_MISSILE_COST;
+    counterMissileEtaEl.textContent = isMobileViewport() ? '1x · 75%' : '1 target · 75% kill';
   }
 
   // ---- OMEGA COUNTERS (LRNA-075, issue #432, finishes LRNA-044): Omega
@@ -5765,6 +5785,9 @@
       tickLoadoutNodes: (dt) => updateLoadoutNodes(dt),
       tickOmegaCounters: (dt) => updateOmegaCounters(dt),
       updateOmegaCountersHud: () => updateOmegaCountersHud(),
+      updateEmergencyBtn: () => updateEmergencyBtn(),
+      updateCounterMissileBtn: () => updateCounterMissileBtn(),
+      updateCounterPlanesBtn: () => updateCounterPlanesBtn(),
     };
   }
 })();

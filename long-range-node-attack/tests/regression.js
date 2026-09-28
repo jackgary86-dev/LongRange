@@ -574,4 +574,55 @@ test('LRNA-120: mute button silences audio and persists across reload', async ()
   });
 });
 
+test('LRNA-121: ability-bar buttons abbreviate on mobile instead of wrapping/reading as cut off', async () => {
+  await withGame(async (page, errors) => {
+    await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.counter = 99999;
+      T.freezeWaves(); // don't let the wave director spawn a second real strike while we fast-forward
+      T.neutralizeAutoDefense();
+      T.disableOmegaCounters();
+      const strike = T.launchEnemyStrike(T.nodeO, T.nodeA);
+      strike.defended = true; // keep the generic getDefender() auto-defend loop off it too
+      // Emergency Counter only targets threats within EMERGENCY_WINDOW (5s)
+      // of impact - fast-forward close to that without letting it land.
+      const steps = Math.round((strike.totalSeconds - 3) / 0.05);
+      for (let i = 0; i < steps; i++) T.tickUpdate(0.05);
+      T.updateEmergencyBtn();
+      T.updateCounterMissileBtn();
+      T.updateCounterPlanesBtn();
+    });
+
+    const desktop = await page.evaluate(() => ({
+      emergency: document.getElementById('emergencyBtn').textContent,
+      counterMissileEta: document.getElementById('counterMissileEta').textContent,
+      counterPlanesLabel: document.getElementById('counterPlanesLabel').textContent,
+      counterPlanesEta: document.getElementById('counterPlanesEta').textContent,
+    }));
+    assert(desktop.emergency.includes('SPD') && desktop.emergency.includes('IMPACT'), 'desktop Emergency Counter text should stay fully descriptive');
+    assertEqual(desktop.counterMissileEta, '1 target · 75% kill');
+    assertEqual(desktop.counterPlanesLabel, 'COUNTER ATTACK PLANES');
+    assert(desktop.counterPlanesEta.includes('kill'), 'desktop Counter Planes subtext should stay fully descriptive');
+
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.updateEmergencyBtn();
+      T.updateCounterMissileBtn();
+      T.updateCounterPlanesBtn();
+    });
+    const mobile = await page.evaluate(() => ({
+      emergency: document.getElementById('emergencyBtn').textContent,
+      counterMissileEta: document.getElementById('counterMissileEta').textContent,
+      counterPlanesLabel: document.getElementById('counterPlanesLabel').textContent,
+      counterPlanesEta: document.getElementById('counterPlanesEta').textContent,
+    }));
+    assert(mobile.emergency.length < desktop.emergency.length, 'mobile Emergency Counter text should be shorter than the desktop version');
+    assertEqual(mobile.counterMissileEta, '1x · 75%');
+    assertEqual(mobile.counterPlanesLabel, 'ATTACK PLANES', '"COUNTER" is redundant with the group header once on one line');
+    assertEqual(mobile.counterPlanesEta, '1x · 75%');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 run();
