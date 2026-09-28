@@ -60,6 +60,18 @@
     animation: omegaJamPulse 0.9s infinite;
   }
   #omegaJamStatus.hidden { display: none; }
+  /* LRNA-151: point-defense jam (empGlobalJamTimer) is a separate timer
+     from the counters-only jam above (omegaCountersJamTimer) - a
+     distinct color/label so the player can tell which defenses are
+     actually down instead of one HUD line silently covering both. */
+  #pointDefenseJamStatus {
+    margin-top: 3px;
+    font-size: 9.5px;
+    letter-spacing: 1px;
+    color: #ffa500;
+    animation: omegaJamPulse 0.9s infinite;
+  }
+  #pointDefenseJamStatus.hidden { display: none; }
   @keyframes omegaJamPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   /* LRNA-116: Omega's own Counter Missile/Planes readiness, so the player
      can predict when Omega will stop defending rather than it firing
@@ -162,6 +174,10 @@
   }
   .contact-row:hover { background: rgba(255,255,255,0.08); }
   .contact-row.tracked { background: rgba(53,230,255,0.16); outline: 1px solid var(--green); }
+  .contact-overflow {
+    padding: 4px 2px; font-size: 8.5px; letter-spacing: 0.5px;
+    opacity: 0.7; text-align: center; font-style: italic;
+  }
   .contact-row-main { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   .contact-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
   .contact-sub {
@@ -836,6 +852,7 @@
       <div>NODE OMEGA — <span id="oHealth">250</span>/250</div>
       <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="oImpacts">0</span></div>
+      <div id="pointDefenseJamStatus" class="hidden">POINT DEFENSE JAMMED 0:15</div>
       <div id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</div>
       <div id="omegaCounterStatus"></div>
     </div>
@@ -994,7 +1011,9 @@
             </button>
             <button id="emergencyBtn" disabled>
               <span class="btnKey">6</span>
-              EMERGENCY COUNTER
+              <span class="btnLabel">EMERGENCY COUNTER</span>
+              <span class="btnEta" id="emergencyStatus">no threat in window</span>
+              <span class="btnDmg">&#9679; 150 COUNTER</span>
             </button>
           </div>
           <div class="abilityGroupSub">PLANES</div>
@@ -1138,6 +1157,7 @@
   muteBtnEl.addEventListener('click', () => { setMuted(!muted); sfxUi(); });
 
   const emergencyBtnEl = document.getElementById('emergencyBtn');
+  const emergencyStatusEl = document.getElementById('emergencyStatus');
   emergencyBtnEl.addEventListener('click', () => {
     if (!running) return;
     fireEmergencyCounter();
@@ -3070,21 +3090,26 @@
     const ready = !!target && emergencyCooldown <= 0 && tokens.counter >= EMERGENCY_COUNTER_COST;
     emergencyBtnEl.disabled = !ready;
     emergencyBtnEl.classList.toggle('ready', ready);
+    // LRNA-149: cost used to only appear embedded in this dynamic string,
+    // so it vanished entirely whenever there was no target (button just
+    // read "EMERGENCY COUNTER" with no cost at all) - every sibling
+    // ability shows its cost in a persistent .btnDmg line regardless of
+    // target state, so Emergency Counter's markup now matches that and
+    // this only needs to set the status line.
     if (target) {
       const left = EMERGENCY_MAX_PER_TARGET - (target.emergencyUsed || 0);
       const sizeLabel = (target.sizeKey || '').toUpperCase();
       const spd = Math.round(Math.abs(target.vx));
       const remaining = Math.max(0, target.totalSeconds - target.age);
-      // LRNA-121: the full desktop string is the longest text in the
-      // whole ability bar - on a narrow screen it wraps across 4-5 lines
-      // and reads as cut off, so mobile drops to just what matters for
-      // the decision (time left, cost) and lets the button's own tooltip
-      // hover / the counter window carry the rest.
-      emergencyBtnEl.textContent = isMobileViewport()
-        ? `EMERGENCY · ${formatETA(remaining)} · ${EMERGENCY_COUNTER_COST}●`
-        : `EMERGENCY — ${target.name} [${sizeLabel}] · SPD ${spd} · IMPACT ${formatETA(remaining)} (${left}) · ${EMERGENCY_COUNTER_COST}● COUNTER`;
+      // LRNA-121: the full desktop string used to be the longest text in
+      // the whole ability bar - on a narrow screen it wrapped across
+      // several lines and read as cut off, so mobile drops to just what
+      // matters for the decision (time left).
+      emergencyStatusEl.textContent = isMobileViewport()
+        ? `IMPACT ${formatETA(remaining)}`
+        : `${target.name} [${sizeLabel}] · SPD ${spd} · IMPACT ${formatETA(remaining)} (${left} left)`;
     } else {
-      emergencyBtnEl.textContent = 'EMERGENCY COUNTER';
+      emergencyStatusEl.textContent = 'no threat in window';
     }
   }
 
@@ -3267,6 +3292,19 @@
   }
 
   function updateOmegaCountersHud() {
+    // LRNA-151: empGlobalJamTimer (point defense/flak - LRNA-037) and
+    // omegaCountersJamTimer (Omega's Counter Missile/Planes - LRNA-075)
+    // are two independent timers; previously only the latter had a HUD
+    // line, so a point-defense-only jam showed nothing at all here.
+    const pdEl = document.getElementById('pointDefenseJamStatus');
+    if (pdEl) {
+      if (empGlobalJamTimer > 0) {
+        pdEl.textContent = `POINT DEFENSE JAMMED ${formatETA(empGlobalJamTimer)}`;
+        pdEl.classList.remove('hidden');
+      } else {
+        pdEl.classList.add('hidden');
+      }
+    }
     const el = document.getElementById('omegaJamStatus');
     if (!el) return;
     if (omegaCountersJamTimer > 0) {
@@ -4195,7 +4233,20 @@
       }
 
       const distToTarget = Math.abs(m.targetX - m.x);
-      if (distToTarget <= 14) {
+      // LRNA-126-adjacent fix: found while chasing test flakiness. A
+      // missile travels ~vx*dt per tick (dt is clamped to 0.05s max, so
+      // real play sees this too, not just fast-forwarded tests) - for
+      // most warheads that's tens of units per tick, which can exceed
+      // this 14-unit hit radius in a single step. When that happens the
+      // missile's sampled position can skip clean over the target zone
+      // (never landing within 14 units on any exact tick) and then just
+      // keeps flying past it forever, since nothing here previously
+      // expired it by time - unlike planes, which already fall back to
+      // `age >= totalSeconds` for exactly this reason. `targetX` can be
+      // offset up to ~210 units from the real target for a "miss"
+      // flight path, a negligible fraction of a real cross-map flight,
+      // so age alone is an accurate enough fallback.
+      if (distToTarget <= 14 || m.age >= m.totalSeconds) {
         const dest = m.dest;
         // LRNA-126: revalidate the target still exists and is alive, and
         // reroll the hit chance fresh right here at arrival, instead of
@@ -4365,10 +4416,11 @@
     }
     radarLaneTrackEl.innerHTML = html;
   }
+  const CONTACT_LIST_MAX = 20;
   function renderContacts() {
     const relevant = radarContacts();
     let html = '';
-    for (const c of relevant.slice(0, 20)) {
+    for (const c of relevant.slice(0, CONTACT_LIST_MAX)) {
       const tracked = (c.kind === 'missile' && c.id === followId) ? ' tracked' : '';
       html += `<div class="contact-row${tracked}" data-contact="${c.id}" data-kind="${c.kind}">` +
         `<div class="contact-row-main"><span style="color:${c.color}">&#9670;</span>` +
@@ -4378,6 +4430,12 @@
         `</div>`;
     }
     if (!relevant.length) html = '<div style="opacity:0.6;">no active contacts</div>';
+    // LRNA-152: the list used to just drop anything past 20 with zero
+    // indication - during a real wave that reads as contacts randomly
+    // vanishing rather than "there are more than fit here."
+    else if (relevant.length > CONTACT_LIST_MAX) {
+      html += `<div class="contact-overflow">+${relevant.length - CONTACT_LIST_MAX} more contacts not shown</div>`;
+    }
     contactListEl.innerHTML = html;
     renderRadarLaneTrack(relevant);
   }
@@ -5741,7 +5799,8 @@
   let incomingAlertTargetId = null;
   function updateIncomingAlert() {
     if (!incomingAlertEl) return;
-    const target = findInboundEnemyMissiles()[0];
+    const inbound = findInboundEnemyMissiles();
+    const target = inbound[0];
     incomingAlertEl.classList.remove('green', 'yellow', 'red', 'hasThreat');
     if (!target) {
       // LRNA-054: "no inbound threats" is itself a real state (green),
@@ -5754,7 +5813,12 @@
     const remaining = Math.max(0, target.totalSeconds - target.age);
     const tier = remaining > 20 ? 'green' : remaining > 5 ? 'yellow' : 'red';
     incomingAlertEl.classList.add(tier, 'hasThreat');
-    incomingAlertEl.textContent = `INCOMING — ${target.name} [${(target.sizeKey || '').toUpperCase()}] · IMPACT ${formatETA(remaining)}`;
+    // LRNA-150: this used to only ever show the single soonest threat, so
+    // a real wall of missiles read identically to a lone one - the radar
+    // lane already lists every contact in detail, but this banner is the
+    // at-a-glance summary and should reflect volume too.
+    const moreSuffix = inbound.length > 1 ? ` (+${inbound.length - 1} more)` : '';
+    incomingAlertEl.textContent = `INCOMING — ${target.name} [${(target.sizeKey || '').toUpperCase()}] · IMPACT ${formatETA(remaining)}${moreSuffix}`;
     incomingAlertTargetId = target.id;
   }
   incomingAlertEl.addEventListener('click', () => {
@@ -5851,6 +5915,8 @@
       neutralizeAutoDefense() { amNodes.length = 0; loadoutNodes.length = 0; },
       removeMissile(id) { missiles = missiles.filter(m => m.id !== id); },
       setOmegaCounterMissileTimer(v) { omegaCounterMissileTimer = v; },
+      setEmpGlobalJamTimer(v) { empGlobalJamTimer = v; },
+      setOmegaCountersJamTimer(v) { omegaCountersJamTimer = v; },
       // Counter Planes' candidate list (omegaCounterCandidates(true)) also
       // includes plain missiles, not just planes - tests isolating one
       // specific defender need to silence both of Omega's abilities.

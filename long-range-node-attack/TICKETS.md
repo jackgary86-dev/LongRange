@@ -55,49 +55,8 @@ to whoever picks these up.
 
 ## OPEN — Code Quality Issues (Refactoring)
 
-(LRNA-143, LRNA-144, LRNA-146 shipped; LRNA-145 investigated/no bug found - see the resolution log below)
-
-- **LRNA-147** — Magic Numbers Scattered Throughout Code
-  - Issue: No centralized config (ZOOM=0.5, BASE_BLOCK=6, OMEGA_RES=200, etc.)
-  - Problem: Tweaking balance requires editing multiple locations; high refactoring risk
-  - Impact: Inconsistent tuning; easy to introduce bugs
-  - Fix: Create `CONFIG = { ZOOM: 0.5, BASE_BLOCK: 6, ... }` object, reference only that
-
-- **LRNA-148** — Stale Target Selection Across Runs
-  - Issue: `selectedTargetId` can point to destroyed targets; reset to 'O' but 'O' may also be rebuilding
-  - Problem: Rare crash on edge case: select Field Target → destroyed → Omega rebuilds simultaneously
-  - Impact: Very hard to reproduce; crashes unpredictably
-  - Fix: Validate `selectedTargetId` every frame, auto-reset to 'O' if target invalid
-
-- **LRNA-149** — Emergency Counter Cost Buried in Button Text
-  - Issue: Cost shown in button label, not in launch bar header like other abilities
-  - Problem: Players overspend or don't realize cost until too late
-  - Impact: UX confusion; poor feedback
-  - Fix: Extract cost to HUD display (like CLUSTER/EMP/etc.)
-
-- **LRNA-150** — Incoming Alert Doesn't Show All Threats
-  - Issue: Only displays soonest threat; if 5 missiles inbound, alert shows only 1
-  - Problem: Player can't see "wall of missiles" coming
-  - Impact: False sense of threat level; player unprepared
-  - Fix: Show count (e.g., "INCOMING — 5 THREATS") or list top 3
-
-- **LRNA-151** — Double-Jam Visual Confusion
-  - Issue: Two separate jam timers (empGlobalJamTimer + omegaCountersJamTimer); HUD shows only one
-  - Problem: Player can't distinguish which defenses are jammed
-  - Impact: Player doesn't know if Counter Missile will work
-  - Fix: Show separate indicators for "POINT DEFENSE JAMMED" vs "COUNTERS JAMMED"
-
-- **LRNA-152** — Radar Lane Contact List Truncates at 20 Items Silently
-  - Issue: `.slice(0, 20)` drops excess contacts; no indicator that more exist
-  - Problem: Large waves feel mysterious; player doesn't know what's off-list
-  - Impact: Players feel blind during heavy attacks
-  - Fix: Show "20+ contacts" indicator, or implement scrollable list
-
-- **LRNA-153** — Target List Shows "No Targets" Without Warning on Invalid Selection
-  - Issue: If all field targets destroyed, list shows "no targets left"; player's selected target becomes invalid
-  - Problem: Clicking on target list doesn't auto-switch to Omega
-  - Impact: Player expects Omega, list is empty, confusion
-  - Fix: Auto-switch to Omega ('O') when selected target is destroyed
+(All resolved - LRNA-143/144/146/149/150/151/152 shipped, LRNA-145/147/148/153
+investigated with no reproducible bug found - see the resolution log below)
 
 ---
 
@@ -2939,6 +2898,65 @@ Three more followed the same night (#433-435, below).
   bumped from 0.2s (5fps) to 0.05s (20fps), cutting worst-case staleness
   vs. the unthrottled canvas by 4x without rebuilding those DOM lists on
   every single frame.
+
+- **LRNA-147** — Declined. The ticket's own cited examples
+  (`ZOOM`/`BASE_BLOCK`/`OMEGA_RES`) are already named, commented
+  constants near their point of use - not unnamed magic numbers. A
+  `CONFIG` object consolidating ~50+ of these would touch a large
+  fraction of the file for a purely stylistic change, with real risk and
+  likely worse readability (each constant's context comment would either
+  get dropped or pile up disconnected from its usage). No functional bug
+  to fix here.
+
+- **LRNA-148** — Investigated, not reproducing. Every field-target
+  destruction funnels through the single shared `applyDamage()`, whose
+  callers all synchronously reset `selectedTargetId` in the same tick if
+  needed - no async gap, no race window. `getTarget('A'|'O')` always
+  returns a real object, and destroyed field targets stay in
+  `fieldTargets` (never spliced), so `getTarget(selectedTargetId)` never
+  returns null for a previously-valid id either. Could only reproduce the
+  described bad state by directly mutating `.destroyed`, bypassing
+  `applyDamage()` entirely - not a path real gameplay ever takes.
+
+- **LRNA-149** — DONE — Emergency Counter's cost used to only appear
+  embedded in its dynamic status string, vanishing entirely with no
+  target selected. Restructured to the same `.btnLabel`/`.btnEta`/
+  `.btnDmg` markup every sibling ability uses, so "● 150 COUNTER" is now
+  always visible regardless of target state.
+
+- **LRNA-150** — DONE — Incoming alert now appends "(+N more)" when more
+  than one enemy strike is inbound, instead of always reading identically
+  to a single lone threat.
+
+- **LRNA-151** — DONE — Added a separate `#pointDefenseJamStatus` HUD
+  line for `empGlobalJamTimer` ("POINT DEFENSE JAMMED"), distinct from
+  the existing `#omegaJamStatus` line for `omegaCountersJamTimer`
+  ("COUNTERS JAMMED") - previously only the latter had any HUD
+  indicator at all.
+
+- **LRNA-152** — DONE — Contact list now appends "+N more contacts not
+  shown" once the list exceeds its 20-item cap, instead of silently
+  dropping the rest with zero indication.
+
+- **LRNA-153** — Investigated, not reproducing. `renderTargetList()`
+  includes Node Omega whenever `omegaHealth > 0`, and Omega's rebuild
+  runs synchronously in the same tick as the damage that kills it, so
+  there's no observable frame where it's unavailable - the list can
+  never actually render empty. Verified live: destroyed every field
+  target and force-killed Omega in the same tick, list still showed
+  "NODE OMEGA 250/250" as the sole, already-selected row.
+
+- **Missile tunneling past its target (found while chasing LRNA-137 test
+  flakiness, not its own LRNA ticket)** — DONE. Impact resolution only
+  checked `distToTarget <= 14`; a fast missile can cover tens of units
+  per tick (dt is clamped to 0.05s in real play too, not just
+  fast-forwarded tests), so its sampled position could skip clean over
+  the 14-unit hit window without ever landing inside it, then fly past
+  forever - unlike planes, nothing expired it by age. Added the same
+  `age >= totalSeconds` fallback planes already use. Verified with a
+  regression test that deterministically reproduces the exact
+  single-tick overshoot (30 units short, ~48-unit step) rather than
+  relying on the original chance discovery.
 
 ---
 

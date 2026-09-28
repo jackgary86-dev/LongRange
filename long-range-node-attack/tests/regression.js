@@ -582,13 +582,17 @@ test('LRNA-121: ability-bar buttons abbreviate on mobile instead of wrapping/rea
       T.freezeWaves(); // don't let the wave director spawn a second real strike while we fast-forward
       T.neutralizeAutoDefense();
       T.disableOmegaCounters();
-      const strike = T.launchEnemyStrike(T.nodeO, T.nodeA);
-      strike.defended = true; // keep the generic getDefender() auto-defend loop off it too
       // Emergency Counter excludes 'fast' strikes entirely (too little
-      // reaction time by design) - force a non-fast size so this test
-      // isn't at the mercy of pickEnemyStrikeSize()'s RNG roll.
+      // reaction time by design) - launch directly via launchAttack with
+      // an explicit 'medium' override instead of launchEnemyStrike (whose
+      // internal pickEnemyStrikeSize() RNG roll fixes the missile's real
+      // vx/totalSeconds at creation; overwriting strike.sizeKey/
+      // totalSeconds afterward doesn't touch vx, so a random 'fast' roll
+      // would leave the missile physically arriving well before the tick
+      // budget below expects it to, vanishing mid-test).
+      const strike = T.launchAttack(T.nodeO, T.nodeA, 'enemyStrike', T.ENEMY_STRIKE_SIZES.medium);
       strike.sizeKey = 'medium';
-      strike.totalSeconds = T.ENEMY_STRIKE_SIZES.medium.eta;
+      strike.defended = true; // keep the generic getDefender() auto-defend loop off it too
       // Emergency Counter only targets threats within EMERGENCY_WINDOW (5s)
       // of impact - fast-forward close to that without letting it land.
       const steps = Math.round((strike.totalSeconds - 3) / 0.05);
@@ -819,6 +823,165 @@ test('LRNA-146: contact list refreshes at 20fps instead of the old 5fps', async 
       return document.getElementById('contactList').innerHTML;
     });
     assert(result.length > 0, 'contact list should reflect the new inbound strike within 0.06s of the previous render');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-149: Emergency Counter always shows its cost, even with no target', async () => {
+  await withGame(async (page, errors) => {
+    const idle = await page.evaluate(() => {
+      window.__TEST__.updateEmergencyBtn();
+      return document.getElementById('emergencyBtn').textContent;
+    });
+    assert(idle.includes('150') && idle.includes('COUNTER'), `cost should be visible with no target: "${idle}"`);
+
+    const withTarget = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.neutralizeAutoDefense();
+      T.disableOmegaCounters();
+      // launch directly with a fixed 'medium' override (see LRNA-121's
+      // test for why: launchEnemyStrike's internal RNG roll fixes the
+      // missile's real vx from whatever size it happens to pick, so
+      // relabeling sizeKey/totalSeconds afterward without launchAttack
+      // recomputing vx to match risks the missile arriving early).
+      const strike = T.launchAttack(T.nodeO, T.nodeA, 'enemyStrike', T.ENEMY_STRIKE_SIZES.medium);
+      strike.sizeKey = 'medium';
+      strike.defended = true;
+      const steps = Math.round((strike.totalSeconds - 3) / 0.05);
+      for (let i = 0; i < steps; i++) T.tickUpdate(0.05);
+      T.updateEmergencyBtn();
+      return document.getElementById('emergencyBtn').textContent;
+    });
+    assert(withTarget.includes('150') && withTarget.includes('COUNTER'), `cost should still be visible with a target: "${withTarget}"`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-150: incoming alert shows a count when multiple threats are inbound', async () => {
+  await withGame(async (page, errors) => {
+    const solo = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.launchEnemyStrike(T.nodeO, T.nodeA);
+      T.tickUpdate(0.05);
+      return document.getElementById('incomingAlert').textContent;
+    });
+    assert(!solo.includes('more'), `a single inbound threat should not show a "+N more" suffix: "${solo}"`);
+
+    const wall = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.launchEnemyStrike(T.nodeO, T.nodeA);
+      T.launchEnemyStrike(T.nodeO, T.nodeA);
+      T.launchEnemyStrike(T.nodeO, T.nodeA);
+      T.tickUpdate(0.05);
+      return document.getElementById('incomingAlert').textContent;
+    });
+    assert(wall.includes('+3 more'), `4 inbound threats should show "+3 more": "${wall}"`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-151: point-defense jam and counters jam show separate HUD indicators', async () => {
+  await withGame(async (page, errors) => {
+    const neither = await page.evaluate(() => {
+      window.__TEST__.updateOmegaCountersHud();
+      return {
+        pdHidden: document.getElementById('pointDefenseJamStatus').classList.contains('hidden'),
+        cHidden: document.getElementById('omegaJamStatus').classList.contains('hidden'),
+      };
+    });
+    assert(neither.pdHidden && neither.cHidden, 'both indicators should start hidden with nothing jammed');
+
+    const pdOnly = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.setEmpGlobalJamTimer(10);
+      T.updateOmegaCountersHud();
+      return {
+        pdHidden: document.getElementById('pointDefenseJamStatus').classList.contains('hidden'),
+        pdText: document.getElementById('pointDefenseJamStatus').textContent,
+        cHidden: document.getElementById('omegaJamStatus').classList.contains('hidden'),
+      };
+    });
+    assert(!pdOnly.pdHidden, 'point-defense jam should show its own indicator');
+    assert(pdOnly.pdText.includes('POINT DEFENSE'), `should be labeled distinctly: "${pdOnly.pdText}"`);
+    assert(pdOnly.cHidden, 'counters-jam indicator should stay hidden - only point defense is jammed');
+
+    const both = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.setOmegaCountersJamTimer(10);
+      T.updateOmegaCountersHud();
+      return {
+        pdHidden: document.getElementById('pointDefenseJamStatus').classList.contains('hidden'),
+        cHidden: document.getElementById('omegaJamStatus').classList.contains('hidden'),
+        cText: document.getElementById('omegaJamStatus').textContent,
+      };
+    });
+    assert(!both.pdHidden && !both.cHidden, 'both indicators should show when both jams are active simultaneously');
+    assert(both.cText.includes('COUNTERS JAMMED'), `counters indicator should keep its own distinct label: "${both.cText}"`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-152: radar contact list shows an overflow indicator past 20 items', async () => {
+  await withGame(async (page, errors) => {
+    const under = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      for (let i = 0; i < 5; i++) T.launchEnemyStrike(T.nodeO, T.nodeA);
+      T.tickUpdate(0.05);
+      return document.getElementById('contactList').innerHTML;
+    });
+    assert(!under.includes('more contacts'), 'no overflow indicator should show with only 5 contacts');
+
+    const over = await page.evaluate(() => {
+      const T = window.__TEST__;
+      for (let i = 0; i < 20; i++) T.launchEnemyStrike(T.nodeO, T.nodeA);
+      T.tickUpdate(0.05);
+      return {
+        html: document.getElementById('contactList').innerHTML,
+        rowCount: document.querySelectorAll('#contactList .contact-row').length,
+      };
+    });
+    assert(over.html.includes('more contacts not shown'), `25 contacts should show an overflow indicator: missing from html`);
+    assertEqual(over.rowCount, 20, 'should still render exactly the first 20 rows, not more');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-126-adjacent: a missile that tunnels past its 14-unit hit radius in one tick still resolves', async () => {
+  // Found by chance while chasing LRNA-137 test flakiness: a fast enough
+  // missile can move more than the 14-unit hit radius in a single tick
+  // (dt is clamped to 0.05s, and most warheads cover tens of units in
+  // that time), so its sampled position can skip clean over the target
+  // zone and never register <=14 units away on any exact tick - and
+  // unlike planes, nothing used to expire it by age, so it just flew
+  // forever. This reproduces that precisely instead of relying on
+  // chance: position the missile 30 units short of its target with a
+  // single-tick step of ~48 units, guaranteed to jump clean over the
+  // 14-unit window without ever landing inside it.
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.attack = 99999;
+      T.disableOmegaCounters();
+      const before = T.omegaHealth;
+      const m = T.launchAttack(T.nodeA, T.nodeO, 'fast');
+      m.defended = true;
+      m.x = m.targetX - 30; // 30 units short - inside the 48-unit step, outside the 14-unit hit radius
+      m.age = m.totalSeconds - 0.001; // just under the age fallback, so only the distance/age check on the NEXT tick decides this
+      const distBefore = Math.abs(m.targetX - m.x);
+      const realRandom = Math.random;
+      Math.random = () => 0.01; // guarantee the hit-chance reroll succeeds so this isolates the tunneling fix, not HIT_CHANCE
+      T.tickUpdate(0.05); // one tick: covers ~48 units, jumping clean over the 14-unit window
+      const distAfter = Math.abs(m.targetX - m.x);
+      Math.random = realRandom;
+      return { before, after: T.omegaHealth, distBefore, distAfter, stillPresent: T.missiles.some(x => x.id === m.id) };
+    });
+    assert(result.distBefore > 14, `sanity check - should start outside the hit radius: ${result.distBefore}`);
+    assert(result.distAfter > 14, `sanity check - single tick should jump clean over the hit radius, landing outside it again: ${result.distAfter}`);
+    assert(!result.stillPresent, 'missile should resolve (via the age fallback) instead of tunneling past forever');
+    assert(result.after < result.before, `tunneling past the target should not mean it deals no damage: ${result.before} -> ${result.after}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
