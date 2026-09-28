@@ -1,0 +1,11 @@
+{
+  "name": "long-range-node-attack",
+  "private": true,
+  "description": "Regression test harness for the Long Range Node Attack game",
+  "scripts": {
+    "test": "node tests/regression.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1"
+  }
+}

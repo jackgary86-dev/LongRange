@@ -5483,6 +5483,73 @@
       wave: currentWave,
     }));
   }
+
+  // ---- Test harness hook (tests/) ----
+  // Exposes internal state/functions for the Playwright regression suite
+  // under tests/. Only active when explicitly requested (?test=1 in the
+  // URL, or localStorage.lrna_test_mode === '1') so normal play and real
+  // players never see or load this - it costs nothing when TEST_MODE is
+  // false beyond the one-time check below.
+  let TEST_MODE = false;
+  try {
+    TEST_MODE = new URLSearchParams(location.search).get('test') === '1' ||
+      localStorage.getItem('lrna_test_mode') === '1';
+  } catch (e) { /* ignore */ }
+  if (TEST_MODE) {
+    window.__TEST__ = {
+      // -- raw state access (live references/getters, not snapshots) --
+      get missiles() { return missiles; },
+      get particles() { return particles; },
+      get loadoutNodes() { return loadoutNodes; },
+      get amNodes() { return amNodes; },
+      get fieldTargets() { return fieldTargets; },
+      get antiPlaneNodes() { return antiPlaneNodes; },
+      get seekDestroyNodes() { return seekDestroyNodes; },
+      get nodeA() { return nodeA; },
+      get nodeO() { return nodeO; },
+      get tokens() { return tokens; },
+      get omegaHealth() { return omegaHealth; },
+      get omegaInvulnTimer() { return omegaInvulnTimer; },
+      get emergencyCooldown() { return emergencyCooldown; },
+      get running() { return running; },
+      get waveState() { return waveState; },
+
+      // -- deterministic scenario control --
+      freezeWaves() { waveState = 'break'; waveBreakTimer = 1e9; },
+      clearMissiles() { missiles = []; },
+      clearParticles() { particles = []; },
+      neutralizeAutoDefense() { amNodes.length = 0; loadoutNodes.length = 0; },
+      removeMissile(id) { missiles = missiles.filter(m => m.id !== id); },
+      setOmegaCounterMissileTimer(v) { omegaCounterMissileTimer = v; },
+      // Counter Planes' candidate list (omegaCounterCandidates(true)) also
+      // includes plain missiles, not just planes - tests isolating one
+      // specific defender need to silence both of Omega's abilities.
+      disableOmegaCounters() { omegaCounterMissileTimer = 1e6; omegaCounterPlanesTimer = 1e6; },
+
+      // -- direct access to game functions, for precise scenario setup --
+      launchAttack: (origin, dest, typeKey, overrides) => launchAttack(origin, dest, typeKey, overrides),
+      launchEnemyStrike: (origin, dest) => launchEnemyStrike(origin, dest),
+      firePlane: (key) => firePlane(key),
+      fireCounter: (origin, targetId, source) => fireCounter(origin, targetId, source),
+      fireEmergencyCounter: () => fireEmergencyCounter(),
+      findEmergencyTarget: () => findEmergencyTarget(),
+      fireOmegaCounterAt(targetId, hitChance) {
+        fireOmegaCounter(hitChance != null ? hitChance : OMEGA_COUNTER_MISSILE_HIT_CHANCE, targetId);
+        return missiles.filter(m => m.typeKey === 'counter' && m.seekTargetId === targetId).pop() || null;
+      },
+      forceOmegaDamage(dmg) {
+        const justDestroyed = applyDamage(nodeO, nodeO.x, 0, dmg);
+        if (justDestroyed) onOmegaDestroyedForWaves();
+        return justDestroyed;
+      },
+      describeDefender: (m) => describeDefender(m),
+
+      // -- tick internal update loops directly, bypassing real timers --
+      tickUpdate: (dt) => update(dt),
+      tickLoadoutNodes: (dt) => updateLoadoutNodes(dt),
+      tickOmegaCounters: (dt) => updateOmegaCounters(dt),
+    };
+  }
 })();
 </script>
 
