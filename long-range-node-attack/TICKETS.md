@@ -37,6 +37,9 @@ to whoever picks these up.
   (jackgary86-dev/LongRange#59). Follow-up from LRNA-049's Base node
   shipping with the same placeholder dot rendering as the other loadout
   nodes.
+- **ART-7** — Mission Map visuals: full-screen consolidated
+  attack/counter/recon view (jackgary86-dev/LongRange#60). Follow-up
+  from LRNA-084's placeholder zone-strip/counter/recon DOM schematic.
 
 ---
 
@@ -1261,12 +1264,14 @@ Three more followed the same night (#433-435, below).
     specifically, AntiPlane untouched). Shipped as described in the
     DONE line above.
 
-- **LRNA-084** — Remove the Counter Window and SEEK AND DESTROY window as
-  separate pop-up overlays; consolidate into one main screen showing the
-  attack/counter/recon map. Direct request: "Remove the two side window
-  Counter and Intel stuff - just make it one main screen for now that
-  shows the attack/counter/recon map." Explicitly a ticket only, not to
-  be built this pass.
+- **LRNA-084** — DONE (2026-09-28) — Remove the Counter Window and SEEK
+  AND DESTROY window as separate pop-up overlays; consolidate into one
+  main screen showing the attack/counter/recon map. Direct request:
+  "Remove the two side window Counter and Intel stuff - just make it
+  one main screen for now that shows the attack/counter/recon map."
+  Originally noted as "a ticket only, not to be built this pass" - built
+  this pass instead, once the 4 open questions below got asked and
+  answered directly rather than guessed at.
   - **What exists today, concretely** (so the removal is scoped against
     the real UI, not guessed at): two separate full-panel overlays, each
     hidden by default and opened on demand, both built the same way the
@@ -1318,6 +1323,60 @@ Three more followed the same night (#433-435, below).
       direct-request change), or does the new main screen's counter view
       serve the same "see my side + the threat before firing" purpose
       `LRNA-051` was built for?
+  - **Resolved directly (2026-09-28), each of the above answered in
+    turn rather than guessed at:** a genuine new full-screen map view
+    that replaces the main canvas area while open (not folded into the
+    always-on HUD); "recon map" means a new literal top-down zone map,
+    reusing `LRNA-080`'s own 3 recon zones as the same visual surface
+    rather than building a second, different recon UI; the Operations
+    Center panel stays separate (only its Intelligence section's entry
+    point got rewired to the new screen, renamed OPEN MISSION MAP); and
+    the new screen's counter section keeps `LRNA-051`'s "see my side +
+    the threat before firing" purpose - COUNTER MISSILE does not go
+    back to firing instantly.
+    - Shipped as `#missionMapWindow`: a single full-viewport overlay
+      (`position:absolute; inset:0`) opened from either of the two old
+      entry points (the COUNTER MISSILE button, Ops Center's mission-map
+      button), covering the battlefield canvas while open. `#bottomBar`
+      (minimap + the always-on ability bar) is explicitly kept above it
+      in z-index, so attack/counter/intel buttons stay usable while
+      looking at the map - matching `LRNA-074`'s "all 3 pillars always
+      available" precedent rather than turning this into a blocking
+      modal.
+    - The zone strip (`#missionMapStripTrack`) is a plain DOM/CSS
+      schematic - Strike Platform and Node Omega at each end, the 3
+      SEEK AND DESTROY zones and any discovered AntiPlane nodes placed
+      by real world-x position along it, plus the live inbound threat if
+      one exists. Not a second canvas renderer, same deliberate
+      simplification both replaced windows already used. Placeholder
+      visuals only - `ART-7` is the follow-up, matching `ART-5`/`ART-6`'s
+      precedent of shipping the mechanic before the polish.
+    - The Counter and Intel sections below the strip are the old
+      windows' own content ported over near-verbatim (health bar/threat
+      countdown/FIRE/HOLD FIRE; located-neutralized status/node list/
+      RECON DRONE), just embedded in the page instead of floating cards.
+    - One real behavior change, required by the merge rather than
+      guessed at: the old Counter Window auto-closed itself the instant
+      its one inbound threat resolved, since it had nothing else to
+      show. Mission Map always has the recon section and zone strip to
+      show even with nothing inbound, so it no longer auto-closes on
+      that condition, and firing FIRE COUNTER MISSILE no longer closes
+      the whole screen either - the point of a persistent "one main
+      screen" is to stay on it.
+    - Covered by 4 new regression tests (both entry points open the same
+      screen and the old windows' ids are gone from the DOM; the zone
+      strip's bands/markers match real zone bounds and node positions
+      and respect the hidden-until-discovered rule; discovery updates
+      the strip live). While fixing these, also found and fixed a real
+      pre-existing flake in an unrelated LRNA-080 test (~30% failure
+      rate, reproduced and root-caused with a standalone diagnostic
+      script): it read the live enemy-strike missile count at the end of
+      a fixed 20s window, which loses the race against the default
+      loadout's own defenses destroying Wave 1's few early strikes
+      before Wave 2's break period ends - switched to a new
+      `waveStrikesLaunched` test hook that checks the wave director's
+      own launch counter instead, immune to that timing. Full suite
+      (40 tests) verified stable across 15+ repeated runs after the fix.
 
 - **LRNA-065** — DONE (accepting its own stated default resolution,
   2026-09-28) — Build genuine two-player Attacker vs Defender play - the

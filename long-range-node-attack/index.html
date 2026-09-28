@@ -496,33 +496,9 @@
   }
   #waveResultClose:hover { background: rgba(255,90,54,0.22); }
 
-  /* Counter Missile Intercept window (LRNA-051, scoped down): a real
-     second overlay opened by the Counter Missile button instead of
-     firing instantly - a focused view of the player's own base and the
-     inbound threat, not a full duplicate battlefield renderer. */
-  #counterWindow {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 12;
-    background: rgba(4,10,18,0.96);
-    border: 1px solid #4a7a94;
-    padding: 16px 20px;
-    font-family: "Courier New", ui-monospace, monospace;
-    width: min(340px, calc(100vw - 24px));
-    backdrop-filter: blur(3px);
-  }
-  #counterWindow.hidden { display: none; }
-  #counterWindowBase, #counterWindowThreat {
-    font-size: 10px; letter-spacing: 1px; margin-top: 10px; opacity: 0.9;
-  }
-  #counterWindowThreatName { color: #ff8a5c; font-size: 11px; margin-bottom: 4px; }
-  #counterWindowThreatStats { font-size: 9px; opacity: 0.75; line-height: 1.5; }
-  #counterWindowActions { display: flex; gap: 8px; margin-top: 16px; }
-  #counterWindowActions .upgradeBtn { flex: 1; text-align: center; }
-
-  /* Counter Attack Planes window - same layout/status-panel pattern as
-     #counterWindow above, just listing up to 2 threats instead of 1. */
+  /* Counter Attack Planes window - same layout/status-panel pattern the
+     old Counter Missile window used (see #missionMapWindow below for
+     where that one went), just listing up to 2 threats instead of 1. */
   #counterPlanesWindow {
     position: absolute;
     top: 50%; left: 50%;
@@ -545,26 +521,59 @@
   #counterPlanesWindowActions { display: flex; gap: 8px; margin-top: 16px; }
   #counterPlanesWindowActions .upgradeBtn { flex: 1; text-align: center; }
 
-  /* SEEK AND DESTROY window (LRNA-063, scoped MVP): opened from the
-     Intelligence panel - shows the enemy's hidden node roster as a
-     status list (not a duplicate battlefield renderer, same
-     simplification as the Counter Window). */
-  #seekDestroyWindow {
+  /* Mission Map (LRNA-084): replaces the old Counter Missile Intercept
+     window (LRNA-051) and SEEK AND DESTROY window (LRNA-063) with the
+     "one main screen ... shows the attack/counter/recon map" the direct
+     request asked for. A genuine full-screen view (`inset: 0`), not
+     another small centered card - it takes over the battlefield canvas
+     area while it's open. #bottomBar's z-index is bumped above this
+     one (see #bottomBar below) so the always-on ability bar/minimap
+     stay visible and usable on top of it, same as LRNA-074's "all 3
+     pillars always available" precedent - looking at the map shouldn't
+     block acting on it. Still a status-panel/DOM layout, not a second
+     canvas renderer - same deliberate simplification both windows this
+     replaces already used. */
+  #missionMapWindow {
     position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
+    inset: 0;
     z-index: 12;
-    background: rgba(10,4,4,0.96);
-    border: 1px solid #7a3a2a;
-    padding: 16px 20px;
+    background: rgba(4,10,18,0.97);
     font-family: "Courier New", ui-monospace, monospace;
-    width: min(360px, calc(100vw - 24px));
-    max-height: min(480px, calc(100vh - 24px));
     overflow-y: auto;
+    padding: 16px 20px 110px;
     backdrop-filter: blur(3px);
   }
-  #seekDestroyWindow.hidden { display: none; }
-  #seekDestroyStatus { font-size: 9.5px; opacity: 0.75; margin-bottom: 10px; letter-spacing: 1px; }
+  #missionMapWindow.hidden { display: none; }
+  #missionMapBase, #missionMapThreat {
+    font-size: 10px; letter-spacing: 1px; margin-top: 10px; opacity: 0.9;
+  }
+  #missionMapThreatName { color: #ff8a5c; font-size: 11px; margin-bottom: 4px; }
+  #missionMapThreatStats { font-size: 9px; opacity: 0.75; line-height: 1.5; }
+  #missionMapCounterActions { display: flex; gap: 8px; margin-top: 16px; }
+  #missionMapCounterActions .upgradeBtn { flex: 1; text-align: center; }
+  #missionMapReconStatus { font-size: 9.5px; opacity: 0.75; margin-bottom: 10px; letter-spacing: 1px; }
+  #missionMapCounterSection, #missionMapReconSection { max-width: 480px; margin: 0 auto 18px; }
+
+  /* The top-down zone strip: Strike Platform on the left, Node Omega on
+     the right, the 3 SEEK AND DESTROY recon zones and any discovered
+     AntiPlane nodes placed along it by real world-x position (same
+     nodeA.x..nodeO.x span the battlefield itself uses), plus the live
+     inbound threat if one exists. Placeholder rendering only (ART-7 is
+     the follow-up for real visual treatment, matching ART-5/ART-6's
+     precedent for gameplay-first builds in this pass) - deliberately
+     plain so the underlying data (zone bounds, discovery state) is easy
+     to verify against, both by eye and in tests. */
+  #missionMapStrip { display: flex; align-items: center; gap: 10px; max-width: 700px; margin: 14px auto 22px; }
+  .missionMapStripEnd { font-size: 8.5px; letter-spacing: 1px; opacity: 0.85; width: 70px; flex-shrink: 0; text-align: center; line-height: 1.3; }
+  #missionMapStripTrack { position: relative; flex: 1; height: 22px; background: rgba(255,255,255,0.05); border: 1px solid #345; }
+  #missionMapZones, #missionMapMarkers { position: absolute; inset: 0; }
+  .missionMapZone { position: absolute; top: 0; bottom: 0; background: rgba(140,140,140,0.28); border-left: 1px solid rgba(255,255,255,0.18); border-right: 1px solid rgba(255,255,255,0.18); }
+  .missionMapZone.discovered { background: rgba(255,90,54,0.4); }
+  .missionMapZone.neutralized { background: rgba(123,255,160,0.35); }
+  .missionMapMarker { position: absolute; top: 50%; width: 6px; height: 6px; border-radius: 50%; transform: translate(-50%, -50%); background: #ff5a36; }
+  .missionMapMarker.neutralized { background: #7bffa0; }
+  #missionMapThreatMarker { position: absolute; top: 50%; width: 8px; height: 8px; transform: translate(-50%, -50%) rotate(45deg); background: #ffe066; }
+  #missionMapThreatMarker.hidden { display: none; }
 
   #targetLabel {
     text-align: center;
@@ -583,7 +592,12 @@
   #bottomBar {
     position: absolute;
     left: 0; right: 0; bottom: 0;
-    z-index: 4;
+    /* LRNA-084: above #missionMapWindow's z-index (12) - that overlay is
+       full-screen now (it used to be a small centered card neither of
+       the windows it replaced actually overlapped this bar with), so
+       the ability bar needs to explicitly out-rank it to stay visible
+       and clickable while Mission Map is open. */
+    z-index: 13;
   }
   #launchBar {
     background: rgba(3,12,7,0.88);
@@ -915,7 +929,7 @@
         <button id="reconDroneBtn" class="upgradeBtn">5&#9679; INTEL</button>
       </div>
       <div id="knownThreatsList"></div>
-      <button id="seekDestroyOpenBtn" class="upgradeBtn" style="width:100%; margin-top:8px;">OPEN SEEK AND DESTROY</button>
+      <button id="missionMapOpenBtn" class="upgradeBtn" style="width:100%; margin-top:8px;">OPEN MISSION MAP</button>
     </div>
     <div class="opsSection upgrades">
       <h3>REACTOR UPGRADES</h3>
@@ -935,26 +949,6 @@
     <button id="waveResultClose">RETURN TO START</button>
   </div>
 
-  <div id="counterWindow" class="hidden">
-    <div class="opsHeader">
-      <h3 style="margin:0; border:none; padding:0; color:#c6e8ff;">COUNTER MISSILE INTERCEPT</h3>
-      <span class="opsClose" id="counterWindowClose">&#10005;</span>
-    </div>
-    <div id="counterWindowBase">
-      STRIKE PLATFORM <span id="counterWindowBaseHp">250</span>/250
-      <div class="barOuter"><div class="barInner" id="counterWindowBaseBar" style="background:var(--green)"></div></div>
-    </div>
-    <div id="counterWindowThreat">
-      <div id="counterWindowThreatName">no inbound threat</div>
-      <div id="counterWindowThreatStats"></div>
-      <div class="barOuter"><div class="barInner" id="counterWindowThreatBar" style="background:var(--red)"></div></div>
-    </div>
-    <div id="counterWindowActions">
-      <button id="counterWindowFire" class="upgradeBtn">FIRE COUNTER MISSILE — 500&#9679; COUNTER</button>
-      <button id="counterWindowCancel" class="upgradeBtn" style="border-color:#666; color:#aaa;">HOLD FIRE</button>
-    </div>
-  </div>
-
   <div id="counterPlanesWindow" class="hidden">
     <div class="opsHeader">
       <h3 style="margin:0; border:none; padding:0; color:#8fd8ff;">COUNTER ATTACK PLANES</h3>
@@ -971,17 +965,55 @@
     </div>
   </div>
 
-  <div id="seekDestroyWindow" class="hidden">
+  <!-- LRNA-084: replaces the old separate Counter Window and SEEK AND
+       DESTROY window with the "one main screen" the direct request asked
+       for - a real full-screen map view (not a small centered card like
+       the two windows it replaces), covering attack/counter/recon
+       together rather than requiring two different popups for two of
+       the three pillars. Opened from either of that content's old entry
+       points (COUNTER MISSILE button, Ops Center's mission-map button) -
+       both now land on this same screen. -->
+  <div id="missionMapWindow" class="hidden">
     <div class="opsHeader">
-      <h3 style="margin:0; border:none; padding:0; color:#ff5a36;">SEEK AND DESTROY</h3>
-      <span class="opsClose" id="seekDestroyClose">&#10005;</span>
+      <h3 style="margin:0; border:none; padding:0; color:#c6e8ff;">MISSION MAP</h3>
+      <span class="opsClose" id="missionMapClose">&#10005;</span>
     </div>
-    <div id="seekDestroyStatus">0/3 located · 0/3 neutralized</div>
-    <div class="upgrade-row">
-      <span class="upgrade-name">RECON DRONE<br><span class="upgrade-desc">Locate the 3 hidden nodes</span></span>
-      <button id="seekDestroyReconBtn" class="upgradeBtn">5&#9679; INTEL</button>
+    <div id="missionMapStrip">
+      <div class="missionMapStripEnd">STRIKE<br>PLATFORM</div>
+      <div id="missionMapStripTrack">
+        <div id="missionMapZones"></div>
+        <div id="missionMapMarkers"></div>
+        <div id="missionMapThreatMarker" class="hidden"></div>
+      </div>
+      <div class="missionMapStripEnd">NODE<br>OMEGA</div>
     </div>
-    <div id="seekDestroyList"></div>
+
+    <div class="opsSection" id="missionMapCounterSection">
+      <h3 style="color:#c6e8ff;">COUNTER</h3>
+      <div id="missionMapBase">
+        STRIKE PLATFORM <span id="missionMapBaseHp">250</span>/250
+        <div class="barOuter"><div class="barInner" id="missionMapBaseBar" style="background:var(--green)"></div></div>
+      </div>
+      <div id="missionMapThreat">
+        <div id="missionMapThreatName">no inbound threat</div>
+        <div id="missionMapThreatStats"></div>
+        <div class="barOuter"><div class="barInner" id="missionMapThreatBar" style="background:var(--red)"></div></div>
+      </div>
+      <div id="missionMapCounterActions">
+        <button id="missionMapFire" class="upgradeBtn">FIRE COUNTER MISSILE — 500&#9679; COUNTER</button>
+        <button id="missionMapCancel" class="upgradeBtn" style="border-color:#666; color:#aaa;">HOLD FIRE</button>
+      </div>
+    </div>
+
+    <div class="opsSection" id="missionMapReconSection">
+      <h3 style="color:#ff5a36;">RECON — SEEK AND DESTROY</h3>
+      <div id="missionMapReconStatus">0/3 located · 0/3 neutralized</div>
+      <div class="upgrade-row">
+        <span class="upgrade-name">RECON DRONE<br><span class="upgrade-desc">Locate the 3 hidden nodes</span></span>
+        <button id="missionMapReconBtn" class="upgradeBtn">5&#9679; INTEL</button>
+      </div>
+      <div id="missionMapReconList"></div>
+    </div>
   </div>
 
   <div id="bottomBar">
@@ -1199,69 +1231,13 @@
   const counterMissileEtaEl = document.getElementById('counterMissileEta');
   counterMissileBtnEl.addEventListener('click', () => {
     if (!running) return;
-    openCounterWindow();
+    openMissionMap();
   });
 
   // LRNA-121: below this width, the ability-bar buttons are narrow enough
   // that the full desktop label/stat text wraps across 2-3 lines and reads
   // as cut off - swap to short forms instead of just shrinking the font.
   function isMobileViewport() { return window.matchMedia('(max-width: 560px)').matches; }
-
-  // ---- Counter Missile Intercept window (LRNA-051, scoped down): the
-  // Counter Missile button now opens a focused overlay - the player's own
-  // base plus the live inbound threat - instead of firing instantly, per
-  // direct confirmation ("The Counter Missile Button now opens to a
-  // counter mission page... I open to only see MY SIDE of the map and the
-  // incoming threat"). Deliberately a stat/status panel, not a duplicate
-  // battlefield canvas renderer - same pattern the Operations Center
-  // already uses. The undefined "weapon stat card" formula and the full
-  // Counter Weapons roster from the reference mockup are out of scope
-  // here (still need their own definition before building).
-  let counterWindowOpen = false;
-  const counterWindowEl = document.getElementById('counterWindow');
-  const counterWindowCloseBtn = document.getElementById('counterWindowClose');
-  const counterWindowCancelBtn = document.getElementById('counterWindowCancel');
-  const counterWindowFireBtn = document.getElementById('counterWindowFire');
-  const counterWindowBaseHpEl = document.getElementById('counterWindowBaseHp');
-  const counterWindowBaseBarEl = document.getElementById('counterWindowBaseBar');
-  const counterWindowThreatNameEl = document.getElementById('counterWindowThreatName');
-  const counterWindowThreatStatsEl = document.getElementById('counterWindowThreatStats');
-  const counterWindowThreatBarEl = document.getElementById('counterWindowThreatBar');
-
-  function openCounterWindow() {
-    counterWindowOpen = true;
-    counterWindowEl.classList.remove('hidden');
-    renderCounterWindow();
-  }
-  function closeCounterWindow() {
-    counterWindowOpen = false;
-    counterWindowEl.classList.add('hidden');
-  }
-  function renderCounterWindow() {
-    counterWindowBaseHpEl.textContent = Math.max(0, Math.round(nodeA.health));
-    counterWindowBaseBarEl.style.width = Math.max(0, nodeA.health / PLAYER_MAX_HEALTH * 100) + '%';
-    const target = findInboundEnemyMissiles()[0];
-    if (!target) {
-      // the threat this window was opened for resolved (destroyed, or hit)
-      // while it was open - nothing left to intercept, so close it rather
-      // than sit on a stale view.
-      closeCounterWindow();
-      return;
-    }
-    const remaining = Math.max(0, target.totalSeconds - target.age);
-    counterWindowThreatNameEl.textContent = `${target.name} [${(target.sizeKey || '').toUpperCase()}]`;
-    counterWindowThreatStatsEl.textContent =
-      `SPD ${Math.round(Math.abs(target.vx))} · IMPACT ${formatETA(remaining)}`;
-    counterWindowThreatBarEl.style.width = Math.max(0, Math.min(100, remaining / target.totalSeconds * 100)) + '%';
-    counterWindowFireBtn.disabled = tokens.counter < COUNTER_MISSILE_COST;
-  }
-  counterWindowFireBtn.addEventListener('click', () => {
-    if (!running || !counterWindowOpen) return;
-    fireCounterMissile();
-    closeCounterWindow();
-  });
-  counterWindowCancelBtn.addEventListener('click', closeCounterWindow);
-  counterWindowCloseBtn.addEventListener('click', closeCounterWindow);
 
   // ---- Counter Attack Planes window: same status-panel pattern as the
   // Counter Missile window above, listing up to 2 inbound threats
@@ -1333,27 +1309,83 @@
   // drone finds them) with a per-node ATTACK button once discovered -
   // same interaction pattern as the Intelligence panel's known-threats
   // list (LRNA-039), just against seekDestroyNodes instead of
-  // antiPlaneNodes. Not a duplicate battlefield renderer, same
-  // simplification as the Counter Window (LRNA-051).
-  let seekDestroyWindowOpen = false;
-  const seekDestroyWindowEl = document.getElementById('seekDestroyWindow');
-  const seekDestroyOpenBtnEl = document.getElementById('seekDestroyOpenBtn');
-  const seekDestroyCloseBtnEl = document.getElementById('seekDestroyClose');
-  const seekDestroyReconBtnEl = document.getElementById('seekDestroyReconBtn');
-  const seekDestroyStatusEl = document.getElementById('seekDestroyStatus');
-  const seekDestroyListEl = document.getElementById('seekDestroyList');
+  // antiPlaneNodes.
+  //
+  // LRNA-084: this used to be its own SEEK AND DESTROY window
+  // (LRNA-063), and the Counter Missile Intercept window (LRNA-051) was
+  // a separate thing entirely. Direct request: "Remove the two side
+  // window Counter and Intel stuff - just make it one main screen for
+  // now that shows the attack/counter/recon map." Both are merged into
+  // one #missionMapWindow below, opened from either of the two old
+  // entry points (the COUNTER MISSILE button, and this Ops Center
+  // button). Not a duplicate battlefield renderer, same simplification
+  // both replaced windows already used - the zone strip (see the CSS
+  // comment on #missionMapWindow) is a plain DOM/CSS schematic, not a
+  // second canvas.
+  //
+  // One real behavior change from the old windows, required by the
+  // merge rather than guessed at: the old Counter Window auto-closed
+  // itself the instant its one inbound threat resolved (destroyed, or
+  // hit home) while open, since it had nothing else to show. Mission
+  // Map always has the recon section and zone strip to show even with
+  // no threat inbound, so it no longer closes on that condition -
+  // renderMissionMapCounter() just falls back to "no inbound threat"
+  // instead. Firing FIRE COUNTER MISSILE also no longer auto-closes the
+  // whole screen the way the old window did (it stays open, refreshed) -
+  // the point of a persistent "one main screen" is to stay on it, not
+  // to keep popping back out after every counter action.
+  let missionMapOpen = false;
+  const missionMapWindowEl = document.getElementById('missionMapWindow');
+  const missionMapOpenBtnEl = document.getElementById('missionMapOpenBtn');
+  const missionMapCloseBtnEl = document.getElementById('missionMapClose');
+  const missionMapFireBtnEl = document.getElementById('missionMapFire');
+  const missionMapCancelBtnEl = document.getElementById('missionMapCancel');
+  const missionMapBaseHpEl = document.getElementById('missionMapBaseHp');
+  const missionMapBaseBarEl = document.getElementById('missionMapBaseBar');
+  const missionMapThreatNameEl = document.getElementById('missionMapThreatName');
+  const missionMapThreatStatsEl = document.getElementById('missionMapThreatStats');
+  const missionMapThreatBarEl = document.getElementById('missionMapThreatBar');
+  const missionMapReconBtnEl = document.getElementById('missionMapReconBtn');
+  const missionMapReconStatusEl = document.getElementById('missionMapReconStatus');
+  const missionMapReconListEl = document.getElementById('missionMapReconList');
+  const missionMapZonesEl = document.getElementById('missionMapZones');
+  const missionMapMarkersEl = document.getElementById('missionMapMarkers');
+  const missionMapThreatMarkerEl = document.getElementById('missionMapThreatMarker');
 
-  function openSeekDestroyWindow() {
-    seekDestroyWindowOpen = true;
-    seekDestroyWindowEl.classList.remove('hidden');
-    renderSeekDestroy();
+  function openMissionMap() {
+    missionMapOpen = true;
+    missionMapWindowEl.classList.remove('hidden');
+    renderMissionMap();
   }
-  function closeSeekDestroyWindow() {
-    seekDestroyWindowOpen = false;
-    seekDestroyWindowEl.classList.add('hidden');
+  function closeMissionMap() {
+    missionMapOpen = false;
+    missionMapWindowEl.classList.add('hidden');
   }
-  function renderSeekDestroy() {
-    if (!seekDestroyListEl) return;
+  function renderMissionMap() {
+    renderMissionMapCounter();
+    renderMissionMapRecon();
+    renderMissionMapStrip();
+  }
+  function renderMissionMapCounter() {
+    missionMapBaseHpEl.textContent = Math.max(0, Math.round(nodeA.health));
+    missionMapBaseBarEl.style.width = Math.max(0, nodeA.health / PLAYER_MAX_HEALTH * 100) + '%';
+    const target = findInboundEnemyMissiles()[0];
+    if (!target) {
+      missionMapThreatNameEl.textContent = 'no inbound threat';
+      missionMapThreatStatsEl.textContent = '';
+      missionMapThreatBarEl.style.width = '0%';
+      missionMapFireBtnEl.disabled = true;
+      return;
+    }
+    const remaining = Math.max(0, target.totalSeconds - target.age);
+    missionMapThreatNameEl.textContent = `${target.name} [${(target.sizeKey || '').toUpperCase()}]`;
+    missionMapThreatStatsEl.textContent =
+      `SPD ${Math.round(Math.abs(target.vx))} · IMPACT ${formatETA(remaining)}`;
+    missionMapThreatBarEl.style.width = Math.max(0, Math.min(100, remaining / target.totalSeconds * 100)) + '%';
+    missionMapFireBtnEl.disabled = tokens.counter < COUNTER_MISSILE_COST;
+  }
+  function renderMissionMapRecon() {
+    if (!missionMapReconListEl) return;
     let found = 0, neutralized = 0, html = '';
     for (const n of seekDestroyNodes) {
       if (n.discovered) found++;
@@ -1368,25 +1400,60 @@
       const desc = n.destroyed ? 'Neutralized' : `${Math.max(0, Math.round(n.health))}/${n.maxHealth} hp`;
       html += `<div class="upgrade-row"><span class="upgrade-name">${n.name}<br><span class="upgrade-desc">${desc}</span></span>${action}</div>`;
     }
-    seekDestroyStatusEl.textContent = `${found}/3 located · ${neutralized}/3 neutralized`;
-    seekDestroyListEl.innerHTML = html;
+    missionMapReconStatusEl.textContent = `${found}/3 located · ${neutralized}/3 neutralized`;
+    missionMapReconListEl.innerHTML = html;
   }
-  seekDestroyOpenBtnEl.addEventListener('click', () => {
+  // The zone strip: real world-x positions (the same nodeA.x..nodeO.x
+  // span the battlefield canvas itself uses) mapped to a 0-100% track.
+  // SEEK AND DESTROY zone bounds are always shown once the map is open
+  // (that's the whole point of a scannable zone, LRNA-080) - only the
+  // exact node inside stays hidden until discovered. AntiPlane markers
+  // only appear once discovered - showing an undiscovered one's exact x
+  // would leak the one thing recon is supposed to protect.
+  function missionMapPct(x) {
+    return Math.max(0, Math.min(100, (x - nodeA.x) / (nodeO.x - nodeA.x) * 100));
+  }
+  function renderMissionMapStrip() {
+    if (!missionMapZonesEl) return;
+    missionMapZonesEl.innerHTML = seekDestroyNodes.map(n => {
+      const cls = n.destroyed ? 'neutralized' : (n.discovered ? 'discovered' : '');
+      const left = missionMapPct(n.zoneStart), right = missionMapPct(n.zoneEnd);
+      return `<div class="missionMapZone ${cls}" style="left:${left}%; width:${right - left}%;" title="${n.discovered ? n.name : 'UNKNOWN NODE'}"></div>`;
+    }).join('');
+    missionMapMarkersEl.innerHTML = antiPlaneNodes
+      .filter(ap => ap.discovered)
+      .map(ap => `<div class="missionMapMarker ${ap.destroyed ? 'neutralized' : ''}" style="left:${missionMapPct(ap.x)}%;" title="${ap.name}"></div>`)
+      .join('');
+    const target = findInboundEnemyMissiles()[0];
+    if (target) {
+      missionMapThreatMarkerEl.classList.remove('hidden');
+      missionMapThreatMarkerEl.style.left = missionMapPct(target.x) + '%';
+    } else {
+      missionMapThreatMarkerEl.classList.add('hidden');
+    }
+  }
+  missionMapOpenBtnEl.addEventListener('click', () => {
     if (!running) return;
     setOpsCenterOpen(false);
-    openSeekDestroyWindow();
+    openMissionMap();
   });
-  seekDestroyCloseBtnEl.addEventListener('click', closeSeekDestroyWindow);
-  seekDestroyReconBtnEl.addEventListener('click', () => {
+  missionMapCloseBtnEl.addEventListener('click', closeMissionMap);
+  missionMapCancelBtnEl.addEventListener('click', closeMissionMap);
+  missionMapFireBtnEl.addEventListener('click', () => {
+    if (!running || !missionMapOpen) return;
+    fireCounterMissile();
+    renderMissionMap();
+  });
+  missionMapReconBtnEl.addEventListener('click', () => {
     if (!running) return;
     attemptFire('drone');
     updateReconDroneBtn();
   });
-  seekDestroyListEl.addEventListener('click', (e) => {
+  missionMapReconListEl.addEventListener('click', (e) => {
     const btn = e.target.closest('.upgradeBtn');
     if (!btn || btn.disabled || !running) return;
     fireAttackDrone(btn.dataset.sd);
-    renderSeekDestroy();
+    renderMissionMapRecon();
   });
 
   // ---- Intelligence panel (LRNA-039): LAUNCH RECON DRONE reuses the exact
@@ -2246,7 +2313,7 @@
         // coins - the only reward left is the flat passive rate plus
         // DMG_TO_COIN_RATIO on an actual landed hit.
         renderIntel();
-        renderSeekDestroy();
+        renderMissionMapRecon();
         checkOpeningUnlock(); // LRNA-080
       }
     }
@@ -2866,9 +2933,8 @@
 
   function reset(initial) {
     if (siegeActive) { siegeActive = false; siegeTimerEl.classList.add('hidden'); }
-    closeCounterWindow();
+    closeMissionMap();
     closeCounterPlanesWindow();
-    closeSeekDestroyWindow();
     missiles = [];
     particles = [];
     launchRings = [];
@@ -2917,7 +2983,7 @@
     renderUpgrades();
     updateModeStatus();
     renderIntel();
-    renderSeekDestroy();
+    renderMissionMapRecon();
     updateOpeningLockUi(); // LRNA-080
   }
 
@@ -2940,7 +3006,6 @@
     updateCounterMissileBtn();
     updateReconDroneBtn();
     renderIntel();
-    if (seekDestroyWindowOpen) renderSeekDestroy();
   }
 
   const statsListEl = document.getElementById('statsList');
@@ -3483,7 +3548,7 @@
         spawnFloatText(target.x, target.y - 40, `RECON: ${target.name}`, '#9fffcf');
         spawnBurst(target.x, target.y, '#9fffcf', 16);
         renderIntel();
-        renderSeekDestroy();
+        renderMissionMapRecon();
         checkOpeningUnlock(); // LRNA-080
       }
       return;
@@ -3545,7 +3610,7 @@
     missiles.push(missile);
     spawnLaunchFx(nodeA.x, nodeA.y + lane, t.color, 'attackDrone');
     renderIntel();
-    renderSeekDestroy();
+    renderMissionMapRecon();
     return missile;
   }
 
@@ -4138,7 +4203,7 @@
             }
             earnTokens('attack', Math.round(ATTACK_DRONE_DAMAGE * DMG_TO_COIN_RATIO), ap.x, ap.y - 24);
             renderIntel();
-            renderSeekDestroy();
+            renderMissionMapRecon();
           } else {
             sfxMiss();
             spawnBurst(m.x, vh() / 2 + m.laneY, '#8a8a7a', 14);
@@ -4407,7 +4472,7 @@
     // (the REINFORCED HULL upgrade, which only ever bought +regen, is
     // removed along with it - nothing else it did).
     updateHud();
-    if (counterWindowOpen) renderCounterWindow();
+    if (missionMapOpen) renderMissionMap();
     if (counterPlanesWindowOpen) renderCounterPlanesWindow();
 
     tokens.attack += TOKEN_PASSIVE_RATE * dt;
@@ -6020,6 +6085,10 @@
       get UI_DISABLED_TYPES() { return UI_DISABLED_TYPES; },
       get openingLocked() { return openingLocked; },
       forceOpeningUnlock() { openingLocked = false; updateOpeningLockUi(); },
+      get missionMapOpen() { return missionMapOpen; },
+      openMissionMap: () => openMissionMap(),
+      closeMissionMap: () => closeMissionMap(),
+      missionMapPct: (x) => missionMapPct(x),
       checkOpeningUnlock: () => checkOpeningUnlock(),
       updateTurnHud: () => updateTurnHud(),
       updatePlaneButtons: () => updatePlaneButtons(),
@@ -6054,6 +6123,7 @@
       firePlane: (key) => firePlane(key),
       startWave: (n) => startWave(n),
       get waveIsElite() { return waveIsElite; },
+      get waveStrikesLaunched() { return waveStrikesLaunched; },
       get currentWave() { return currentWave; },
       get ENEMY_STRIKE_SIZES() { return ENEMY_STRIKE_SIZES; },
       fireCounter: (origin, targetId, source) => fireCounter(origin, targetId, source),

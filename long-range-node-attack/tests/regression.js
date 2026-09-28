@@ -1050,13 +1050,21 @@ test('LRNA-080: discovering a hidden node unlocks the opening and Wave 1 begins'
         locked: T.openingLocked,
         bannerHidden: document.getElementById('openingLockedBanner').classList.contains('hidden'),
         beforeAttack, afterAttack,
-        strikesAfterUnlock: T.missiles.filter(m => m.typeKey === 'enemyStrike').length,
+        // LRNA-080/flake fix: checking live missile count at the end of a
+        // fixed window is a race against the default loadout's own
+        // defenses - they can (and, ~30% of the time in practice, do)
+        // destroy all of Wave 1's few early strikes well before the
+        // window ends, with Wave 2's 10s break not yet over either,
+        // leaving a real but momentary 0 with nothing wrong. Checking
+        // the wave director's own launch counter instead is immune to
+        // that timing - it only asks "did a strike ever launch."
+        waveStrikesLaunched: T.waveStrikesLaunched,
       };
     });
     assert(!result.locked, 'opening should no longer be locked');
     assert(result.bannerHidden, 'recon-required banner should hide once unlocked');
     assertEqual(result.afterAttack - result.beforeAttack, 1, 'attack-pillar attemptFire should work once unlocked');
-    assert(result.strikesAfterUnlock > 0, 'Wave 1 should actually start producing strikes once unlocked');
+    assert(result.waveStrikesLaunched > 0, 'Wave 1 should actually start producing strikes once unlocked');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
@@ -1161,6 +1169,127 @@ test('LRNA-049: Base loadout node fires a volley at every inbound threat at once
     assertEqual(result.fireTimerWithNoTargets, 0.3, 'with nothing inbound, Base should retry soon rather than wait out the full cycle');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
+});
+
+test('LRNA-084: COUNTER MISSILE opens the consolidated Mission Map (not the old standalone window), and firing keeps it open', async () => {
+  await withGame(async (page, errors) => {
+    await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.forceOpeningUnlock();
+      T.freezeWaves();
+      T.clearMissiles();
+      T.neutralizeAutoDefense(); // the live game loop keeps running between page.evaluate calls - without this, real AM batteries/loadout nodes can intercept this test's own manually-launched strike before its own FIRE click gets to it
+      T.tokens.counter = 99999;
+      const m = T.launchEnemyStrike(T.nodeO, T.nodeA);
+      m.age = 2;
+      T.updateCounterMissileBtn();
+    });
+    await page.click('#counterMissileBtn');
+    const afterOpen = await page.evaluate(() => {
+      const T = window.__TEST__;
+      return {
+        missionMapOpen: T.missionMapOpen,
+        threatName: document.getElementById('missionMapThreatName').textContent,
+        oldCounterWindowExists: !!document.getElementById('counterWindow'),
+        oldSeekDestroyWindowExists: !!document.getElementById('seekDestroyWindow'),
+        counterMissilesBefore: T.missiles.filter(mm => mm.typeKey === 'counter').length,
+      };
+    });
+    assert(afterOpen.missionMapOpen, 'clicking COUNTER MISSILE should open the Mission Map');
+    assert(afterOpen.threatName !== 'no inbound threat', `Mission Map should show the live inbound threat: ${afterOpen.threatName}`);
+    assert(!afterOpen.oldCounterWindowExists, 'the old standalone #counterWindow should no longer exist in the DOM');
+    assert(!afterOpen.oldSeekDestroyWindowExists, 'the old standalone #seekDestroyWindow should no longer exist in the DOM');
+
+    await page.click('#missionMapFire');
+    const afterFire = await page.evaluate(() => {
+      const T = window.__TEST__;
+      return {
+        missionMapOpen: T.missionMapOpen,
+        counterMissilesAfter: T.missiles.filter(mm => mm.typeKey === 'counter').length,
+      };
+    });
+    assert(afterFire.counterMissilesAfter > afterOpen.counterMissilesBefore, 'FIRE COUNTER MISSILE should actually launch a counter missile');
+    assert(afterFire.missionMapOpen, 'unlike the old Counter Window, firing should not auto-close the consolidated Mission Map');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-084: Ops Center\'s mission map button opens the same screen, showing SEEK AND DESTROY recon status', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#opsCenterBtn');
+    await page.click('#missionMapOpenBtn');
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      return {
+        missionMapOpen: T.missionMapOpen,
+        reconStatus: document.getElementById('missionMapReconStatus').textContent,
+        opsCenterHidden: document.getElementById('opsCenterPanel').classList.contains('hidden'),
+      };
+    });
+    assert(result.missionMapOpen, 'Ops Center\'s mission map button should open the Mission Map');
+    assertEqual(result.reconStatus, '0/3 located · 0/3 neutralized', `fresh game should show all 3 SEEK AND DESTROY nodes as unlocated: ${result.reconStatus}`);
+    assert(result.opsCenterHidden, 'opening the Mission Map from Ops Center should close the Ops Center panel behind it');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-084: the zone strip reflects each SEEK AND DESTROY zone\'s real bounds and updates on discovery', async () => {
+  await withGame(async (page, errors) => {
+    const before = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.openMissionMap();
+      const zoneEls = Array.from(document.getElementById('missionMapZones').children);
+      return {
+        count: zoneEls.length,
+        lefts: zoneEls.map(el => parseFloat(el.style.left)),
+        expectedLefts: T.seekDestroyNodes.map(n => T.missionMapPct(n.zoneStart)),
+        anyDiscoveredClass: zoneEls.some(el => el.classList.contains('discovered')),
+      };
+    });
+    assertEqual(before.count, 3, 'the strip should carry a band for each of the 3 SEEK AND DESTROY zones');
+    before.lefts.forEach((left, i) => {
+      assert(Math.abs(left - before.expectedLefts[i]) < 0.01,
+        `zone ${i} should be positioned at its own real zoneStart, mapped to the strip: got ${left}%, expected ${before.expectedLefts[i]}%`);
+    });
+    assert(!before.anyDiscoveredClass, 'no zone should read as discovered on a fresh game');
+
+    const after = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.seekDestroyNodes[0].discovered = true;
+      T.tickUpdate(0.016); // Mission Map re-renders itself every tick while open
+      const zoneEls = Array.from(document.getElementById('missionMapZones').children);
+      return { discoveredCount: zoneEls.filter(el => el.classList.contains('discovered')).length };
+    });
+    assertEqual(after.discoveredCount, 1, 'discovering a node should flip its own zone band to the discovered style');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-084: undiscovered AntiPlane nodes stay off the zone strip; discovered ones appear at their real position', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.openMissionMap();
+      T.antiPlaneNodes[0].discovered = false;
+      T.tickUpdate(0.016);
+      const beforeCount = document.getElementById('missionMapMarkers').children.length;
+
+      T.antiPlaneNodes[0].discovered = true;
+      T.tickUpdate(0.016);
+      const markerEls = Array.from(document.getElementById('missionMapMarkers').children);
+      return {
+        beforeCount,
+        afterCount: markerEls.length,
+        left: markerEls[0] && parseFloat(markerEls[0].style.left),
+        expectedLeft: T.missionMapPct(T.antiPlaneNodes[0].x),
+      };
+    });
+    assertEqual(result.beforeCount, 0, 'an undiscovered AntiPlane node must not leak its position onto the strip');
+    assertEqual(result.afterCount, 1, 'a discovered AntiPlane node should get a marker');
+    assert(Math.abs(result.left - result.expectedLeft) < 0.01,
+      `the marker should sit at the node's own real x position: got ${result.left}%, expected ${result.expectedLeft}%`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
 });
 
 run();
