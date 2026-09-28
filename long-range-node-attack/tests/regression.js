@@ -1292,4 +1292,131 @@ test('LRNA-084: undiscovered AntiPlane nodes stay off the zone strip; discovered
   });
 });
 
+test('LRNA-051: Omega\'s enemy strikes draw from a symmetric missile/plane class, not just size', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.clearMissiles();
+      const classes = new Set();
+      const labels = new Set();
+      for (let i = 0; i < 40; i++) {
+        const m = T.launchEnemyStrike(T.nodeO, T.nodeA);
+        classes.add(m.weaponClass);
+        labels.add(m.label);
+      }
+      return { classes: Array.from(classes).sort(), labels: Array.from(labels).sort() };
+    });
+    assertEqual(JSON.stringify(result.classes), JSON.stringify(['missile', 'plane']), `40 launches should produce both classes: ${JSON.stringify(result.classes)}`);
+    assertEqual(JSON.stringify(result.labels), JSON.stringify(['BOMBER', 'STRIKE']), `label should reflect the weapon class: ${JSON.stringify(result.labels)}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-051: plane-classed enemy strikes are still engaged by size-based defenses same as missile-classed ones', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.clearMissiles();
+      // force a plane-classed strike by retrying until one lands (class is
+      // random) - both classes must still be engageable by the exact same
+      // sizeKey-based defense logic, since weaponClass is flavor-only.
+      let m;
+      for (let i = 0; i < 50; i++) {
+        m = T.launchEnemyStrike(T.nodeO, T.nodeA);
+        if (m.weaponClass === 'plane') break;
+        T.removeMissile(m.id);
+      }
+      m.sizeKey = 'medium';
+      m.age = 2;
+      for (const n of T.loadoutNodes) n.fireTimer = 0;
+      T.tickLoadoutNodes(0.016);
+      const engaged = T.missiles.some(c => c.typeKey === 'counter' && c.source === 'loadout' && c.seekTargetId === m.id);
+      return { foundPlaneClass: m.weaponClass === 'plane', engaged };
+    });
+    assert(result.foundPlaneClass, 'sanity check - should have found a plane-classed strike within 50 tries');
+    assert(result.engaged, 'a plane-classed strike should be engaged by loadout defenses exactly like a missile-classed one (weaponClass is flavor-only)');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-086: firing a shot triggers boost-window camera shake', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.forceOpeningUnlock();
+      T.tokens.attack = 99999;
+      const before = { mag: T.camShakeMag, timer: T.camShakeTimer };
+      T.attemptFire('fast');
+      const after = { mag: T.camShakeMag, timer: T.camShakeTimer };
+      return { before, after };
+    });
+    assertEqual(result.before.mag, 0, 'no shake before firing anything');
+    assert(result.after.mag > 0 && result.after.timer > 0, `firing should trigger a launch shake: ${JSON.stringify(result.after)}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-086: the followed contact resolving triggers a fresh impact shake', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.clearMissiles();
+      T.neutralizeAutoDefense(); // don't let AM batteries/loadout nodes resolve this early for an unrelated reason
+      const m = T.launchEnemyStrike(T.nodeO, T.nodeA);
+      T.setFollowId(m.id);
+      // let the launch shake fully decay first, so the next shake we see
+      // can only be the impact one, not a leftover from launch.
+      T.tickUpdate(1); // well past CAM_SHAKE_LAUNCH_DURATION (0.25s)
+      const beforeImpact = { mag: T.camShakeMag, timer: T.camShakeTimer };
+      // resolve it through the real arrival path (not a manual removal,
+      // which happens outside update(dt) and so can't be "seen" by the
+      // same-frame before/after check the impact shake relies on).
+      m.age = m.totalSeconds;
+      T.tickUpdate(0.05);
+      const afterImpact = { mag: T.camShakeMag, timer: T.camShakeTimer, stillTracked: T.missiles.some(mm => mm.id === m.id) };
+      return { beforeImpact, afterImpact };
+    });
+    assertEqual(result.beforeImpact.mag, 0, `launch shake should have fully decayed by t=1s: ${JSON.stringify(result.beforeImpact)}`);
+    assert(!result.afterImpact.stillTracked, 'sanity check - the strike should have actually resolved (arrived) by now');
+    assert(result.afterImpact.mag > 0 && result.afterImpact.timer > 0,
+      `the followed contact resolving should trigger a fresh impact shake: ${JSON.stringify(result.afterImpact)}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-087: a fast-moving missile spawns speed-line streak particles, a slow one doesn\'t', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.clearMissiles();
+      T.clearParticles();
+      T.neutralizeAutoDefense(); // AM batteries' own cannon fire also spawns `tracer:true` particles - keep this test isolated to the missile's own speed-line trail
+      const fast = T.launchEnemyStrike(T.nodeO, T.nodeA);
+      fast.vx = 900; // well above the 500 threshold
+      fast.smokeTimer = 0;
+      fast.age = 1;
+      T.tickUpdate(0.05);
+      const tracersAfterFast = T.particles.filter(p => p.tracer).length;
+
+      T.clearMissiles(); // the still-fast `fast` missile would otherwise keep re-triggering its own (legitimate) speed-line on later ticks, contaminating the slow case's count
+      T.clearParticles();
+      const slow = T.launchEnemyStrike(T.nodeO, T.nodeA);
+      slow.vx = 100; // well below the threshold
+      slow.smokeTimer = 0;
+      slow.age = 1;
+      T.tickUpdate(0.05);
+      const tracersAfterSlow = T.particles.filter(p => p.tracer).length;
+
+      return { tracersAfterFast, tracersAfterSlow };
+    });
+    assert(result.tracersAfterFast > 0, `a fast (900) missile should spawn a speed-line streak: ${JSON.stringify(result)}`);
+    assertEqual(result.tracersAfterSlow, 0, `a slow (100) missile should not spawn a speed-line streak: ${JSON.stringify(result)}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 run();

@@ -51,9 +51,10 @@ to whoever picks these up.
 
 ## OPEN — Low Priority / Quality of Life
 
-- **LRNA-122** — Dragging the map with the mouse doesn't work on mobile (only touch pinch/pan)
-  - Current: Only `touchmove` is handled for panning
-  - Improve: Add `pointerdown`/`pointermove` for cross-platform compatibility
+(none currently - LRNA-122 was a stale duplicate of itself: investigated
+and closed as not-reproducing in the resolution log below, but this
+open-backlog copy never got removed when that happened. Reconciled
+2026-09-28.)
 
 ---
 
@@ -1684,6 +1685,13 @@ Three more followed the same night (#433-435, below).
   the Radar Lane), and the symmetric Player 2 arsenal dependency. Also
   still open: whether Counter Attack Planes/Emergency Corner get the same
   window treatment.
+  **Housekeeping note (2026-09-28):** `#counterWindow` itself, named
+  throughout the still-open bullets below, no longer exists -
+  `LRNA-084` replaced it with the consolidated Mission Map screen. The
+  underlying content questions below are unaffected (none of them got
+  answered by that consolidation) and would now land in Mission Map's
+  COUNTER section if ever built, not a standalone window - still
+  genuinely open, still needing real specs, not guessed at here either.
   Original ticket text, for the still-open pieces (confirmed directly
   across two follow-up messages: "Make a ticket to build a Second Window
   called COUNTER!!! - IT Opens this window," then refined: "The Counter
@@ -1738,6 +1746,45 @@ Three more followed the same night (#433-435, below).
   heavily wooded") already matches shipped terrain (LRNA-030) - no new
   work there, just confirms the window reuses the existing battlefield
   visuals rather than a distinct art style.
+  **Resolved directly (2026-09-28), each sub-question asked in turn
+  rather than guessed at:**
+  - **Drone tier count** - resolved: recon DRONE stays single-speed, not
+    extended to Fast/Medium/Large. Missile and Plane already have their
+    3 tiers each (today's `fast`/`medium`/`large` TYPES, and the attack
+    plane roster) - no new roster work needed for either of those two.
+  - **Weapon stat card's hit-rate formula** - resolved: a static
+    configured value (each weapon's already-defined `hitChance`
+    constant), not a live-tracked stat. The stat card panel itself
+    (Average Speed/Max Speed/Class/Hit Rate/Success Rate, as a real UI
+    element) was not built this pass - only this one sub-question was
+    resolved, so it can be answered without guessing whenever the panel
+    itself gets built.
+  - **Symmetric Player 2 arsenal - DONE, built now rather than left as
+    its own future ticket.** Omega's enemy strikes now roll a
+    `weaponClass` ('missile' or 'plane', 50/50) alongside the existing
+    `sizeKey` roll - a real Missile-vs-Plane split, not just a recolor
+    ("Plane is a parallel arsenal class to Missile, not a reskin" is now
+    also true for the *enemy's* roster, not just the player's). Drone is
+    deliberately excluded from Omega's roster too, for the same reason
+    it stayed out of the player's own tier expansion above - there's no
+    real 3-tier offensive Drone class on either side to mirror.
+    `weaponClass` is flavor/rendering-only (distinct name label -
+    STRIKE vs. BOMBER - and distinct silhouette, reusing
+    `drawAttackPlane`/`drawBomber` exactly like the player's own
+    fast/medium/large split already does) - `sizeKey` (unchanged) still
+    drives every real mechanic (damage, speed, which defenses can
+    engage it), matching Counter Grid: Versus's own precedent for this
+    exact split ("Planes and missiles follow the same time to cross map
+    and cost and dmg stats"). No AI "target selection" logic was needed
+    beyond extending the existing random roll, since Omega only ever has
+    one target (the Strike Platform) - there's nothing to select between.
+    Covered by 2 new regression tests (40 launches produce both classes
+    with the matching label; a plane-classed strike is engaged by
+    size-based player defenses exactly like a missile-classed one,
+    confirming `weaponClass` really is flavor-only and doesn't need any
+    new defense-side code).
+  - **Player 2 header, flight/impact visualization pane, Incoming Enemy
+    Intel/Targets list** - still genuinely open, not touched this pass.
 - **LRNA-052** — DONE (resolved: no dedicated window) — ATTACK button
   (Attack pillar of LRNA-050's button bar). Per-button counterpart to
   LRNA-051 (Counter) and LRNA-053 (Intel) — requested as "tickets for
@@ -1860,32 +1907,28 @@ Three more followed the same night (#433-435, below).
   confirm which reading is intended, or if both, scope them as separate
   passes given how different "new node icons" vs. "rework the existing
   main bases" are as tasks.
-- **LRNA-057** — PARTIALLY RESOLVED — Map(s) for the new windows. Was
-  flagged as two unrelated readings: (1) each new window needs its own
-  scoped map/camera view, or (2) literally multiple distinct battlefield
-  layouts/terrain sets for replay variety. **Reading (1) is now answered
-  per-window rather than needing its own ticket**: LRNA-051 specifies the
-  Counter Window shows only the player's own side plus the incoming
-  threat, and LRNA-063 specifies SEEK AND DESTROY shows the enemy's map
-  instead (the deliberate inverse) - each window's own ticket is where
-  its view scope belongs, not a shared LRNA-057 task; LRNA-052/053
-  (Attack/Intel) should get the same treatment directly in their own
-  tickets once their window-vs-panel question resolves, rather than
-  waiting on this one. **Reading (2) - multiple distinct terrain/
-  battlefield layouts for replay variety, beyond today's single corridor
-  (`MAP_W`, LRNA-030) - remains genuinely open**, and isn't something to
-  resolve by inference from existing code the way reading (1) was; it's
-  a scope/content decision. Confirm before building.
-- **LRNA-058** — Simulator/demo mode for each window. A way to preview
-  and iterate on the Counter Window (LRNA-051), Attack window (LRNA-052),
-  and Intel window (LRNA-053) in isolation, without needing a full live
-  run in progress to reach them - useful both for design review and for
-  this project's existing Playwright-based verification pattern (every
-  prior ticket in this log has been verified with an instrumented live
-  build; a dedicated demo entry point would make that easier for these
-  new windows specifically). Needs scoping once LRNA-051/052/053 have
-  concrete enough content to demo - sequence after those, or at least
-  after LRNA-051 since it's the most fleshed-out so far.
+- **LRNA-057** — PARTIALLY RESOLVED — Map(s) for the new windows.
+  **Reading (1) (each new window needs its own scoped map/camera view)
+  is now moot rather than answered**: it was originally resolved by
+  pointing at the Counter Window's and SEEK AND DESTROY window's own
+  per-window view scopes - but `LRNA-084` has since removed both of
+  those windows entirely, replacing them with the single consolidated
+  Mission Map, which now has its own real top-down zone strip (not a
+  per-window camera view, a shared one). There's no longer a "per new
+  window" question to answer - there's one window. **Reading (2) -
+  multiple distinct terrain/battlefield layouts for replay variety,
+  beyond today's single corridor (`MAP_W`, LRNA-030) - remains
+  genuinely open**, and was always independent of the windows question;
+  still a scope/content decision, confirm before building.
+- **LRNA-058** — Stale, superseded by `LRNA-084` (2026-09-28). Was a
+  simulator/demo mode for "the Counter Window, Attack window, and Intel
+  window" in isolation. Attack and Intel never got dedicated windows
+  (`LRNA-052`/`LRNA-053` both resolved "no dedicated window" - the
+  always-on launch bar covers them instead), and the Counter Window
+  itself no longer exists either - `LRNA-084` folded it into the single
+  Mission Map screen, which opens directly from either of its own entry
+  points with no live run required to reach it. Nothing left for this
+  ticket to scope.
 - **LRNA-060** — DONE — Sound design rework, matched to what plays well
   with players. Owner answered the open direction question directly
   (2026-09-25): "Punchier impacts, more per-weapon variety" - exactly the
@@ -2134,6 +2177,17 @@ Three more followed the same night (#433-435, below).
     established elsewhere (LRNA-051's Counter Weapons roster). Implies
     Recon and Threat/Attack tools both need multiple strength tiers here
     too, not a single find-tool and single destroy-tool.
+  - **Resolved directly (2026-09-28), both asked rather than guessed
+    at:** fog-of-war recon trail - skipped entirely; it's flagged in its
+    own text above as "a meaningfully bigger system than a probability
+    check," and that held - today's existing radius/chance discovery
+    roll (LRNA-039/062) stays the one mechanic, no trail-tracking/
+    rendering system added, mechanically or presentationally. Tiered
+    Recon/Threat options - also declined: recon DRONE stays single-tier
+    (same direct decision recorded on `LRNA-051`'s own Counter Weapons
+    roster bullet above, since both trace back to the same "does DRONE
+    need Fast/Medium/Large tiers" question), so there's no multi-tier
+    Recon side to pair with a multi-tier Threat side either.
   - **Ground-node kill effect — DONE (2026-09-25).** New `spawnGroundKillFx(x, y)`:
     a dark burst (charcoal shrapnel + a small ember core) with drifting
     dark-smoke tendril particles and its own scorch mark, deliberately
@@ -2396,27 +2450,59 @@ Three more followed the same night (#433-435, below).
     ticket is about the *portal listing* (which games exist to play), not
     that in-game UI reorganization; the two shouldn't be conflated even
     though they share the same three pillar names.
-- **LRNA-086** — Boost/impact camera shake. Spun off from LRNA-061's
-  flight-phase review. A short, decaying positional offset on top of
-  `camX` (plus a small vertical jitter), triggered when the currently-
-  followed missile is in its boost window at launch and again the
-  instant its flight resolves (impact/intercept/miss) while still the
-  followed contact. Additive only - doesn't touch how `followId`
-  tracking itself works. Concrete enough to build; not started pending
-  confirmation this is wanted (a new feature, not a fix).
-- **LRNA-087** — Motion trail / speed lines, distinct from the smoke
-  trail. Spun off from LRNA-061. A new short-lived streak particle (thin
-  bright line along the live velocity vector, ~0.15-0.25s life, fading),
-  layered in front of the existing smoke trail, spawned only once live
-  speed crosses a threshold (proposed |vx| > 500). Concrete enough to
-  build; not started pending confirmation.
-- **LRNA-088** — Foreground parallax scroll tied to altitude. Spun off
-  from LRNA-061. A second, nearer terrain band beyond LRNA-030's existing
-  rivers/creeks/tree clusters, scrolling faster (proposed 1.3x world/
-  camera speed) and fading/shrinking with `altitude(m)`, so a missile's
-  ballistic arc and low-altitude phases read against something closer
-  than today's single terrain layer. Concrete enough to build; not
-  started pending confirmation.
+- **LRNA-086** — DONE (2026-09-28) — Boost/impact camera shake. Spun off
+  from LRNA-061's flight-phase review. Owner confirmed wanted (asked
+  directly rather than left pending), then built exactly as scoped: a
+  short, decaying positional offset applied only at render time
+  (`ctx.translate` in `draw()`, right after the `ZOOM` scale) - `camX`/
+  `followId` tracking itself is untouched, per the ticket's own "additive
+  only" constraint. Two triggers, both scoped to the currently-followed
+  contact: `attemptFire` calls `triggerCamShake` right after setting
+  `followId` to the freshly-launched (still-boosting) shot; a new
+  before/after check at the end of each frame's missile-resolution pass
+  (`camShakeFollowWasAlive` vs. the same id missing from `missiles`
+  afterward) catches the followed contact resolving through *any* of the
+  many branches that can remove it (impact/intercept/miss/return-to-base),
+  not just one. `CAM_SHAKE_LAUNCH_MAG/DURATION` (4, 0.25s) and
+  `CAM_SHAKE_IMPACT_MAG/DURATION` (7, 0.35s) are the two tuned magnitudes.
+  Covered by 2 new regression tests (launch shake fires on `attemptFire`;
+  impact shake fires when the followed contact resolves through its real
+  arrival path, verified with the launch shake first fully decayed so the
+  two can't be confused).
+- **LRNA-087** — DONE (2026-09-28) — Motion trail / speed lines, distinct
+  from the smoke trail. Spun off from LRNA-061. Owner confirmed wanted,
+  built as scoped: a new `maybeSpawnSpeedLine(m, x, y)` helper, called
+  right after each of the 3 existing smoke-trail spawn sites (general
+  ballistic missiles, the plane arsenal, Attack Drone) so it only fires
+  while something's already trailing smoke that frame, gated on
+  `|m.vx| > 500` (`SPEED_LINE_THRESHOLD`) per the ticket's own proposed
+  number. Reuses the existing `tracer: true` particle kind (AM batteries'
+  cannon-fire streak) rather than inventing a new render path - it
+  already draws exactly "a short bright directional line that fades
+  fast," tuned here to land in the ticket's proposed ~0.15-0.25s life via
+  the shared fixed tracer decay rate. Covered by a new regression test
+  (a 900-speed missile spawns one, a 100-speed one doesn't).
+- **LRNA-088** — DONE (2026-09-28) — Foreground parallax scroll tied to
+  altitude. Spun off from LRNA-061. Owner confirmed wanted, built as
+  scoped: a new `drawForeground()` layer (small dark scrub/rock
+  silhouettes), drawn right after the existing tree clusters - nearer
+  than every other terrain layer, scrolling at 1.3x camera speed
+  (`FOREGROUND_PARALLAX`) per the ticket's own proposed number. Unlike
+  the existing terrain layers (each a precomputed array spanning
+  `MAP_W`), this one tiles infinitely via modulo on live screen position
+  instead - a parallax factor above 1x needs more horizontal range than
+  the map itself has as the camera nears its own max, so a finite
+  precomputed array would run dry short of Node Omega. Each tile's
+  look (vertical offset, size) is derived deterministically from its own
+  tile index (not a fresh `Math.random()` per frame), so tiles don't
+  visibly reshuffle as they scroll past. Fades and shrinks with
+  `altitude(m)` of the currently-followed missile specifically (0 when
+  nothing's followed) - normalized against 250 as a representative
+  mid-range `peak` value across the weapon roster (150-330). No dedicated
+  regression test (a canvas-only visual layer with nothing to assert
+  against via the `__TEST__` API); verified instead with a live
+  screenshot showing the new foreground shapes rendering distinctly
+  nearer than the existing tree layer, zero console errors.
 - **LRNA-089** — DONE — Post scores to the Arcade 3000 scoreboard
   (`owner-action/Alert#551`, filed by the Arcade 3000/Nixon session,
   agent-ready). New `postArcadeScore(score)` in the scratch source,
@@ -2815,6 +2901,28 @@ Three more followed the same night (#433-435, below).
   its flight, not just the fading "DAMAGED" callout at the moment of the
   hit. Verified: chipHits and the 0.6x damage multiplier stay in sync across
   two successive chips (50 → 30 → 18).
+  - **LRNA-134-adjacent fix (2026-09-28), found while chasing an
+    intermittent flake in its own regression test (~1/45 runs, reproduced
+    twice across ~65 total runs while verifying this session's other
+    changes):** every `typeKey: 'counter'` interceptor (AM batteries,
+    loadout nodes, Omega's own counters, Ground Units - anything that
+    uses `fireCounter`) resolved a hit/miss purely on `prox <= 18`
+    checked once per frame after moving. At `COUNTER.speed` (840), a
+    single frame's step (42 units at the test harness's coarse 0.05s
+    ticks, ~14 at real 60fps) can land on either side of that 18-unit
+    window without a single frame ever reporting inside it - especially
+    against a slow or stationary target, where the interceptor doesn't
+    naturally converge and settle, just keeps stepping past and flipping
+    direction. When that happened, the interceptor silently timed out
+    (`m.age >= m.totalSeconds`) and vanished with no hit, no miss FX, no
+    damage - a genuine, if rare, whiff on what should have been a
+    guaranteed intercept. Same failure shape the plane-return-to-base
+    logic already guards against elsewhere ("a single frame's step can
+    jump clean over the arrival window"), just missing here. Fixed by
+    adding the same guard: a `crossed` check (did this frame's step pass
+    through the target's x position, not just land within 18 of it),
+    OR'd into the existing proximity check. Verified directly: 40
+    isolated repeated runs of the previously-flaky test, all clean.
 - **LRNA-135** — DONE — Counter Attack Planes' window now shows a "+N more
   inbound - not covered by this scramble" note when more threats exist than
   the 2 planes being sent can cover (each plane can only kill one target, so
