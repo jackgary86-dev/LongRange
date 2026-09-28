@@ -361,6 +361,36 @@ test('LRNA-136: particle array is hard-capped regardless of burst size', async (
   }, { skipStart: true });
 });
 
+test('LRNA-115: every 5th wave is an announced "elite" wave with amplified damage', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.startWave(4);
+      const wave4Elite = T.waveIsElite;
+      const strike4 = T.launchEnemyStrike(T.nodeO, T.nodeA);
+      const strike4Expected = T.ENEMY_STRIKE_SIZES[strike4.sizeKey].dmg;
+
+      T.startWave(5);
+      const wave5Elite = T.waveIsElite;
+      const strike5 = T.launchEnemyStrike(T.nodeO, T.nodeA);
+      const strike5Expected = T.ENEMY_STRIKE_SIZES[strike5.sizeKey].dmg;
+
+      return {
+        wave4Elite, strike4Dmg: strike4.dmg, strike4Expected, strike4Marked: !!strike4.elite,
+        wave5Elite, strike5Dmg: strike5.dmg, strike5Expected, strike5Marked: !!strike5.elite,
+      };
+    });
+    assert(!result.wave4Elite, 'wave 4 should not be elite');
+    assert(!result.strike4Marked, 'a wave-4 strike should not carry the elite marker');
+    assertEqual(result.strike4Dmg, result.strike4Expected, 'a non-elite strike should deal its normal, unmultiplied damage');
+
+    assert(result.wave5Elite, 'wave 5 (multiple of 5) should be elite');
+    assert(result.strike5Marked, 'a wave-5 strike should carry the elite marker');
+    assertEqual(result.strike5Dmg, result.strike5Expected * 2, 'an elite strike should deal exactly 2x its base damage for its rolled size');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 test('LRNA-116: Omega Counter Missile/Planes readiness is shown in the HUD', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {

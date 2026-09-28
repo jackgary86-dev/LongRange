@@ -104,6 +104,7 @@
     letter-spacing: 1.5px;
   }
   #waveHud.break { color: #7bffa0; }
+  #waveHud.elite { color: #ff2ea6; animation: omegaJamPulse 0.9s infinite; }
 
   @media (max-width: 560px) {
     #hud { grid-template-columns: 1fr 1fr; }
@@ -1702,6 +1703,13 @@
   const WAVE_BREAK_SECONDS = 10;
   const WAVE_BASE_SIZE = 3; // wave N sends ~3+N strikes before difficulty scaling
   const BEST_WAVE_KEY = 'lrna_best_wave_v1';
+  // LRNA-115: difficulty otherwise climbs in small, continuous steps
+  // (waveSizeForN, pickEnemyStrikeSize's shift) with no standout moment a
+  // player would notice mid-run. Every 5th wave is a real "spike" instead -
+  // announced up front, and every strike in it hits harder.
+  const ELITE_WAVE_INTERVAL = 5;
+  const ELITE_WAVE_DMG_MULT = 2;
+  let waveIsElite = false;
   let currentWave = 1;
   let waveStrikesTotal = 0;
   let waveStrikesLaunched = 0;
@@ -1787,6 +1795,10 @@
     const sizeKey = pickEnemyStrikeSize();
     const missile = launchAttack(origin, dest, 'enemyStrike', ENEMY_STRIKE_SIZES[sizeKey]);
     missile.sizeKey = sizeKey;
+    if (waveIsElite) {
+      missile.dmg = Math.round(missile.dmg * ELITE_WAVE_DMG_MULT);
+      missile.elite = true;
+    }
     return missile;
   }
   const COUNTER = { label: 'COUNTER', names: ['GUARDIAN', 'SENTRY', 'AEGIS', 'WARDEN'], color: '#ffe066', radius: 6, speed: 840, totalSeconds: 6, peak: 90, hitChance: 0.5 };
@@ -2161,6 +2173,11 @@
     waveStrikesTotal = waveSizeForN(n);
     waveStrikesLaunched = 0;
     waveStrikeTimer = 0.6; // brief pause before the wave's first strike
+    waveIsElite = n > 0 && n % ELITE_WAVE_INTERVAL === 0;
+    if (waveIsElite) {
+      spawnFloatText(nodeA.x, nodeA.y - 180, `⚠ DIFFICULTY SPIKE — ELITE WAVE ${n} ⚠`, '#ff2ea6');
+      sfxSiegeLose(); // reuse the existing ominous stinger - no new sound asset needed
+    }
     updateWaveHud();
   }
   function updateWaveHud() {
@@ -2170,8 +2187,10 @@
       waveHudEl.classList.add('break');
     } else {
       const left = Math.max(0, waveStrikesTotal - waveStrikesLaunched) + missiles.filter(m => m.typeKey === 'enemyStrike' && m.waveNum === currentWave).length;
-      waveHudEl.textContent = `WAVE ${currentWave} — ${left} STRIKE${left === 1 ? '' : 'S'} LEFT`;
+      const elitePrefix = waveIsElite ? '⚠ ELITE ' : '';
+      waveHudEl.textContent = `${elitePrefix}WAVE ${currentWave} — ${left} STRIKE${left === 1 ? '' : 'S'} LEFT`;
       waveHudEl.classList.remove('break');
+      waveHudEl.classList.toggle('elite', waveIsElite);
     }
   }
 
@@ -5057,6 +5076,21 @@
 
       drawIcon(m.typeKey, sx, sy, m.color, m.radius, angle, m.planeKind);
 
+      // LRNA-115: elite-wave strikes hit for ELITE_WAVE_DMG_MULT damage -
+      // mark them so the player can tell at a glance which inbound threats
+      // are the ones worth prioritizing/countering this wave.
+      if (m.elite) {
+        ctx.save();
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 150);
+        ctx.beginPath();
+        ctx.arc(sx, sy, m.radius + 9, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ff2ea6';
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.5 + pulse * 0.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // LRNA-134: persistent visual indicator for Ground Units chip
       // stacking - a dashed ring plus a hit-count badge, so the damage
       // reduction stays visible for the rest of the flight, not just in
@@ -5560,6 +5594,10 @@
       launchAttack: (origin, dest, typeKey, overrides) => launchAttack(origin, dest, typeKey, overrides),
       launchEnemyStrike: (origin, dest) => launchEnemyStrike(origin, dest),
       firePlane: (key) => firePlane(key),
+      startWave: (n) => startWave(n),
+      get waveIsElite() { return waveIsElite; },
+      get currentWave() { return currentWave; },
+      get ENEMY_STRIKE_SIZES() { return ENEMY_STRIKE_SIZES; },
       fireCounter: (origin, targetId, source) => fireCounter(origin, targetId, source),
       fireEmergencyCounter: () => fireEmergencyCounter(),
       findEmergencyTarget: () => findEmergencyTarget(),
