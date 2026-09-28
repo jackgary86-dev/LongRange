@@ -55,29 +55,7 @@ to whoever picks these up.
 
 ## OPEN — Code Quality Issues (Refactoring)
 
-- **LRNA-143** — Dead Code: CLUSTER/EMP Partially Removed
-  - Issue: LRNA-097/098 removed UI buttons, but TYPES.cluster/TYPES.emp still exist + can be fired via code
-  - Problem: Inconsistent state; maintenance nightmare
-  - Impact: Hard to enable/disable weapons cleanly
-  - Fix: Create a `DISABLED_WEAPONS = ['cluster', 'emp']` config array, gate all references
-
-- **LRNA-144** — Silent localStorage Failures Throughout Codebase
-  - Issue: All catch blocks swallow errors: `catch (e) { /* ignore */ }`
-  - Problem: If storage quota exceeded or disabled, player loses all progress silently
-  - Impact: Data loss without warning; no feedback mechanism
-  - Fix: At minimum, log to console and set a flag so UI can warn player
-
-- **LRNA-145** — Missing Null Checks on DOM Elements
-  - Issue: Many `querySelector` calls don't check if element exists before use
-  - Problem: If HTML structure changes, code silently fails with no error
-  - Impact: Browser console errors; very hard to debug
-  - Fix: Add assertions or optional chaining (`element?.addEventListener(...)`)
-
-- **LRNA-146** — Inefficient Contact Rendering at 5fps (200ms Interval)
-  - Issue: Contacts render every 0.2s while missiles update every frame (60fps)
-  - Problem: Contact list can be 200ms out-of-date; player sees stale data
-  - Impact: Players can't accurately track fast-moving missiles
-  - Fix: Render contacts every frame (60fps) or at least every 50ms (20fps)
+(LRNA-143, LRNA-144, LRNA-146 shipped; LRNA-145 investigated/no bug found - see the resolution log below)
 
 - **LRNA-147** — Magic Numbers Scattered Throughout Code
   - Issue: No centralized config (ZOOM=0.5, BASE_BLOCK=6, OMEGA_RES=200, etc.)
@@ -2934,6 +2912,33 @@ Three more followed the same night (#433-435, below).
   persistent damage history that survives a rebuild. The one thing that
   does escalate across rebuilds is `nodeO.hitChance` (tougher defense),
   the opposite of "fragile."
+
+- **LRNA-143** — DONE — `TYPES.cluster`/`TYPES.emp` stay fully defined
+  deliberately (launch bar buttons are static HTML, not generated from
+  `TYPES`, so there's nothing to gate a `DISABLED_WEAPONS` array against
+  without a much larger refactor). Added `UI_DISABLED_TYPES = ['cluster',
+  'emp']` at the `TYPES` definition instead - one discoverable, named
+  place recording the exclusion, replacing an implicit one previously
+  only visible in a comment ~3800 lines away.
+
+- **LRNA-144** — DONE — Every `localStorage.setItem` call now goes
+  through a shared `trySaveStorage()` helper instead of its own silent
+  catch. On failure it logs once and flips `storageWriteFailed`, which a
+  new HUD banner ("⚠ PROGRESS NOT SAVING") watches, clearing once a write
+  succeeds again. Load failures untouched - falling back to defaults
+  there is already correct.
+
+- **LRNA-145** — Investigated, no bug found. Cross-checked every
+  `getElementById`/`querySelector` call (80 distinct ids) against the
+  actual HTML: zero mismatches. Since this is a single file where HTML
+  and JS are always edited together, there's no live path where a lookup
+  actually returns null today - adding `?.` across ~70 sites would be
+  pure future-proofing, not a fix for anything currently broken.
+
+- **LRNA-146** — DONE — Contact/target/upgrade list render throttle
+  bumped from 0.2s (5fps) to 0.05s (20fps), cutting worst-case staleness
+  vs. the unthrottled canvas by 4x without rebuilding those DOM lists on
+  every single frame.
 
 ---
 
