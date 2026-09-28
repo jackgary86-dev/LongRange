@@ -2258,7 +2258,20 @@ Three more followed the same night (#433-435, below).
   Verified with an instrumented Playwright build: TARGETS now renders
   in Attack red in the Operations Center; every other section's color
   is unchanged from before this review. Zero console errors.
-- **LRNA-085** — PARTIAL — Portal: fill the reserved "TRANSMISSION
+- **LRNA-085** — N/A in this repo (2026-09-28), same reason as
+  `LRNA-066` above. This fork only contains the standalone Long Range
+  Node Attack game - it has no `games/index.html` portal listing and no
+  `games/counter-grid` sibling game at all, so there is no portal slot
+  here to fill. The real, applicable version of this ticket lives in
+  `jackgary86-dev/alert` (the actual Game Portal repo, which does have
+  both) - resolved there instead: the INTEL slot doesn't need a
+  separate portal game, since "Intel provides recon to find targets to
+  attack" is exactly `LRNA-080`'s recon-gated-opening mechanic, ported
+  into alert's own copy of this game as a standalone feature port. See
+  that repo's own `TICKETS.md` for the full writeup. Original ticket
+  text preserved below for reference, since it's still what a reader
+  landing on this entry in this repo would expect to see: Portal: fill
+  the reserved "TRANSMISSION
   PENDING / NEXT UP / Slot Reserved" placeholder card in `games/index.html`
   with two real slots - one to start a COUNTER game, one to start an INTEL
   game - making 3 total portal entries alongside today's single Long
