@@ -41,11 +41,6 @@ to whoever picks these up.
 
 ## OPEN — Low Priority / Quality of Life
 
-- **LRNA-120** — No audio mute button; sound initializes on first interaction
-  - Current: Sounds play if available, but no way to disable them mid-game
-  - Improve: Add a speaker icon in the HUD to toggle audio
-  - Status: IN PROGRESS this pass
-
 - **LRNA-121** — Tooltip text on buttons is cut off on mobile
   - Current: HUD labels use long text (e.g., "COUNTER MISSILE — 1 target · 75% kill")
   - Improve: Abbreviate on mobile (< 600px), show full text on desktop or on hover
@@ -2918,6 +2913,16 @@ Three more followed the same night (#433-435, below).
   Gates the real update loop in `loop()` plus every token-spending action
   function directly, so a stray click can't sneak an action through while
   paused. Centered "PAUSED" banner makes the state visible.
+
+- **LRNA-120** — DONE — Added a MUTE/UNMUTE button. Every sound effect
+  already routed through one `masterGain` GainNode, so muting is just
+  zeroing that node's gain; preference persists to localStorage and is
+  read before the first user gesture creates the AudioContext. Also fixed
+  a pre-existing dead `@media (max-width: 560px)` block (declared before
+  the base rules it was meant to override, so same-specificity cascade
+  order always picked the base rule regardless of viewport) - moved it to
+  the end of the stylesheet so it and the new mobile button positions
+  actually apply.
 
 ---
 
