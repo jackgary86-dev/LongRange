@@ -468,4 +468,56 @@ test('LRNA-117: Recon Plane button disables once every hidden node is already fo
   }); // NOT skipStart: antiPlaneNodes/seekDestroyNodes are only populated once the game actually starts
 });
 
+test('LRNA-119: pause button freezes real-time simulation and blocks actions', async () => {
+  await withGame(async (page, errors) => {
+    // sanity: passive token income should accrue in real time before pausing
+    const t0 = await page.evaluate(() => window.__TEST__.tokens.attack);
+    await page.waitForTimeout(700);
+    const t1 = await page.evaluate(() => window.__TEST__.tokens.attack);
+    assert(t1 > t0, 'tokens should accrue in real time while unpaused');
+
+    await page.click('#pauseBtn');
+    const afterClick = await page.evaluate(() => ({
+      paused: window.__TEST__.paused,
+      bannerHidden: document.getElementById('pausedBanner').classList.contains('hidden'),
+      btnLabel: document.getElementById('pauseBtn').textContent,
+    }));
+    assert(afterClick.paused, 'clicking PAUSE should actually pause the game');
+    assert(!afterClick.bannerHidden, 'PAUSED banner should be visible');
+    assertEqual(afterClick.btnLabel, 'RESUME', 'button should flip to RESUME while paused');
+
+    const t2 = await page.evaluate(() => window.__TEST__.tokens.attack);
+    await page.waitForTimeout(700);
+    const t3 = await page.evaluate(() => window.__TEST__.tokens.attack);
+    assertEqual(t3, t2, 'tokens should not accrue while paused - the real update loop must be frozen');
+
+    // action guard: firing while paused must be a no-op, not just invisible via a disabled button
+    const firedWhilePaused = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.attack = 99999;
+      T.attemptFire('fast');
+      return T.missiles.filter(m => m.typeKey === 'fast').length;
+    });
+    assertEqual(firedWhilePaused, 0, 'attemptFire should refuse to launch anything while paused');
+
+    await page.click('#pauseBtn');
+    const afterResume = await page.evaluate(() => ({
+      paused: window.__TEST__.paused,
+      bannerHidden: document.getElementById('pausedBanner').classList.contains('hidden'),
+      btnLabel: document.getElementById('pauseBtn').textContent,
+    }));
+    assert(!afterResume.paused, 'clicking RESUME should unpause');
+    assert(afterResume.bannerHidden, 'PAUSED banner should hide again');
+    assertEqual(afterResume.btnLabel, 'PAUSE');
+
+    const firedAfterResume = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.attemptFire('fast');
+      return T.missiles.filter(m => m.typeKey === 'fast').length;
+    });
+    assertEqual(firedAfterResume, 1, 'attemptFire should work normally again once resumed');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }); // NOT skipStart: relies on the real requestAnimationFrame loop and passive token income
+});
+
 run();

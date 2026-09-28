@@ -112,6 +112,7 @@
     #contacts { top: 72px; }
     #opsCenterBtn { top: 72px; }
     #opsCenterPanel { top: 72px; }
+    #pauseBtn { top: 110px; }
   }
 
   /* Radar Lane (LRNA-076, issue #433): absorbs the old ACTIVE CONTACTS
@@ -205,6 +206,40 @@
   }
   #opsCenterBtn:hover { background: rgba(53,230,255,0.12); }
   #opsCenterBtn.hidden { display: none; }
+
+  /* LRNA-119: an explicit pause the player controls, independent of the
+     browser's own tab-blur throttling of requestAnimationFrame. */
+  #pauseBtn {
+    position: absolute;
+    top: 98px; left: 6px;
+    z-index: 3;
+    pointer-events: auto;
+    cursor: pointer;
+    background: rgba(3,12,7,0.7);
+    border: 1px solid var(--green-dim);
+    color: var(--green);
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    padding: 7px 10px;
+  }
+  #pauseBtn:hover { background: rgba(53,230,255,0.12); }
+  #pauseBtn.hidden { display: none; }
+  #pauseBtn.active { color: #fff066; border-color: #fff066; background: rgba(255,240,102,0.12); }
+
+  #pausedBanner {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    pointer-events: none;
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 28px;
+    letter-spacing: 4px;
+    color: #fff066;
+    text-shadow: 0 0 12px rgba(255,240,102,0.6);
+  }
+  #pausedBanner.hidden { display: none; }
 
   /* Emergency Counter (LRNA-074/#431): moved out of its old floating
      top-left HUD position into the COUNTER ability group, styled like
@@ -763,6 +798,8 @@
     <div id="contactList"></div>
   </div>
   <button id="opsCenterBtn">OPERATIONS CENTER</button>
+  <button id="pauseBtn">PAUSE</button>
+  <div id="pausedBanner" class="hidden">PAUSED</div>
   <div id="opsCenterPanel" class="hidden">
     <div class="opsHeader">
       <h3 style="margin:0; border:none; padding:0;">OPERATIONS CENTER</h3>
@@ -1022,6 +1059,25 @@
   }
   opsCenterBtn.addEventListener('click', () => { sfxUi(); setOpsCenterOpen(true); });
   opsCenterClose.addEventListener('click', () => { sfxUi(); setOpsCenterOpen(false); });
+
+  // ---- LRNA-119: explicit pause/resume, independent of the browser's own
+  // tab-blur throttling of requestAnimationFrame (see `paused` above -
+  // deliberately its own flag, not reusing `running`, since `running`
+  // false also means "game over").
+  const pauseBtnEl = document.getElementById('pauseBtn');
+  const pausedBannerEl = document.getElementById('pausedBanner');
+  function setPaused(next) {
+    paused = next;
+    pauseBtnEl.classList.toggle('active', paused);
+    pauseBtnEl.textContent = paused ? 'RESUME' : 'PAUSE';
+    pausedBannerEl.classList.toggle('hidden', !paused);
+  }
+  pauseBtnEl.addEventListener('click', () => {
+    if (!running) return;
+    sfxUi();
+    setPaused(!paused);
+  });
+
   const emergencyBtnEl = document.getElementById('emergencyBtn');
   emergencyBtnEl.addEventListener('click', () => {
     if (!running) return;
@@ -1273,7 +1329,7 @@
   const siegeResultBodyEl = document.getElementById('siegeResultBody');
   const siegeResultCloseBtn = document.getElementById('siegeResultClose');
   siegeToggleBtn.addEventListener('click', () => {
-    if (!running) return;
+    if (!running || paused) return; // LRNA-119
     if (siegeActive) {
       // abort: quietly drop back to sandbox with the board as-is, no
       // failure banner - that's reserved for actually running out the clock
@@ -2211,6 +2267,7 @@
 
   function triggerRunEnd() {
     running = false;
+    setPaused(false); // LRNA-119: game over shouldn't leave the PAUSED banner up
     if (currentWave > bestWave) bestWave = currentWave;
     saveBestWave();
     postArcadeScore(currentWave); // this mode's existing score is "waves survived" (LRNA-072)
@@ -2292,6 +2349,10 @@
   let launchRings = [];
   let scorchMarks = [];
   let running = false;
+  // LRNA-119: an explicit pause distinct from `running` - `running` also
+  // means "game over" when false (see triggerRunEnd), so reusing it for
+  // pause would make un-pausing indistinguishable from restarting.
+  let paused = false;
   let camX = 0;
   let followId = null;
   let lastFireTime = 0;
@@ -2526,7 +2587,7 @@
   }
   upgradeListEl.addEventListener('click', (e) => {
     const btn = e.target.closest('.upgradeBtn');
-    if (!btn || btn.disabled || !running) return;
+    if (!btn || btn.disabled || !running || paused) return; // LRNA-119
     const key = btn.dataset.upgrade;
     const u = UPGRADES[key];
     if (!u || ownedUpgrades[key] || tokens[u.pillar] < u.cost) return;
@@ -2871,6 +2932,7 @@
   }
 
   function fireEmergencyCounter() {
+    if (paused) return false; // LRNA-119
     if (emergencyCooldown > 0 || tokens.counter < EMERGENCY_COUNTER_COST) return false;
     const target = findEmergencyTarget();
     if (!target) return false;
@@ -2921,6 +2983,7 @@
     return { targets, planeCount, cost };
   }
   function fireCounterAttackPlanes() {
+    if (paused) return; // LRNA-119
     const { targets, planeCount, cost } = counterPlanesPlan();
     if (planeCount === 0 || tokens.counter < cost) return;
     spendTokens('counter', cost, nodeA.x, nodeA.y - 90);
@@ -2942,6 +3005,7 @@
   const COUNTER_MISSILE_COST = 500;
   const COUNTER_MISSILE_HIT_CHANCE = 0.75;
   function fireCounterMissile() {
+    if (paused) return; // LRNA-119
     if (tokens.counter < COUNTER_MISSILE_COST) return;
     const target = findInboundEnemyMissiles()[0];
     if (!target) return;
@@ -3099,6 +3163,7 @@
 
   // ---- plane launch/rearm (LRNA-078/#435) ----
   function firePlane(key) {
+    if (paused) return; // LRNA-119
     const def = PLANE_TYPES[key];
     const slot = planeSlots[key];
     if (!def || !slot || slot.state !== 'ready') return;
@@ -3194,6 +3259,7 @@
   // kill Base (1000 hp).
   const ATTACK_DRONE_DAMAGE = 250;
   function fireAttackDrone(apId) {
+    if (paused) return null; // LRNA-119
     const ap = findHuntableNode(apId);
     const t = TYPES.attackDrone;
     if (!ap || ap.destroyed || !ap.discovered || tokens.intel < t.cost) return null;
@@ -3591,7 +3657,7 @@
   function loop(now) {
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
-    if (running) update(dt);
+    if (running && !paused) update(dt);
     draw();
     drawMinimap();
     requestAnimationFrame(loop);
@@ -5238,6 +5304,7 @@
     initAudio();
     reset(initial);
     running = true;
+    setPaused(false); // LRNA-119: never start a fresh run already paused
     overlay.classList.add('hidden');
   }
 
@@ -5382,6 +5449,7 @@
 
   const launchButtons = Array.from(document.querySelectorAll('.launchBtn[data-type]'));
   function attemptFire(typeKey) {
+    if (paused) return; // LRNA-119
     const cost = TYPES[typeKey].cost;
     const pillar = ABILITY_PILLARS[typeKey];
     const dest = getTarget(selectedTargetId) || nodeO;
@@ -5589,6 +5657,12 @@
       get omegaInvulnTimer() { return omegaInvulnTimer; },
       get emergencyCooldown() { return emergencyCooldown; },
       get running() { return running; },
+      get paused() { return paused; },
+      setPaused: (v) => setPaused(v),
+      fireAttackDrone: (apId) => fireAttackDrone(apId),
+      fireCounterMissile: () => fireCounterMissile(),
+      fireCounterAttackPlanes: () => fireCounterAttackPlanes(),
+      attemptFire: (typeKey) => attemptFire(typeKey),
       get waveState() { return waveState; },
 
       // -- deterministic scenario control --
