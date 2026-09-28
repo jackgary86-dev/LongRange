@@ -66,7 +66,51 @@ to whoever picks these up.
   real goal). Zero console errors. Pure rendering change - the existing
   regression suite (now 45 tests) passes unmodified, since it asserts on
   game state/behavior, never pixels, exactly as the epic issue requires.
-- **ART-2** — Redesign missile/warhead sprites and trails (jackgary86-dev/LongRange#55)
+- **ART-2** — DONE (2026-09-28) — Redesign missile/warhead sprites and
+  trails (jackgary86-dev/LongRange#55). Note: the issue's own text
+  describes EMP as dealing "0 damage, just jams" - stale by the time
+  this got picked up (`LRNA-137` gave it 200 real damage on top of the
+  jam, shipped earlier this session); built its visual identity around
+  the jamming mechanic regardless, since that's still what makes it
+  unique, without claiming it's damage-free anywhere in the new code.
+  - **New dedicated silhouettes**, replacing the old 2-way
+    `drawMissileBody`/`drawBomber` reuse across FAST/MEDIUM/LARGE (LARGE
+    used to literally render as a delta-wing plane, sharing `drawBomber`
+    with the plane roster): `drawFastMissile` (short dart, minimal fins
+    - the smallest/plainest shape for the quickest warhead),
+    `drawMediumMissile` (the "standard" nose-cone/body/fins look, the
+    baseline the other two read against), `drawHeavyMissile` (genuinely
+    bulkier body with big flared quad fins, not just Medium scaled up).
+    `drawMissileBody` itself - now effectively ENEMY STRIKE's own
+    dedicated look, its only remaining caller - reworked into an
+    angular, jagged hostile silhouette, distinct in *kind* from the
+    player's clean geometric shapes, not just color.
+  - **CLUSTER** - new `drawBomblet` (small, blunt sub-munition) replaces
+    the 3-mini-bomber formation, so it reads as "sub-munitions about to
+    split" instead of "3 tiny planes."
+  - **EMP** - new `drawEmpOrb`: a glowing core with radiating pulse arcs,
+    no fuselage/fins at all - a non-kinetic energy weapon, not another
+    explosive body.
+  - **Per-class trail treatment**, not one smoke look for every warhead:
+    EMP trails short bright electric sparks instead of smoke (fitting
+    its now-orb silhouette); CLUSTER's smoke tints toward its own green;
+    LARGE's trail runs thicker/darker (heavier); FAST's runs
+    thinner/sparser (quick, minimal) - layered on top of the existing
+    burn-vs-coast tinting, which still applies unchanged.
+  - **Real bug caught and fixed before it shipped**: the first EMP-trail
+    implementation used `continue` inside the per-missile update loop to
+    skip past the smoke-spawn block - which also skipped that missile's
+    own hit-resolution code for the rest of that frame, on every frame
+    its smoke timer fired (i.e., nearly every frame). EMP missiles would
+    have flown forever and never resolved. Caught by re-reading the
+    surrounding loop structure before considering this done, not by the
+    test suite - fixed by restructuring to an if/else instead of an
+    early `continue`, confirmed against `LRNA-137`'s own EMP-damage test
+    (still passing, which it wouldn't if EMP could no longer land a hit).
+  Verified with instrumented screenshots showing all 6 classes side by
+  side, reading as genuinely distinct kinds, not just recolors. Pure
+  rendering change - regression suite (45 tests) passes unmodified, zero
+  console errors, stable across repeated runs.
 - **ART-3** — Redesign map/battlefield background and minimap (jackgary86-dev/LongRange#56)
 - **ART-4** — Redesign HUD buttons and UI chrome (jackgary86-dev/LongRange#57)
 - **ART-5** — Recon-gated opening phase visuals: zone markers, lock

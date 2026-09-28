@@ -4435,25 +4435,43 @@
         const dir = m.vx >= 0 ? 1 : -1;
         const tx = m.x - dir * (m.radius + 3);
         const ty = vh() / 2 + m.laneY + weaveOffset(m) - alt + 4;
-        let color = '#9fd6ff', puffs = 1;
-        if (m.burnFrac != null) {
-          if (m.age / m.totalSeconds < m.burnFrac) {
-            color = '#5a4a42'; // burning: thicker, darker, warmer smoke
-            if (Math.random() < speedFrac * 0.5) puffs = 2;
-          } else {
-            color = '#c9e8ff'; // coasting: thinner, paler, more dispersed
-          }
-        }
-        for (let i = 0; i < puffs; i++) {
+        // ART-2: per-class trail treatment, not one look for every
+        // warhead - EMP crackles (short bright sparks, no smoke at all -
+        // it's a non-kinetic energy weapon), CLUSTER's trail tints
+        // toward its own green, LARGE trails thicker/darker (heavier),
+        // FAST thinner/sparser (quick, minimal) - independent of the
+        // existing burn-vs-coast tinting below, which still applies on
+        // top for anything with a burn phase.
+        if (m.typeKey === 'emp') {
           particles.push({
             x: tx, y: ty,
-            vx: -m.vx * 0.06 + (Math.random() - 0.5) * 6,
-            vy: -8 - Math.random() * 10,
-            life: (1.6 + Math.random() * 0.6) * (0.7 + speedFrac * 0.5),
-            color, smoke: true,
+            vx: (Math.random() - 0.5) * 260, vy: (Math.random() - 0.5) * 260,
+            life: 0.45 + Math.random() * 0.3, color: '#fff066', tracer: true,
           });
+        } else {
+          let color = '#9fd6ff', puffs = 1, sizeMult = 1;
+          if (m.typeKey === 'cluster') color = '#bfffdb';
+          else if (m.typeKey === 'large') { sizeMult = 1.4; if (Math.random() < 0.4) puffs = 2; }
+          else if (m.typeKey === 'fast') sizeMult = 0.65;
+          if (m.burnFrac != null) {
+            if (m.age / m.totalSeconds < m.burnFrac) {
+              color = '#5a4a42'; // burning: thicker, darker, warmer smoke
+              if (Math.random() < speedFrac * 0.5) puffs = 2;
+            } else {
+              color = '#c9e8ff'; // coasting: thinner, paler, more dispersed
+            }
+          }
+          for (let i = 0; i < puffs; i++) {
+            particles.push({
+              x: tx, y: ty,
+              vx: -m.vx * 0.06 + (Math.random() - 0.5) * 6,
+              vy: -8 - Math.random() * 10,
+              life: (1.6 + Math.random() * 0.6) * (0.7 + speedFrac * 0.5) * sizeMult,
+              color, smoke: true,
+            });
+          }
+          maybeSpawnSpeedLine(m, tx, ty); // LRNA-087
         }
-        maybeSpawnSpeedLine(m, tx, ty); // LRNA-087
       }
 
       const distToTarget = Math.abs(m.targetX - m.x);
@@ -4721,8 +4739,77 @@
     targetLabelEl.style.color = t.color;
   }
 
+  // ART-2: now effectively ENEMY STRIKE's own dedicated look (its only
+  // remaining caller in drawIcon, since FAST/MEDIUM/LARGE/CLUSTER/EMP
+  // each got their own function below) - deliberately angular and
+  // jagged rather than the clean geometric shapes every player-owned
+  // warhead uses, so an inbound threat reads as hostile at a glance,
+  // before even checking color. Kept as the generic fallback too (a
+  // reasonable default for anything else unlabeled).
   function drawMissileBody(r) {
-    // classic rocket silhouette: nose cone, body, flared tail fins. Forward = +x.
+    ctx.beginPath();
+    ctx.moveTo(r * 1.7, 0);
+    ctx.lineTo(r * 0.65, -r * 0.5);
+    ctx.lineTo(-r * 0.3, -r * 0.3);
+    ctx.lineTo(-r * 0.85, -r * 0.9);
+    ctx.lineTo(-r * 1.1, -r * 0.25);
+    ctx.lineTo(-r * 1.3, 0);
+    ctx.lineTo(-r * 1.1, r * 0.25);
+    ctx.lineTo(-r * 0.85, r * 0.9);
+    ctx.lineTo(-r * 0.3, r * 0.3);
+    ctx.lineTo(r * 0.65, r * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    // nose highlight
+    ctx.beginPath();
+    ctx.moveTo(r * 1.7, 0);
+    ctx.lineTo(r * 0.65, -r * 0.5);
+    ctx.lineTo(r * 0.65, r * 0.5);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fill();
+  }
+
+  // ART-2: FAST - the smallest, quickest warhead in the player's own
+  // arsenal gets the smallest, plainest silhouette - a short dart with
+  // minimal fins, nothing to slow the eye down reading it as "the fast
+  // one." Distinct from MEDIUM/LARGE below rather than all three
+  // sharing one shape at different scales.
+  function drawFastMissile(r) {
+    ctx.beginPath();
+    ctx.moveTo(r * 1.6, 0);
+    ctx.lineTo(r * 0.1, -r * 0.22);
+    ctx.lineTo(-r * 0.9, -r * 0.14);
+    ctx.lineTo(-r * 0.9, r * 0.14);
+    ctx.lineTo(r * 0.1, r * 0.22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.55, -r * 0.14);
+    ctx.lineTo(-r * 1.0, -r * 0.4);
+    ctx.lineTo(-r * 0.8, -r * 0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.55, r * 0.14);
+    ctx.lineTo(-r * 1.0, r * 0.4);
+    ctx.lineTo(-r * 0.8, r * 0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(r * 1.6, 0);
+    ctx.lineTo(r * 0.1, -r * 0.22);
+    ctx.lineTo(r * 0.1, r * 0.22);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fill();
+  }
+
+  // ART-2: MEDIUM - the "standard" warhead: proper nose cone, cylindrical
+  // body, flared quad fins. The baseline every other missile in the
+  // roster reads as smaller/plainer (FAST) or heavier/bulkier (LARGE)
+  // than.
+  function drawMediumMissile(r) {
     ctx.beginPath();
     ctx.moveTo(r * 1.7, 0);
     ctx.lineTo(r * 0.5, -r * 0.34);
@@ -4734,7 +4821,6 @@
     ctx.lineTo(r * 0.5, r * 0.34);
     ctx.closePath();
     ctx.fill();
-    // nose highlight
     ctx.beginPath();
     ctx.moveTo(r * 1.7, 0);
     ctx.lineTo(r * 0.5, -r * 0.34);
@@ -4742,6 +4828,81 @@
     ctx.closePath();
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.fill();
+  }
+
+  // ART-2: LARGE - the heaviest player warhead (1000 dmg, 30s flight)
+  // gets a genuinely bulkier body and big flared tail fins, not just
+  // MEDIUM's shape scaled up - it used to share drawBomber with the
+  // plane roster entirely (a missile rendered as a delta-wing aircraft),
+  // which read as the wrong kind of "heavy."
+  function drawHeavyMissile(r) {
+    ctx.beginPath();
+    ctx.moveTo(r * 1.5, 0);
+    ctx.lineTo(r * 0.85, -r * 0.55);
+    ctx.lineTo(-r * 0.35, -r * 0.55);
+    ctx.lineTo(-r * 0.6, -r * 1.1);
+    ctx.lineTo(-r * 1.05, -r * 1.0);
+    ctx.lineTo(-r * 0.8, -r * 0.5);
+    ctx.lineTo(-r * 1.35, -r * 0.22);
+    ctx.lineTo(-r * 1.35, r * 0.22);
+    ctx.lineTo(-r * 0.8, r * 0.5);
+    ctx.lineTo(-r * 1.05, r * 1.0);
+    ctx.lineTo(-r * 0.6, r * 1.1);
+    ctx.lineTo(-r * 0.35, r * 0.55);
+    ctx.lineTo(r * 0.85, r * 0.55);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(r * 1.5, 0);
+    ctx.lineTo(r * 0.85, -r * 0.55);
+    ctx.lineTo(r * 0.85, r * 0.55);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fill();
+  }
+
+  // ART-2: a single CLUSTER sub-munition - small and blunt, distinct
+  // from a scaled-down bomber/plane (the formation's old look) so 3 of
+  // these in formation read as "bomblets about to split," not "3 tiny
+  // planes."
+  function drawBomblet(r) {
+    ctx.beginPath();
+    ctx.moveTo(r * 1.2, 0);
+    ctx.lineTo(0, -r * 0.75);
+    ctx.lineTo(-r * 0.9, -r * 0.35);
+    ctx.lineTo(-r * 0.9, r * 0.35);
+    ctx.lineTo(0, r * 0.75);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(r * 0.1, 0, r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fill();
+  }
+
+  // ART-2: EMP - a non-kinetic energy weapon, not another explosive
+  // warhead body: a glowing core with radiating pulse arcs instead of
+  // a nose/fuselage/fins silhouette, so it visually reads as "jamming
+  // device" rather than implying a normal impact weapon.
+  function drawEmpOrb(r) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    const baseColor = ctx.fillStyle;
+    ctx.strokeStyle = baseColor;
+    ctx.lineWidth = r * 0.12;
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 8;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r * 0.65, Math.sin(a) * r * 0.65);
+      ctx.lineTo(Math.cos(a) * r * 1.3, Math.sin(a) * r * 1.3);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = r * 0.1;
+    ctx.stroke();
   }
 
   // small, nimble attack-plane silhouette for FAST/MEDIUM - short fuselage,
@@ -4965,30 +5126,36 @@
     ctx.shadowBlur = typeKey === 'counter' ? 16 : (typeKey === 'large' ? 12 : 7);
     if (typeKey === 'enemyStrike' && weaponClass === 'plane') {
       // LRNA-051's symmetric arsenal: a plane-classed enemy strike reads
-      // as a plane/bomber, matching the player's own fast/medium ->
-      // drawAttackPlane, large -> drawBomber split just below - a
-      // missile-classed one falls through to the `else` branch
-      // (drawMissileBody), same look enemyStrike has always had.
+      // as a plane/bomber (the same drawBomber/drawAttackPlane the
+      // player's own PLANES use, not the missile-specific shapes below -
+      // it's genuinely a plane, ART-1's territory) - a missile-classed
+      // one falls through to the `else` branch (drawMissileBody, ART-2's
+      // dedicated hostile-missile look).
       if (r >= 8) drawBomber(r); else drawAttackPlane(r);
     } else if (typeKey === 'counter') {
       ctx.beginPath(); ctx.moveTo(r * 1.3, 0); ctx.lineTo(0, -r); ctx.lineTo(-r * 1.3, 0); ctx.lineTo(0, r); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = color; ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.arc(0, 0, r + 5, 0, Math.PI * 2); ctx.stroke();
     } else if (typeKey === 'cluster') {
-      // a tight formation of three small bombers instead of one big body -
-      // keeps the "this splits into 3 impacts" telegraph while matching
-      // the bomber-family look the rest of the heavy types now use.
+      // ART-2: a tight formation of three small bomblets (drawBomblet,
+      // not a scaled-down plane/bomber) - keeps the "this splits into 3
+      // impacts" telegraph while reading as sub-munitions, not 3 tiny
+      // aircraft.
       const offsets = [[0, -r * 0.75], [0, r * 0.75], [r * 0.9, 0]];
       for (const [ox, oy] of offsets) {
         ctx.save();
         ctx.translate(ox, oy);
-        drawBomber(r * 0.55);
+        drawBomblet(r * 0.65);
         ctx.restore();
       }
-    } else if (typeKey === 'fast' || typeKey === 'medium') {
-      drawAttackPlane(r);
+    } else if (typeKey === 'emp') {
+      drawEmpOrb(r); // ART-2: non-kinetic energy weapon, not another explosive body
+    } else if (typeKey === 'fast') {
+      drawFastMissile(r); // ART-2
+    } else if (typeKey === 'medium') {
+      drawMediumMissile(r); // ART-2
     } else if (typeKey === 'large') {
-      drawBomber(r);
+      drawHeavyMissile(r); // ART-2
     } else if (typeKey === 'drone' || typeKey === 'attackDrone') {
       drawDrone(r, typeKey === 'attackDrone');
     } else if (typeKey === 'plane') {
