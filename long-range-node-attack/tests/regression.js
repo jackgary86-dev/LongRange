@@ -639,7 +639,15 @@ test('LRNA-137: EMP deals real damage on top of its jam effect', async () => {
       const before = T.omegaHealth;
       const m = T.launchAttack(T.nodeA, T.nodeO, 'emp');
       m.defended = true;
+      // impact still rolls against the normal 85% HIT_CHANCE - force a
+      // guaranteed hit instead of leaving this test to a 15% flake rate.
+      // Safe to override for the rest of this test: the missile's own id
+      // is already assigned, and nothing else needs a fresh random id
+      // before this scenario finishes.
+      const realRandom = Math.random;
+      Math.random = () => 0.01;
       for (let i = 0; i < 1000 && T.missiles.some(x => x.id === m.id); i++) T.tickUpdate(0.05);
+      Math.random = realRandom;
       return { before, after: T.omegaHealth };
     });
     assert(result.after < result.before, `EMP should deal real damage: ${result.before} -> ${result.after}`);
@@ -706,6 +714,12 @@ test('LRNA-141: Strike Fighter dodge refreshes for the return leg', async () => 
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
       T.tokens.attack = 99999;
+      // isolate from Omega's REAL Counter Planes ability - this test
+      // deliberately zeroes dodgesLeft below, leaving the plane genuinely
+      // vulnerable, so without this it could occasionally get shot down
+      // for real before ever reaching the outbound->returning transition
+      // this test is checking.
+      T.disableOmegaCounters();
       const plane = T.firePlane('strikeFighter');
       plane.dodgesLeft = 0; // simulate the outbound dodge already having been spent
       // fast-forward to just before it reaches its outbound destination
@@ -720,6 +734,91 @@ test('LRNA-141: Strike Fighter dodge refreshes for the return leg', async () => 
     assertEqual(result.beforeTransition, 0, 'sanity check - dodge should still read as spent right before landing outbound');
     assertEqual(result.phase, 'returning', 'plane should have transitioned to its return leg');
     assertEqual(result.dodgesLeft, 1, 'dodge should refresh for the return leg instead of staying spent for the whole sortie');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-143: UI_DISABLED_TYPES is the single source of truth for launch-bar-less weapon types', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      const launchBarTypes = Array.from(document.querySelectorAll('.launchBtn[data-type]')).map(b => b.dataset.type);
+      return {
+        disabled: T.UI_DISABLED_TYPES,
+        launchBarTypes,
+        clusterStillFunctional: !!T.TYPES.cluster && T.TYPES.cluster.dmg > 0,
+        empStillFunctional: !!T.TYPES.emp && T.TYPES.emp.dmg > 0,
+      };
+    });
+    for (const key of result.disabled) {
+      assert(!result.launchBarTypes.includes(key), `${key} is listed as UI-disabled but still has a launch bar button`);
+    }
+    assert(result.clusterStillFunctional, 'CLUSTER should stay fully defined/usable even though it has no button');
+    assert(result.empStillFunctional, 'EMP should stay fully defined/usable even though it has no button');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-144: a failed localStorage write surfaces a visible warning instead of failing silently', async () => {
+  await withGame(async (page, errors) => {
+    const before = await page.evaluate(() => ({
+      failed: window.__TEST__.storageWriteFailed,
+      hidden: document.getElementById('storageWarning').classList.contains('hidden'),
+    }));
+    assert(!before.failed, 'should start with no storage failure flagged');
+    assert(before.hidden, 'warning banner should be hidden when storage is working');
+
+    const afterFailure = await page.evaluate(() => {
+      const realSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = () => { throw new DOMException('quota exceeded', 'QuotaExceededError'); };
+      const ok = window.__TEST__.trySaveStorage('lrna_test_key', 'x');
+      Storage.prototype.setItem = realSetItem; // restore immediately, this test only needs one failed write
+      return {
+        ok,
+        failed: window.__TEST__.storageWriteFailed,
+        hidden: document.getElementById('storageWarning').classList.contains('hidden'),
+      };
+    });
+    assertEqual(afterFailure.ok, false, 'trySaveStorage should report the write failed');
+    assert(afterFailure.failed, 'storageWriteFailed should flip to true on a thrown setItem');
+    assert(!afterFailure.hidden, 'warning banner should become visible');
+
+    const afterRecovery = await page.evaluate(() => {
+      const ok = window.__TEST__.trySaveStorage('lrna_test_key', 'x');
+      return {
+        ok,
+        failed: window.__TEST__.storageWriteFailed,
+        hidden: document.getElementById('storageWarning').classList.contains('hidden'),
+      };
+    });
+    assertEqual(afterRecovery.ok, true, 'a subsequent successful write should report success');
+    assert(!afterRecovery.failed, 'storageWriteFailed should clear once a write succeeds again');
+    assert(afterRecovery.hidden, 'warning banner should hide again once storage recovers');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-146: contact list refreshes at 20fps instead of the old 5fps', async () => {
+  await withGame(async (page, errors) => {
+    const interval = await page.evaluate(() => window.__TEST__.CONTACTS_RENDER_INTERVAL);
+    assertEqual(interval, 0.05, 'render interval should be 0.05s (20fps), not the old 0.2s (5fps)');
+
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.clearMissiles();
+      // settle the render countdown into a steady state first (the very
+      // first tick always renders immediately regardless of interval, so
+      // it proves nothing on its own about how *often* it re-renders).
+      T.tickUpdate(0.1);
+      document.getElementById('contactList').innerHTML = ''; // clear out the settled render
+      T.launchEnemyStrike(T.nodeO, T.nodeA);
+      // one more tick, well under the old 0.2s interval but past the new
+      // 0.05s one - only the new interval would re-render in time to
+      // pick up this contact.
+      T.tickUpdate(0.06);
+      return document.getElementById('contactList').innerHTML;
+    });
+    assert(result.length > 0, 'contact list should reflect the new inbound strike within 0.06s of the previous render');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });

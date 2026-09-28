@@ -236,6 +236,27 @@
   #muteBtn:hover { background: rgba(53,230,255,0.12); }
   #muteBtn.active { color: #ff8a5c; border-color: #ff8a5c; background: rgba(255,138,92,0.12); }
 
+  /* LRNA-144: shown whenever a localStorage write throws (full/blocked
+     storage) - progress silently failing to save used to have zero
+     player-visible signal. */
+  #storageWarning {
+    position: absolute;
+    top: 174px; left: 6px;
+    z-index: 3;
+    pointer-events: none;
+    max-width: 220px;
+    background: rgba(40,5,5,0.85);
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    line-height: 1.4;
+    padding: 6px 8px;
+    animation: incomingPulse 1.4s infinite;
+  }
+  #storageWarning.hidden { display: none; }
+
   #pausedBanner {
     position: absolute;
     top: 50%; left: 50%;
@@ -797,6 +818,7 @@
     #opsCenterPanel { top: 72px; }
     #pauseBtn { top: 110px; }
     #muteBtn { top: 148px; }
+    #storageWarning { top: 186px; }
   }
 </style>
 
@@ -828,6 +850,7 @@
   <button id="pauseBtn">PAUSE</button>
   <button id="muteBtn">MUTE</button>
   <div id="pausedBanner" class="hidden">PAUSED</div>
+  <div id="storageWarning" class="hidden">⚠ PROGRESS NOT SAVING — storage unavailable</div>
   <div id="opsCenterPanel" class="hidden">
     <div class="opsHeader">
       <h3 style="margin:0; border:none; padding:0;">OPERATIONS CENTER</h3>
@@ -1769,6 +1792,33 @@
   // waveSizeMult. Declared early since a few functions below call
   // DIFFICULTIES[difficulty] as soon as they're invoked, well before the
   // rest of the file's setup finishes.
+  // LRNA-144: every localStorage write in this file used to swallow its
+  // error silently (`catch (e) { /* ignore */ }`) - if storage is full or
+  // blocked (private browsing, browser setting), the player's progress
+  // (tokens, upgrades, best wave, loadout, difficulty) stops persisting
+  // with zero indication until they come back to find it reset. This is
+  // the one place every save now goes through: it logs the failure once
+  // and flips a flag the HUD watches, instead of failing invisibly.
+  // Load failures are NOT routed through here - a getItem() failure just
+  // means "use the default," which is already the correct, silent
+  // behavior for a player who has no saved data yet.
+  let storageWriteFailed = false;
+  function updateStorageWarning() {
+    const el = document.getElementById('storageWarning');
+    if (el) el.classList.toggle('hidden', !storageWriteFailed);
+  }
+  function trySaveStorage(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      if (storageWriteFailed) { storageWriteFailed = false; updateStorageWarning(); }
+      return true;
+    } catch (e) {
+      console.error('[LRNA-144] localStorage write failed, progress is not saving:', e);
+      if (!storageWriteFailed) { storageWriteFailed = true; updateStorageWarning(); }
+      return false;
+    }
+  }
+
   const DIFFICULTY_KEY = 'lrna_difficulty_v1';
   const DIFFICULTIES = {
     // sizeMix = [fastCut, mediumCut] - r < fastCut is FAST, r < mediumCut
@@ -1791,7 +1841,7 @@
     } catch (e) { /* private/blocked storage: keep the default difficulty */ }
   }
   function saveDifficulty() {
-    try { localStorage.setItem(DIFFICULTY_KEY, difficulty); } catch (e) { /* ignore */ }
+    trySaveStorage(DIFFICULTY_KEY, difficulty);
   }
   loadDifficulty();
 
@@ -1828,7 +1878,7 @@
     } catch (e) { /* ignore */ }
   }
   function saveBestWave() {
-    try { localStorage.setItem(BEST_WAVE_KEY, String(bestWave)); } catch (e) { /* ignore */ }
+    trySaveStorage(BEST_WAVE_KEY, String(bestWave));
   }
   loadBestWave();
 
@@ -1867,6 +1917,13 @@
     // health, not the player's node-count/health-pool damage tiers above.
     enemyStrike: { label: 'STRIKE', names: ['REAPER', 'JAVELIN', 'SCYTHE', 'TALON'], eta: 14, dmg: 14, radius: 6, color: '#ff2ea6', peak: 200 },
   };
+  // LRNA-143: CLUSTER/EMP stay fully defined above (tests still exercise
+  // them directly, and a future pass may want to bring them back) but
+  // have no launch-bar button - removed deliberately, per direct request
+  // (see the SHORTCUT_KEYS comment below). This is the one place that
+  // now needs to know that, instead of the exclusion being re-derived
+  // implicitly wherever launch-bar types get filtered.
+  const UI_DISABLED_TYPES = ['cluster', 'emp'];
 
   // Omega's strikes vary in size like the player's own arsenal - FAST ones are
   // too quick for the Strike Platform's Emergency Counter system to lock onto,
@@ -2191,7 +2248,7 @@
     } catch (e) { /* private/blocked storage: keep the default loadout */ }
   }
   function saveLoadout() {
-    try { localStorage.setItem(LOADOUT_KEY, JSON.stringify(loadout)); } catch (e) { /* ignore */ }
+    trySaveStorage(LOADOUT_KEY, JSON.stringify(loadout));
   }
   loadLoadout();
   // global regardless of which slot it's in, and a second one adds
@@ -2422,6 +2479,13 @@
   const DEFENSE_ENGAGE_CAP = 2;
   let shotsRemaining = TURN_SIZE;
   let turnCooldown = 0;
+  // LRNA-146: was 0.2s (5fps) - a fast missile's on-screen position (the
+  // canvas draw() loop, unthrottled) could visibly outrun the radar
+  // lane/contact list's numbers by up to 200ms. 20fps keeps the DOM
+  // rebuild (renderContacts/renderTargetList/renderUpgrades all rebuild
+  // innerHTML) well short of doing it every single canvas frame, while
+  // cutting the worst-case staleness by 4x.
+  const CONTACTS_RENDER_INTERVAL = 0.05;
   let contactsRenderTimer = 0;
 
   function activeCount(originId) {
@@ -2523,7 +2587,7 @@
     tokens = { attack: 500, counter: 500, intel: 500 };
   })();
   function saveTokens() {
-    try { localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens)); } catch (e) { /* ignore */ }
+    trySaveStorage(TOKENS_KEY, JSON.stringify(tokens));
   }
 
   // Economy rework (direct request): flat 100/sec passive income, every
@@ -2551,7 +2615,7 @@
     } catch (e) { /* ignore */ }
   })();
   function saveLifetimeTokens() {
-    try { localStorage.setItem(LIFETIME_TOKENS_KEY, String(Math.floor(lifetimeTokensTotal))); } catch (e) { /* ignore */ }
+    trySaveStorage(LIFETIME_TOKENS_KEY, String(Math.floor(lifetimeTokensTotal)));
   }
 
   const tokenDisplayEls = {
@@ -2620,7 +2684,7 @@
     } catch (e) { ownedUpgrades = {}; }
   })();
   function saveUpgrades() {
-    try { localStorage.setItem(UPGRADES_KEY, JSON.stringify(ownedUpgrades)); } catch (e) { /* ignore */ }
+    trySaveStorage(UPGRADES_KEY, JSON.stringify(ownedUpgrades));
   }
   function dmgMultiplier() { return ownedUpgrades.overcharge ? 1.2 : 1; }
   function currentMaxActive() { return MAX_ACTIVE + (ownedUpgrades.ammobay ? 1 : 0); }
@@ -3473,7 +3537,7 @@
     try { muted = localStorage.getItem(MUTED_KEY) === '1'; } catch (e) { /* private/blocked storage: default unmuted */ }
   }
   function saveMuted() {
-    try { localStorage.setItem(MUTED_KEY, muted ? '1' : '0'); } catch (e) { /* ignore */ }
+    trySaveStorage(MUTED_KEY, muted ? '1' : '0');
   }
   loadMuted();
   function setMuted(next) {
@@ -4247,7 +4311,7 @@
 
     contactsRenderTimer -= dt;
     if (contactsRenderTimer <= 0) {
-      contactsRenderTimer = 0.2;
+      contactsRenderTimer = CONTACTS_RENDER_INTERVAL;
       renderContacts();
       renderTargetList();
       renderUpgrades();
@@ -5769,6 +5833,11 @@
       setMuted: (v) => setMuted(v),
       get masterGainValue() { return masterGain ? masterGain.gain.value : null; },
       get MASTER_VOLUME() { return MASTER_VOLUME; },
+      get UI_DISABLED_TYPES() { return UI_DISABLED_TYPES; },
+      get storageWriteFailed() { return storageWriteFailed; },
+      get CONTACTS_RENDER_INTERVAL() { return CONTACTS_RENDER_INTERVAL; },
+      trySaveStorage: (key, value) => trySaveStorage(key, value),
+      get TYPES() { return TYPES; },
       fireAttackDrone: (apId) => fireAttackDrone(apId),
       fireCounterMissile: () => fireCounterMissile(),
       fireCounterAttackPlanes: () => fireCounterAttackPlanes(),
