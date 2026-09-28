@@ -1798,6 +1798,33 @@
     return stars;
   })();
 
+  // ART-3: a genuinely distant backdrop layer - large, soft, slow-
+  // parallax color blobs well behind the mountains (0.35x) and the
+  // regular terrain glow (1x, embedded in the play plane, unchanged).
+  // Before this, neither the stars above nor the terrain glow had any
+  // parallax at all (both scrolled 1:1 with camX, the same rate as
+  // gameplay objects) - the single biggest reason the battlefield read
+  // as flat despite already having real terrain content. Deliberately
+  // generic procedural placement (evenly spaced, randomized only in
+  // size/color/vertical offset) - no relation to any node's real
+  // position, so it can never hint at a hidden AntiPlane/SEEK AND
+  // DESTROY node the way a deliberately-placed landmark might.
+  const NEBULA_PARALLAX = 0.12;
+  const NEBULA_COLORS = ['#2a1a5e', '#1a2a5e', '#3a1a4a', '#1a4a3a', '#4a1a2a'];
+  const NEBULA_CLOUDS = (() => {
+    const clouds = [];
+    const spacing = 900;
+    for (let x = spacing / 2; x < MAP_W; x += spacing + (Math.random() - 0.5) * 500) {
+      clouds.push({
+        x,
+        yOff: (Math.random() - 0.5) * 1200,
+        r: 260 + Math.random() * 340,
+        color: NEBULA_COLORS[(Math.random() * NEBULA_COLORS.length) | 0],
+      });
+    }
+    return clouds;
+  })();
+
   const TERRAIN_COLORS = ['#140a30', '#1a0e3c', '#0e1236', '#20103a', '#0a1840', '#2a0f2e', '#160a24'];
   const terrainPatches = (() => {
     const patches = [];
@@ -5646,10 +5673,18 @@
     ctx.globalAlpha = 1;
   }
 
+  // ART-3: a real parallax factor (0.5) instead of the old 1:1 scroll -
+  // stars are meant to be far away, so they should drift past much
+  // slower than the foreground, not move in lockstep with gameplay
+  // objects. Paired with the new, even-slower NEBULA_CLOUDS backdrop
+  // (0.12x) drawn behind these, this is the actual fix for the
+  // battlefield reading as flat - it had real terrain content already,
+  // just none of it (stars included) had any depth cue at all.
+  const STAR_PARALLAX = 0.5;
   function drawStars() {
     const VW = vw(), VH = vh();
     for (const s of STARS) {
-      const sx = s.x - camX;
+      const sx = s.x - camX * STAR_PARALLAX;
       if (sx < -4 || sx > VW + 4) continue;
       const sy = VH / 2 + s.yOff;
       if (sy < -4 || sy > VH + 4) continue;
@@ -5658,6 +5693,22 @@
       ctx.fillRect(sx, sy, s.r, s.r);
     }
     ctx.globalAlpha = 1;
+  }
+
+  function drawNebula() {
+    const VW = vw(), VH = vh();
+    for (const c of NEBULA_CLOUDS) {
+      const sx = c.x - camX * NEBULA_PARALLAX;
+      if (sx < -c.r - 40 || sx > VW + c.r + 40) continue;
+      const sy = VH / 2 + c.yOff;
+      const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, c.r);
+      grad.addColorStop(0, c.color + '55');
+      grad.addColorStop(1, c.color + '00');
+      ctx.beginPath();
+      ctx.arc(sx, sy, c.r, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
   }
 
   function drawTerrain() {
@@ -5861,6 +5912,7 @@
     }
     const VW = vw(), VH = vh();
 
+    drawNebula(); // ART-3: furthest-back layer, behind the stars
     drawStars();
     drawMountains();
     drawTerrain();
@@ -5875,8 +5927,30 @@
     for (let x = -((camX) % 80); x < VW; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, VH); ctx.stroke(); }
     for (let y = 0; y < VH; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(VW, y); ctx.stroke(); }
 
-    ctx.strokeStyle = 'rgba(143,107,255,0.12)';
+    // ART-3: the corridor itself, as a real conduit rather than a plain
+    // thin grid line - a soft glow band plus traveling energy pulses
+    // flowing Strike-Platform-to-Omega, so the lane the player launches
+    // ordnance down actually reads as a path, not just a ruler mark.
+    // Purely decorative (phase driven by wall-clock time, not game
+    // state) - doesn't touch camera/coordinate math at all.
+    const laneGrad = ctx.createLinearGradient(0, VH / 2 - 16, 0, VH / 2 + 16);
+    laneGrad.addColorStop(0, 'rgba(143,107,255,0)');
+    laneGrad.addColorStop(0.5, 'rgba(143,107,255,0.14)');
+    laneGrad.addColorStop(1, 'rgba(143,107,255,0)');
+    ctx.fillStyle = laneGrad;
+    ctx.fillRect(0, VH / 2 - 16, VW, 32);
+    ctx.strokeStyle = 'rgba(143,107,255,0.15)';
     ctx.beginPath(); ctx.moveTo(0, VH / 2); ctx.lineTo(VW, VH / 2); ctx.stroke();
+    const pulseSpacing = 220;
+    const pulsePhase = (performance.now() / 1000 * 260) % pulseSpacing;
+    ctx.fillStyle = 'rgba(205,185,255,0.55)';
+    for (let wx = nodeA.x + pulsePhase; wx < nodeO.x; wx += pulseSpacing) {
+      const sx = wx - camX;
+      if (sx < -10 || sx > VW + 10) continue;
+      ctx.beginPath();
+      ctx.ellipse(sx, VH / 2, 5, 1.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     for (const s of scorchMarks) {
       const sx = s.x - camX;
@@ -6079,6 +6153,18 @@
 
   function drawMinimap() {
     mctx.clearRect(0, 0, MW, MH);
+    // ART-3: a matching deep-space gradient backdrop and corridor glow,
+    // instead of leaving the strip to plain CSS background + bare
+    // pixels - same visual language as the new battlefield nebula/lane
+    // treatment above, just compressed to a 32px strip.
+    const bgGrad = mctx.createLinearGradient(0, 0, 0, MH);
+    bgGrad.addColorStop(0, 'rgba(20,14,40,0.9)');
+    bgGrad.addColorStop(0.5, 'rgba(10,8,28,0.9)');
+    bgGrad.addColorStop(1, 'rgba(20,14,40,0.9)');
+    mctx.fillStyle = bgGrad;
+    mctx.fillRect(0, 0, MW, MH);
+    mctx.strokeStyle = 'rgba(143,107,255,0.25)';
+    mctx.beginPath(); mctx.moveTo(0, MH / 2); mctx.lineTo(MW, MH / 2); mctx.stroke();
     const scale = MW / MAP_W;
     mctx.fillStyle = 'rgba(53,230,255,0.4)';
     mctx.fillRect(nodeA.x * scale - 2, 6, 4, MH - 12);

@@ -111,7 +111,49 @@ to whoever picks these up.
   side, reading as genuinely distinct kinds, not just recolors. Pure
   rendering change - regression suite (45 tests) passes unmodified, zero
   console errors, stable across repeated runs.
-- **ART-3** — Redesign map/battlefield background and minimap (jackgary86-dev/LongRange#56)
+- **ART-3** — DONE (2026-09-28) — Redesign map/battlefield background and
+  minimap (jackgary86-dev/LongRange#56). Note: the issue's own "current
+  state" text ("No terrain art, textures, or parallax - it's flat/
+  abstract") was stale by the time this got picked up - `LRNA-030`
+  already shipped mountains/terrain/creeks/rivers/trees, and this
+  session's own `LRNA-088` added a foreground parallax layer. Surveyed
+  the real current state with live screenshots before deciding what was
+  actually still missing, rather than trusting the ticket's own summary.
+  - **The real gap, found by reading the draw code rather than assuming**:
+    despite already having real terrain content, *neither* the stars
+    (`drawStars`) nor the ambient terrain glow (`drawTerrain`) had any
+    parallax at all - both scrolled exactly 1:1 with `camX`, the same
+    rate as gameplay objects. Only `drawMountains` (0.35x, LRNA-030) and
+    `drawForeground` (1.3x, LRNA-088) had any depth cue. That - not a
+    lack of content - was the actual reason the battlefield still read
+    as flat.
+  - **Fix**: gave `drawStars` a real 0.5x parallax factor instead of 1:1,
+    and added a new, even-slower (0.12x) `drawNebula` backdrop layer
+    (large soft color blobs, drawn furthest back, behind the stars) -
+    genuine depth separation between background/midground/foreground
+    layers where before everything but the mountains moved together.
+    `drawTerrain`'s existing glow patches were left at 1:1 deliberately -
+    they read as embedded in the play plane, not a background layer.
+  - **The corridor itself**: reworked from a single thin, faint grid
+    line into a real conduit - a soft glow band plus small traveling
+    energy pulses flowing Strike-Platform-to-Omega (phase driven by
+    wall-clock time, purely decorative). The lane the player launches
+    ordnance down now actually reads as a path.
+  - **Minimap**: gained a matching dark gradient backdrop and corridor
+    line instead of relying on plain CSS background + bare pixel dots -
+    same visual language as the battlefield, compressed to its 32px
+    strip.
+  - **Left alone, as instructed**: Node Omega's pixel-crumble health
+    visualization (`omegaCanvas`/`OMEGA_RES`/`OMEGA_PX_SCALE`) - a real
+    gameplay feedback mechanic, untouched. Hidden-node secrecy
+    (AntiPlane/SEEK AND DESTROY nodes) is unaffected - every new element
+    is generic/procedural with no relation to any node's real position,
+    so nothing new can hint at one. `ZOOM`/`vw()`/`vh()`/camera-follow
+    math is untouched - only parallax multipliers changed, the same
+    technique `drawMountains` already used.
+  Verified with before/after screenshots at the start of a run and
+  panned to mid-map. Pure rendering change - regression suite (45 tests)
+  passes unmodified, stable across repeated runs, zero console errors.
 - **ART-4** — Redesign HUD buttons and UI chrome (jackgary86-dev/LongRange#57)
 - **ART-5** — Recon-gated opening phase visuals: zone markers, lock
   banner, unlock moment (jackgary86-dev/LongRange#58). Follow-up from
