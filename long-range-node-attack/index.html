@@ -2300,6 +2300,20 @@
       color: '#ff8a5c', hitChance: 0.50, cooldown: 1.3, chipOnly: true,
       engages: () => true,
     },
+    // LRNA-049's "Base": the ticket's own genuinely-open node, resolved
+    // directly as a "multi-target volley" rather than another
+    // single-target repeater like gml/mgaa/cb/gu - engages everything,
+    // but instead of picking one best target like every other node, it
+    // fires at every currently-inbound threat at once each cycle (see
+    // the `volley` branch in updateLoadoutNodes below), trading a lower
+    // per-target hit chance and a long cycle for hitting the whole wave
+    // in one go.
+    base: {
+      key: 'base', label: 'BASE', short: 'BASE',
+      desc: 'vs everything, fires at every inbound threat at once — 35% hit, 6s cycle',
+      color: '#c48bff', hitChance: 0.35, cooldown: 6, volley: true,
+      engages: () => true,
+    },
     // LRNA-077/#434: a 4th, non-combat loadout choice - `vision: true`
     // opts it out of updateLoadoutNodes' engagement loop entirely (it
     // has no hitChance/engages/cooldown, and doesn't need any). Its
@@ -2361,6 +2375,19 @@
       if (!loadoutNodeActive(node)) continue;
       node.fireTimer -= dt;
       if (node.fireTimer > 0) continue;
+      if (node.def.volley) {
+        // Base: a blanket pulse, not a single-target pick - every
+        // currently-inbound eligible threat gets engaged in the same
+        // tick, unlike the "one best target" logic every other node
+        // below uses. Doesn't touch m.loadoutHitBy (that bookkeeping is
+        // only for nodes taking turns on one target); a volley just
+        // fires fresh at whatever's inbound each time its own cycle
+        // comes back around.
+        const targets = missiles.filter(m => m.typeKey === 'enemyStrike' && node.def.engages(m.sizeKey) && (m.totalSeconds - m.age) > 0);
+        for (const m of targets) fireCounter(node, m.id, 'loadout');
+        node.fireTimer = targets.length ? node.def.cooldown : 0.3;
+        continue;
+      }
       // LRNA-108: every node independently chasing "the single soonest
       // threat" piles all 3 onto the same target when only 1-2 are
       // inbound, stacking odds well past useful while other threats get

@@ -30,6 +30,13 @@ to whoever picks these up.
 - **ART-2** — Redesign missile/warhead sprites and trails (jackgary86-dev/LongRange#55)
 - **ART-3** — Redesign map/battlefield background and minimap (jackgary86-dev/LongRange#56)
 - **ART-4** — Redesign HUD buttons and UI chrome (jackgary86-dev/LongRange#57)
+- **ART-5** — Recon-gated opening phase visuals: zone markers, lock
+  banner, unlock moment (jackgary86-dev/LongRange#58). Follow-up from
+  LRNA-080's placeholder `drawReconZone()`/`#openingLockedBanner`.
+- **ART-6** — Base loadout node visuals: multi-target volley
+  (jackgary86-dev/LongRange#59). Follow-up from LRNA-049's Base node
+  shipping with the same placeholder dot rendering as the other loadout
+  nodes.
 
 ---
 
@@ -1528,7 +1535,7 @@ Three more followed the same night (#433-435, below).
     2026-09-25). Owner decision: reveals the whole map - every
     AntiPlane/SEEK AND DESTROY node discovered from the first second, no
     DRONE needed. See the Shipped section for the full writeup.
-- **LRNA-049** — PARTIAL — Counter node & unit roster (Counter pillar of LRNA-046).
+- **LRNA-049** — DONE (2026-09-28) — Counter node & unit roster (Counter pillar of LRNA-046).
   - **Counter Class** (intercepts incoming threats) — already shipped as
     the shared `COUNTER`/`fireCounter` mechanic underlying AM batteries
     (LRNA-015), Emergency Counter (LRNA-032), Counter Attack Planes
@@ -1578,11 +1585,21 @@ Three more followed the same night (#433-435, below).
     chipped twice down to 3, a LARGE strike (26 dmg) chipped once to 16 -
     and zero destroy events fired for any Ground-Units-only hit, zero
     console errors.
-  - **Base (Base Node) — still genuinely open, not guessed at.** No new
-    loadout option matching this description shipped either. Unchanged
-    from the original review: unclear whether this ever meant a 4th
-    buildable node, or was just restating that the Strike Platform
-    itself counts as "a node" in the reference diagram's language.
+  - **Base (Base Node) — DONE (2026-09-28).** Resolved directly: a real
+    4th buildable loadout node, not a restatement of the Strike Platform
+    itself. Asked for its concrete mechanic (matching every other node's
+    own resolved-with-a-real-number pattern); answered "multi-target
+    volley" - rather than picking one best target like every other node,
+    it engages every currently-inbound threat at once each cycle.
+    Shipped as `LOADOUT_NODE_TYPES.base`: engages every size, 35% hit
+    chance per target, 6s cycle (0.3s retry if nothing's inbound that
+    tick). Implemented as a distinct `volley` branch in
+    `updateLoadoutNodes` alongside the existing single-target-pick path
+    the other 4 nodes share, so it doesn't touch `m.loadoutHitBy` (that
+    bookkeeping only matters for nodes taking turns on one target).
+    Covered by a new regression test (`LRNA-049`) verifying 3
+    differently-sized threats are all engaged in the same tick and the
+    cooldown behaves correctly both with and without targets present.
 - **LRNA-051** — PARTIAL — Counter Window. **Shipped**: the core, fully
   unambiguous part — a real second overlay window (not an Operations
   Center tab), opened by the existing COUNTER MISSILE button (LRNA-041)

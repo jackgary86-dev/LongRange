@@ -1118,4 +1118,49 @@ test('LRNA-080: SEEK AND DESTROY nodes carry a recon zone boundary for the pre-d
   });
 });
 
+test('LRNA-049: Base loadout node fires a volley at every inbound threat at once, not just one', async () => {
+  await withGame(async (page, errors) => {
+    await page.selectOption('.loadoutSelect[data-slot="0"]', 'base');
+    await page.click('#startGameBtn');
+    await page.waitForTimeout(200);
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.forceOpeningUnlock();
+      T.freezeWaves();
+      T.clearMissiles();
+      const base = T.loadoutNodes.find(n => n.def.key === 'base');
+
+      const threats = ['fast', 'medium', 'large'].map(sizeKey => {
+        const m = T.launchEnemyStrike(T.nodeO, T.nodeA);
+        m.sizeKey = sizeKey;
+        m.age = 2;
+        return m;
+      });
+      base.fireTimer = 0;
+      T.tickLoadoutNodes(0.016);
+      const engaged = new Set(T.missiles.filter(m => m.typeKey === 'counter' && m.source === 'loadout' && m.originId === base.id).map(m => m.seekTargetId));
+      const fireTimerAfterVolley = base.fireTimer;
+
+      T.clearMissiles();
+      base.fireTimer = 0;
+      T.tickLoadoutNodes(0.016);
+      const fireTimerWithNoTargets = base.fireTimer;
+
+      return {
+        baseExists: !!base,
+        threatIds: threats.map(m => m.id),
+        engaged: Array.from(engaged),
+        fireTimerAfterVolley,
+        fireTimerWithNoTargets,
+      };
+    });
+    assert(result.baseExists, 'sanity check - a Base node should exist in slot 0');
+    assert(result.threatIds.every(id => result.engaged.includes(id)),
+      `all 3 threats should be engaged in the same tick; threatIds=${JSON.stringify(result.threatIds)} engaged=${JSON.stringify(result.engaged)}`);
+    assertEqual(result.fireTimerAfterVolley, 6, 'firing a volley should reset the cooldown to the full 6s cycle');
+    assertEqual(result.fireTimerWithNoTargets, 0.3, 'with nothing inbound, Base should retry soon rather than wait out the full cycle');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
 run();
