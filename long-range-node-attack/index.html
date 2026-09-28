@@ -61,6 +61,17 @@
   }
   #omegaJamStatus.hidden { display: none; }
   @keyframes omegaJamPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  /* LRNA-116: Omega's own Counter Missile/Planes readiness, so the player
+     can predict when Omega will stop defending rather than it firing
+     silently with no visible state. */
+  #omegaCounterStatus {
+    margin-top: 3px;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    color: #ff8fc7;
+    opacity: 0.85;
+  }
+  #omegaCounterStatus .ready { color: #7bffa0; }
   .barInner { height: 100%; width: 100%; transition: width 0.2s linear, background 0.3s; }
 
   #centerLabel {
@@ -741,6 +752,7 @@
       <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="oImpacts">0</span></div>
       <div id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</div>
+      <div id="omegaCounterStatus"></div>
     </div>
   </div>
 
@@ -3045,6 +3057,24 @@
       el.classList.remove('hidden');
     } else {
       el.classList.add('hidden');
+    }
+    // LRNA-116: readiness for Omega's own Counter Missile/Planes, so the
+    // player can predict when Omega will stop defending instead of it
+    // firing silently with no visible state. Skipped while jammed - that
+    // status already communicates "no counters right now."
+    const statusEl = document.getElementById('omegaCounterStatus');
+    if (statusEl) {
+      if (omegaCountersJamTimer > 0) {
+        statusEl.textContent = '';
+      } else {
+        const cm = omegaCounterMissileTimer <= 0
+          ? '<span class="ready">CM READY</span>'
+          : `CM ${formatETA(omegaCounterMissileTimer)}`;
+        const cp = omegaCounterPlanesTimer <= 0
+          ? '<span class="ready">CP READY</span>'
+          : `CP ${formatETA(omegaCounterPlanesTimer)}`;
+        statusEl.innerHTML = `${cm} &middot; ${cp}`;
+      }
     }
   }
 
@@ -5548,6 +5578,7 @@
       tickUpdate: (dt) => update(dt),
       tickLoadoutNodes: (dt) => updateLoadoutNodes(dt),
       tickOmegaCounters: (dt) => updateOmegaCounters(dt),
+      updateOmegaCountersHud: () => updateOmegaCountersHud(),
     };
   }
 })();

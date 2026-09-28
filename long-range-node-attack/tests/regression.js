@@ -361,6 +361,31 @@ test('LRNA-136: particle array is hard-capped regardless of burst size', async (
   }, { skipStart: true });
 });
 
+test('LRNA-116: Omega Counter Missile/Planes readiness is shown in the HUD', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      // Test the HUD rendering directly, not via tickUpdate - the real
+      // updateOmegaCounters() reprocesses the timer within the same tick
+      // (resetting a just-fired-and-empty cooldown to a short retry delay),
+      // which would race with reading the value right back out.
+      T.setOmegaCounterMissileTimer(0); // ready
+      T.updateOmegaCountersHud();
+      const readyHtml = document.getElementById('omegaCounterStatus').innerHTML;
+
+      T.setOmegaCounterMissileTimer(4.2); // on cooldown
+      T.updateOmegaCountersHud();
+      const cooldownHtml = document.getElementById('omegaCounterStatus').innerHTML;
+
+      return { readyHtml, cooldownHtml };
+    });
+    assert(/CM READY/.test(result.readyHtml), `expected "CM READY" while off cooldown, got: ${result.readyHtml}`);
+    assert(/CM 0:0?4/.test(result.cooldownHtml), `expected a countdown while on cooldown, got: ${result.cooldownHtml}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }); // NOT skipStart: the HUD element only reflects real timer state once the game has started
+});
+
 test('LRNA-110: intercepting defenders resolve to a readable name', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
