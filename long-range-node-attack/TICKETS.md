@@ -1176,7 +1176,8 @@ Three more followed the same night (#433-435, below).
 ## Open / backlog
 
 ### Backlog (unscoped, pick next)
-- **LRNA-080** — Recon-gated opening phase: 4 intel zones hiding the base
+- **LRNA-080** — DONE (2026-09-28, shipped `351ea1f`) — Recon-gated
+  opening phase: 4 intel zones hiding the base
   + 3 nodes, scan before you can attack. Live-playtest feedback, given
   across several messages in the same sitting: combat currently starts
   immediately (Wave 1 fires right on `startGame`) with no recon beat
@@ -1235,6 +1236,23 @@ Three more followed the same night (#433-435, below).
     - Should Satellite (`LRNA-077`)'s instant-global-discovery still work
       unchanged against a phase whose whole point is "you have to work
       for this," or does it need gating/nerfing/removing here?
+  - **Resolved directly (2026-09-28), each of the above answered in
+    turn rather than guessed at:** hard opening phase gating everything
+    including Wave 1, lifting on the FIRST of the 3 targets found (not
+    all 4/3); "4 zones" confirmed to just mean the existing 3 SEEK AND
+    DESTROY nodes (Node Omega itself stays visible/attackable as today,
+    not a 4th hidden thing); the 3 zones are fixed regions replacing
+    the prior free-roaming corridor-thirds placement (in practice the
+    same underlying thirds math, now with a visible boundary and no
+    per-run reshuffling of *where* the thirds are); recon risk extends
+    Omega's existing Counter Planes ability rather than a new dedicated
+    threat, and - a real conflict surfaced and confirmed during this
+    discussion - that meant reversing `LRNA-095`'s own explicit
+    exemption protecting recon DRONE from those defenses (superseded by
+    direct request, not silently dropped); Satellite nerfed rather than
+    left unchanged (no longer reveals SEEK AND DESTROY nodes
+    specifically, AntiPlane untouched). Shipped as described in the
+    DONE line above.
 
 - **LRNA-084** — Remove the Counter Window and SEEK AND DESTROY window as
   separate pop-up overlays; consolidate into one main screen showing the
