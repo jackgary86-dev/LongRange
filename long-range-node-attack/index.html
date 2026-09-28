@@ -5435,6 +5435,19 @@
       const def = PLANE_TYPES[key];
       const slot = planeSlots[key];
       const etaEl = btn.querySelector('.btnEta');
+      // LRNA-117: Recon Plane always force-discovers the next undiscovered
+      // hidden node (deterministic order, not player-chosen - see
+      // resolvePlaneOutboundJob), so once every hidden node is already
+      // found there's nothing left for it to do. Without this, players
+      // could keep sending it out and burning INTEL for a sortie that
+      // silently finds nothing.
+      if (key === 'reconPlane' && slot.state === 'ready' && !allHuntableNodes().some(n => !n.discovered && !n.destroyed)) {
+        btn.disabled = true;
+        btn.classList.remove('away');
+        etaEl.classList.remove('rearming');
+        etaEl.textContent = 'ALL LOCATED';
+        continue;
+      }
       if (slot.state === 'ready') {
         btn.disabled = tokens[def.pillar] < def.cost;
         btn.classList.remove('away');

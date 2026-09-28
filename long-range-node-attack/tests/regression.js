@@ -443,4 +443,29 @@ test('LRNA-110: intercepting defenders resolve to a readable name', async () => 
   }); // NOT skipStart: loadoutNodes/amNodes are only populated once the game actually starts
 });
 
+test('LRNA-117: Recon Plane button disables once every hidden node is already found', async () => {
+  await withGame(async (page, errors) => {
+    const before = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.intel = 99999;
+      T.tickUpdate(0.05); // let updatePlaneButtons see the token top-up
+      const btn = document.querySelector('[data-plane="reconPlane"]');
+      return { disabled: btn.disabled, eta: btn.querySelector('.btnEta').textContent };
+    });
+    assert(!before.disabled, 'Recon Plane should be launchable while hidden nodes remain');
+    assert(before.eta !== 'ALL LOCATED', 'button should still show its normal ETA before everything is found');
+
+    const after = await page.evaluate(() => {
+      const T = window.__TEST__;
+      for (const n of [...T.antiPlaneNodes, ...T.seekDestroyNodes]) n.discovered = true;
+      T.tickUpdate(0.05);
+      const btn = document.querySelector('[data-plane="reconPlane"]');
+      return { disabled: btn.disabled, eta: btn.querySelector('.btnEta').textContent };
+    });
+    assert(after.disabled, 'Recon Plane should disable once nothing is left to discover');
+    assertEqual(after.eta, 'ALL LOCATED', 'button should tell the player why it is disabled');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }); // NOT skipStart: antiPlaneNodes/seekDestroyNodes are only populated once the game actually starts
+});
+
 run();
