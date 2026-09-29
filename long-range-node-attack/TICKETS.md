@@ -17,14 +17,17 @@ snapshot), `LongRange-1.0.0.html` (post-coin-economy, pre-v1.0.1 snapshot).
 
 ---
 
-## OPEN — Art Remodel (Epic)
+## DONE — Art Remodel (Epic)
 
 Tracked as GitHub issues, not LRNA-numbered (separate ticket prefix: `ART-#`)
 since this is purely visual/rendering work, orthogonal to the gameplay
 ticket backlog below. Epic: jackgary86-dev/LongRange#53. The game is
-currently 100% procedural Canvas2D drawing with zero external image
-assets - see the epic issue for the full rendering-approach writeup handed
-to whoever picks these up.
+100% procedural Canvas2D drawing with zero external image assets - see
+the epic issue for the full rendering-approach writeup handed to whoever
+picked these up. ART-1 through ART-8 all shipped 2026-09-28/29 - every
+issue filed under the epic is closed. See each entry below for what
+changed; the regression suite (45 tests, asserts game state/behavior,
+never pixels) passed unmodified through every one of them.
 
 - **ART-1** — DONE (2026-09-28) — Redesign plane sprites
   (jackgary86-dev/LongRange#54). Kept it procedural (still zero external
@@ -328,10 +331,45 @@ to whoever picks these up.
   distinct, the chevron points the correct direction. Pure rendering/CSS
   change - regression suite (45 tests) passes unmodified, stable across
   8 consecutive runs, zero console errors.
-- **ART-8** — Distinct silhouettes for the 6 loadout node types
-  (jackgary86-dev/LongRange#61). Resolves `LRNA-056`'s "new node icons"
-  reading (the unblocked one - see that ticket's own resolution note for
-  why the other reading is out of scope here).
+- **ART-8** — DONE (2026-09-29) — Distinct silhouettes for the 6 loadout
+  node types (jackgary86-dev/LongRange#61). Resolves `LRNA-056`'s "new
+  node icons" reading (the unblocked one - see that ticket's own
+  resolution note for why the other reading is explicitly out of scope
+  here). Note: like ART-6, the issue's own "current state" framing
+  ("plain colored dot") was stale - `drawLoadoutNode` already drew a
+  real bunker silhouette (body/roof/barrel/vent studs/status light)
+  shared across GML/MGAA/Counter Battery/Ground Units, and Satellite
+  already had its own fully distinct sky-satellite-plus-uplink-dish look
+  (`drawSatelliteLoadoutNode`). Base got its own 3-barrel/charge-ring
+  treatment in ART-6, done earlier this pass. The real remaining gap:
+  those 4 shared-bunker types were only distinguished from each other by
+  color, not silhouette.
+  - **GML** (`gml`): a low tracked chassis with a missile tube leaned
+    back and angled up - the only node whose "barrel" isn't vertical,
+    reading as a launcher rig rather than a gun emplacement.
+  - **MGAA** (`mgaa`): a round turret mount with 2 thin, tall parallel
+    barrels - reads as a fast-cycling anti-air gun.
+  - **Counter Battery** (`cb`): a heavier, flat-topped armored base (no
+    peaked roof) with one thick mortar-style barrel angled up - reads as
+    artillery, distinct from GML's shallow lean and MGAA's twin
+    verticals. Confirmed the new silhouette still reads clearly in both
+    the ON and cycled-OFF states (the issue asked for this explicitly),
+    since it layers unchanged on top of `LRNA-070`'s existing ring/label.
+  - **Ground Units** (`gu`): a small cluster of 2 vehicle hulls instead
+    of one fixed structure - the one loadout node whose own name is
+    plural, so its silhouette reads as multiple units, not a single
+    emplacement.
+  All 4 body/barrel shapes are drawn via a `switch (n.def.key)` in
+  `drawLoadoutNode`, replacing the old single shared bunker-body block;
+  the vent-stud/status-light/name-label/cycling-label code after it is
+  untouched and still shared by all 6 types. No functional/gameplay
+  change. Verified with a dedicated debug render path (a temporary,
+  throwaway test-only hook added to a scratch copy of the file, never
+  committed - real in-game camera framing at the corridor's actual scale
+  made the ~20px icons too small to inspect reliably in a screenshot) -
+  all 6 types now read as genuinely different pieces of equipment side
+  by side. Pure rendering change - regression suite (45 tests) passes
+  unmodified, stable across 8 consecutive runs, zero console errors.
 
 ---
 
