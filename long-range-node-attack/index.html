@@ -560,10 +560,6 @@
   #counterCenterTargetsSection {
     max-width: 480px; margin: 0 auto 18px;
   }
-  #missionMapReconStatus { font-size: 9.5px; opacity: 0.75; letter-spacing: 1px; }
-  #missionMapReconAntiPlaneLabel {
-    margin-top: 10px; font-size: 9.5px; opacity: 0.7; letter-spacing: 1px; color: #ff5a36;
-  }
   /* LRNA-154: the actual overflow fix - TARGETS can run to a dozen+ rows
      as the corridor fills with soft targets, which used to push RUN
      STATS/REACTOR UPGRADES down behind the bottom bar in the old
@@ -714,13 +710,6 @@
     max-height: 40vh;
     overflow-y: auto;
   }
-  #counterOpsBarRecon {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--green-dim);
-    font-size: 9.5px;
-  }
-  #counterOpsBarRecon > span { opacity: 0.75; letter-spacing: 1px; }
 
   #bottomBar {
     position: absolute;
@@ -1133,9 +1122,10 @@
   </div>
 
   <!-- LRNA-158: "Counter Operations bar" - the zone strip (was inside
-       the merged window) plus SEEK AND DESTROY/AntiPlane status, now a
-       persistent, always-visible bar on Main View instead of hidden
-       behind a second screen, so inbound threats can be tracked and
+       the merged window), now a persistent, always-visible bar on Main
+       View instead of hidden behind a second screen (LRNA-162 removed
+       the SEEK AND DESTROY/AntiPlane lists it also held), so inbound
+       threats can be tracked and
        countered (via the bottom bar's own COUNTER buttons) without
        leaving the battlefield. Visual/status only, not clickable to
        select a target (confirmed explicitly - the bottom bar's buttons
@@ -1163,12 +1153,6 @@
       <div class="counterLaneEnd">COUNTER<br>LANE</div>
       <canvas id="counterLaneCanvas"></canvas>
       <div class="counterLaneEnd"></div>
-    </div>
-    <div id="counterOpsBarRecon">
-      <span id="missionMapReconStatus">0/3 located · 0/3 neutralized</span>
-      <div id="missionMapReconList"></div>
-      <div id="missionMapReconAntiPlaneLabel">ANTIPLANE LANE DEFENSES</div>
-      <div id="knownThreatsList"></div>
     </div>
   </div>
 
@@ -1431,8 +1415,6 @@
   let missionMapOpen = false;
   const missionMapWindowEl = document.getElementById('missionMapWindow');
   const missionMapCloseBtnEl = document.getElementById('missionMapClose');
-  const missionMapReconStatusEl = document.getElementById('missionMapReconStatus');
-  const missionMapReconListEl = document.getElementById('missionMapReconList');
   const missionMapZonesEl = document.getElementById('missionMapZones');
   const missionMapMarkersEl = document.getElementById('missionMapMarkers');
   const missionMapThreatMarkerEl = document.getElementById('missionMapThreatMarker');
@@ -1446,28 +1428,6 @@
     missionMapOpen = false;
     missionMapWindowEl.classList.add('hidden');
     statsBtn.classList.remove('hidden');
-  }
-  // Both now run every frame unconditionally (not gated on missionMapOpen)
-  // since the zone strip and RECON status/list live on the always-visible
-  // #counterOpsBar, not inside the STATS window they used to share.
-  function renderMissionMapRecon() {
-    if (!missionMapReconListEl) return;
-    let found = 0, neutralized = 0, html = '';
-    for (const n of seekDestroyNodes) {
-      if (n.discovered) found++;
-      if (n.destroyed) neutralized++;
-      if (!n.discovered) {
-        html += `<div class="upgrade-row"><span class="upgrade-name">UNKNOWN NODE<br><span class="upgrade-desc">Not yet located - launch a recon drone</span></span></div>`;
-        continue;
-      }
-      const action = n.destroyed
-        ? `<span class="upgrade-owned">NEUTRALIZED</span>`
-        : `<button class="upgradeBtn" data-sd="${n.id}" ${tokens.intel < TYPES.attackDrone.cost ? 'disabled' : ''}>${TYPES.attackDrone.cost}&#9679; INTEL</button>`;
-      const desc = n.destroyed ? 'Neutralized' : `${Math.max(0, Math.round(n.health))}/${n.maxHealth} hp`;
-      html += `<div class="upgrade-row"><span class="upgrade-name">${n.name}<br><span class="upgrade-desc">${desc}</span></span>${action}</div>`;
-    }
-    missionMapReconStatusEl.textContent = `${found}/3 located · ${neutralized}/3 neutralized`;
-    missionMapReconListEl.innerHTML = html;
   }
   // The zone strip: real world-x positions (the same nodeA.x..nodeO.x
   // span the battlefield canvas itself uses) mapped to a 0-100% track.
@@ -1499,45 +1459,11 @@
     }
   }
   missionMapCloseBtnEl.addEventListener('click', closeMissionMap);
-  missionMapReconListEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.upgradeBtn');
-    if (!btn || btn.disabled || !running) return;
-    fireAttackDrone(btn.dataset.sd);
-    renderMissionMapRecon();
-  });
-
-  // ---- Intelligence panel (LRNA-039): LAUNCH ATTACK DRONE rows are
-  // rendered per discovered AntiPlane node below. LRNA-158: the
-  // standalone RECON DRONE fire button (Ops Center's own, then Mission
-  // Map's after LRNA-154 deduped them) is gone entirely now - the
-  // bottom bar's own DRONE button (data-type="drone") already fires the
-  // identical shot and already has its own disabled-state handling via
-  // updateTurnHud()'s generic launchButtons loop, so there's nothing
-  // left for a dedicated updateReconDroneBtn() to track.
-  const knownThreatsListEl = document.getElementById('knownThreatsList');
-  knownThreatsListEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.upgradeBtn');
-    if (!btn || btn.disabled || !running) return;
-    fireAttackDrone(btn.dataset.ap);
-  });
-  function renderIntel() {
-    const known = antiPlaneNodes.filter(a => a.discovered);
-    if (known.length === 0) {
-      knownThreatsListEl.innerHTML = `<div class="upgrade-desc">No AntiPlane nodes discovered yet - launch a recon drone.</div>`;
-      return;
-    }
-    let html = '';
-    for (const ap of known) {
-      const action = ap.destroyed
-        ? `<span class="upgrade-owned">NEUTRALIZED</span>`
-        : `<button class="upgradeBtn" data-ap="${ap.id}" ${tokens.intel < TYPES.attackDrone.cost ? 'disabled' : ''}>${TYPES.attackDrone.cost}&#9679; INTEL</button>`;
-      html += `<div class="upgrade-row">` +
-              `<span class="upgrade-name">${ap.name}<br><span class="upgrade-desc">${ap.destroyed ? 'Hostile AntiPlane node - neutralized' : `Hostile AntiPlane node - lane ${ap.laneIndex}`}</span></span>` +
-              action +
-              `</div>`;
-    }
-    knownThreatsListEl.innerHTML = html;
-  }
+  // LRNA-162: the SEEK AND DESTROY and discovered-AntiPlane lists that
+  // used to sit under the lanes are gone (direct request), and with them
+  // the only buttons that called fireAttackDrone(). Discovery still works
+  // and still shows on the zone strip/Counter Lane; hidden nodes just
+  // can't be attacked until something new calls fireAttackDrone().
 
   const modeStatusEl = document.getElementById('modeStatus');
   const siegeToggleBtn = document.getElementById('siegeToggleBtn');
@@ -2425,8 +2351,6 @@
         // Economy rework (direct request): discovery no longer earns
         // coins - the only reward left is the flat passive rate plus
         // DMG_TO_COIN_RATIO on an actual landed hit.
-        renderIntel();
-        renderMissionMapRecon();
         checkOpeningUnlock(); // LRNA-080
       }
     }
@@ -3071,8 +2995,6 @@
     renderTargetList();
     updateTargetLabel();
     updateModeStatus();
-    renderIntel();
-    renderMissionMapRecon();
     updateOpeningLockUi(); // LRNA-080
   }
 
@@ -3093,7 +3015,6 @@
     renderStats();
     updateCounterPlanesBtn();
     updateCounterMissileBtn();
-    renderIntel();
   }
 
   const statsListEl = document.getElementById('statsList');
@@ -3643,8 +3564,6 @@
         target.discovered = true;
         spawnFloatText(target.x, target.y - 40, `RECON: ${target.name}`, '#9fffcf');
         spawnBurst(target.x, target.y, '#9fffcf', 16);
-        renderIntel();
-        renderMissionMapRecon();
         checkOpeningUnlock(); // LRNA-080
       }
       return;
@@ -3705,8 +3624,6 @@
     };
     missiles.push(missile);
     spawnLaunchFx(nodeA.x, nodeA.y + lane, t.color, 'attackDrone');
-    renderIntel();
-    renderMissionMapRecon();
     return missile;
   }
 
@@ -4337,8 +4254,6 @@
               spawnGroundKillFx(ap.x, ap.y);
             }
             earnTokens('attack', Math.round(ATTACK_DRONE_DAMAGE * DMG_TO_COIN_RATIO), ap.x, ap.y - 24);
-            renderIntel();
-            renderMissionMapRecon();
           } else {
             sfxMiss();
             spawnBurst(m.x, vh() / 2 + m.laneY, '#8a8a7a', 14);
@@ -4639,11 +4554,10 @@
     // (the REINFORCED HULL upgrade, which only ever bought +regen, is
     // removed along with it - nothing else it did).
     updateHud();
-    // LRNA-158: unconditional now - the zone strip and RECON status/list
-    // live on the always-visible #counterOpsBar, not gated behind
-    // missionMapOpen like the window they used to share.
+    // LRNA-158: unconditional now - the zone strip lives on the
+    // always-visible #counterOpsBar, not gated behind missionMapOpen like
+    // the window it used to share.
     renderMissionMapStrip();
-    renderMissionMapRecon();
 
     tokens.attack += TOKEN_PASSIVE_RATE * dt;
     tokens.counter += TOKEN_PASSIVE_RATE * dt;

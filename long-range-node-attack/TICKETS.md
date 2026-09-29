@@ -789,7 +789,7 @@ them up in order, or together if convenient.
   - Test: the lane spans exactly the zone strip's track, draws an opaque
     dot at an inbound strike's position, and draws nothing where there's
     no contact. 50/50.
-- **LRNA-162** — OPEN, needs a decision — Strip the Counter Operations bar
+- **LRNA-162** — DONE (2026-09-29) — Strip the Counter Operations bar
   down to lanes only. Direct request on the Alert repo's copy right after
   its Counter Lane shipped: "Remove the intelligence and recon stuff on
   the center of the screen. Just shown the two mini lanes and one main
@@ -813,6 +813,28 @@ them up in order, or together if convenient.
        targets the nearest discovered node.
   - Would also fix most of LRNA-158's mobile problem: the recon lists are
     what push the bar above the top HUD on a 375px phone.
+
+  **Resolution**: option 1, by direct request - a screenshot of exactly
+  this section, including its 60● INTEL buttons, with "remove this
+  section," sent right after the options above were laid out.
+  - Removed `#counterOpsBarRecon` and everything that only served it:
+    its markup and CSS, `renderMissionMapRecon()`, `renderIntel()`, their
+    click handlers, and every call to the two render functions.
+  - **Consequence, accepted with the request**: `fireAttackDrone()` has
+    no UI caller left, so discovered SEEK AND DESTROY and AntiPlane nodes
+    can no longer be attacked. Discovery itself is unchanged: it still
+    unlocks the opening (LRNA-080), still lights up zones on the zone
+    strip, and still puts AntiPlane nodes on the zone strip and Counter
+    Lane. `fireAttackDrone()` and the Attack Drone type are left in
+    place, so bringing attacks back later only needs a new trigger
+    (options 2 or 3 above).
+  - Mobile: at 375x700 the bar now spans y=12-96 instead of running off
+    the top of the screen (-130 before), so the top HUD is clear again.
+    The bottom bar itself is still ~600px tall on a phone (LRNA-163).
+  - Tests: the LRNA-158 STATS test no longer reads the removed recon
+    status line; new test confirms the bar holds only the zone strip and
+    Counter Lane, with no recon elements or Attack Drone buttons, even
+    with every node discovered. 51/51.
 - **LRNA-163** — OPEN — START MISSION can't be reached on a short phone
   screen. Found while screenshotting LRNA-158 at 375x700: the start
   screen `#overlay` is `display: flex; justify-content: center;

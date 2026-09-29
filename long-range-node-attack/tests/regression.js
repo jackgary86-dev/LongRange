@@ -1283,12 +1283,10 @@ test('LRNA-161: the Counter Lane lines up with the zone strip and dots each inbo
 test('LRNA-158: STATS button opens a pure reference window - GAME MODE/RUN STATS/TARGETS only, no COUNTER or RECON content', async () => {
   // Supersedes the old LRNA-084/154 versions of this test: #opsCenterBtn
   // is #statsBtn now, and the window it opens dropped COUNTER/RECON
-  // entirely (they moved to the always-visible #counterOpsBar, which
-  // needs no window open at all to show SEEK AND DESTROY recon status).
+  // entirely.
   await withGame(async (page, errors) => {
     const beforeOpen = await page.evaluate(() => ({
       missionMapOpen: window.__TEST__.missionMapOpen,
-      reconStatus: document.getElementById('missionMapReconStatus').textContent,
     }));
     await page.click('#statsBtn');
     const afterOpen = await page.evaluate(() => ({
@@ -1298,11 +1296,32 @@ test('LRNA-158: STATS button opens a pure reference window - GAME MODE/RUN STATS
       noReconSection: !document.getElementById('missionMapReconSection'),
     }));
     assert(!beforeOpen.missionMapOpen, 'STATS should start closed');
-    assertEqual(beforeOpen.reconStatus, '0/3 located · 0/3 neutralized', `SEEK AND DESTROY recon status should already be visible on the Counter Operations bar before STATS is ever opened: ${beforeOpen.reconStatus}`);
     assert(afterOpen.missionMapOpen, 'the STATS button should open the window');
     assert(afterOpen.statsBtnHidden, 'opening STATS should hide its own entry button behind it');
     assert(afterOpen.noCounterSection, 'the old COUNTER section should no longer exist anywhere - it moved to the bottom bar (direct-fire) entirely');
-    assert(afterOpen.noReconSection, 'the old RECON section should no longer exist inside the window - it moved to #counterOpsBar');
+    assert(afterOpen.noReconSection, 'the old RECON section should no longer exist inside the window');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon lists', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      for (const n of T.seekDestroyNodes) n.discovered = true; // discovery would have filled the old lists
+      for (const n of T.antiPlaneNodes) n.discovered = true;
+      const bar = document.getElementById('counterOpsBar');
+      return {
+        children: Array.from(bar.children).map((el) => el.id),
+        goneIds: ['counterOpsBarRecon', 'missionMapReconStatus', 'missionMapReconList', 'knownThreatsList']
+          .filter((id) => document.getElementById(id)),
+        attackDroneButtons: bar.querySelectorAll('[data-sd], [data-ap]').length,
+      };
+    });
+    await page.waitForTimeout(100); // a few frames of the render loop with every node discovered
+    assertEqual(JSON.stringify(r.children), JSON.stringify(['missionMapStrip', 'counterLaneRow']), 'the bar should contain just the zone strip and the Counter Lane');
+    assertEqual(r.goneIds.length, 0, `these recon elements should no longer exist: ${r.goneIds}`);
+    assertEqual(r.attackDroneButtons, 0, 'no per-node Attack Drone buttons should render in the bar');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
