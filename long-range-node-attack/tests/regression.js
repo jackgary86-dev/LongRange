@@ -1593,7 +1593,7 @@ test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-de
         missionMapReconBtnGone: !document.getElementById('missionMapReconBtn'), // LRNA-158: the bottom bar's own DRONE button already covers this
         upgradeListGone: !document.getElementById('upgradeList'), // LRNA-159: Reactor Upgrades removed entirely
         counterPlanesWindowGone: !document.getElementById('counterPlanesWindow'), // LRNA-160: Counter Attack Planes fires directly now
-        siegeToggleBtnGone: !document.getElementById('siegeToggleBtn'), // LRNA-157: START SIEGE removed
+        siegeGone: ['siegeToggleBtn', 'siegeTimer', 'siegeResult'].every((id) => !document.getElementById(id)), // LRNA-157: Siege Mode removed
         allInsideStats: ['modeStatus', 'statsList', 'targetList'].every(inside),
         allVisible: ['modeStatus', 'statsList', 'targetList'].every(visible),
       };
@@ -1604,7 +1604,7 @@ test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-de
     assert(result.missionMapReconBtnGone, 'the merged-window RECON DRONE button should no longer exist - the bottom bar DRONE button already covers it');
     assert(result.upgradeListGone, '#upgradeList should no longer exist - LRNA-159 removed Reactor Upgrades entirely');
     assert(result.counterPlanesWindowGone, '#counterPlanesWindow should no longer exist - LRNA-160 made Counter Attack Planes fire directly');
-    assert(result.siegeToggleBtnGone, 'the START SIEGE button should no longer exist - LRNA-157 removed it');
+    assert(result.siegeGone, 'the START SIEGE button, siege timer and siege result screen should no longer exist - LRNA-157 removed Siege Mode');
     assert(result.allInsideStats, 'GAME MODE/RUN STATS/TARGETS should all now live inside #missionMapWindow');
     assert(result.allVisible, 'the STATS sections should actually render visible once open, not just exist hidden in the DOM');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));

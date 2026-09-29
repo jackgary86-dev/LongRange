@@ -454,41 +454,9 @@
   .upgradeBtn:active:not(:disabled) { transform: scale(0.96); }
 
   #modeStatus { font-size: 9.5px; opacity: 0.75; margin-bottom: 6px; line-height: 1.4; }
-  #siegeTimer { color: #ff5a36; letter-spacing: 1px; }
-  #siegeTimer.hidden { display: none; }
-
-  #siegeResult {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 10;
-    background: rgba(3,12,7,0.94);
-    border: 1px solid var(--green-dim);
-    padding: 22px 30px;
-    text-align: center;
-    font-family: "Courier New", ui-monospace, monospace;
-    max-width: min(320px, calc(100vw - 24px));
-    backdrop-filter: blur(3px);
-  }
-  #siegeResult.hidden { display: none; }
-  #siegeResultTitle { font-size: 18px; letter-spacing: 3px; margin-bottom: 10px; color: var(--green); }
-  #siegeResult.lost #siegeResultTitle { color: var(--red); }
-  #siegeResultBody { font-size: 10.5px; opacity: 0.8; margin-bottom: 16px; line-height: 1.6; }
-  #siegeResultClose {
-    pointer-events: auto;
-    cursor: pointer;
-    background: rgba(53,230,255,0.1);
-    border: 1px solid var(--green);
-    color: var(--green);
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    padding: 8px 14px;
-  }
-  #siegeResultClose:hover { background: rgba(53,230,255,0.2); }
 
   /* Waves of Battle run-end screen (LRNA-072, issue #430) - the Strike
-     Platform falling always shows this, independent of SIEGE mode. */
+     Platform falling always shows this. */
   #waveResultScreen {
     position: absolute;
     top: 50%; left: 50%;
@@ -1067,7 +1035,7 @@
       <div class="barOuter"><div class="barInner" id="aBar" style="background:var(--green)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="aImpacts">0</span></div>
     </div>
-    <div id="centerLabel">LONG RANGE NODE ATTACK<br><span class="url">192.168.1.36:2001</span><br><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span> <span class="tokenChip" style="color:#35e6ff">&#9679; <span id="tokenIntel">0</span></span></span><br><span id="waveHud">WAVE 1</span><br><span id="siegeTimer" class="hidden"></span></div>
+    <div id="centerLabel">LONG RANGE NODE ATTACK<br><span class="url">192.168.1.36:2001</span><br><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span> <span class="tokenChip" style="color:#35e6ff">&#9679; <span id="tokenIntel">0</span></span></span><br><span id="waveHud">WAVE 1</span></div>
     <div class="panel right">
       <div>NODE OMEGA — <span id="oHealth">250</span>/250</div>
       <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
@@ -1091,12 +1059,6 @@
   <div id="pausedBanner" class="hidden">PAUSED</div>
   <div id="openingLockedBanner" class="hidden">RECON REQUIRED — LOCATE A HIDDEN NODE TO BEGIN THE ASSAULT (send a DRONE or RECON PLANE)<div class="scanBar"></div></div>
   <div id="storageWarning" class="hidden">⚠ PROGRESS NOT SAVING — storage unavailable</div>
-
-  <div id="siegeResult" class="hidden">
-    <div id="siegeResultTitle">SIEGE COMPLETE</div>
-    <div id="siegeResultBody"></div>
-    <button id="siegeResultClose">RETURN TO SANDBOX</button>
-  </div>
 
   <div id="waveResultScreen" class="hidden">
     <div id="waveResultTitle">MISSION FAILED</div>
@@ -1503,12 +1465,6 @@
   // can't be attacked until something new calls fireAttackDrone().
 
   const modeStatusEl = document.getElementById('modeStatus');
-  const siegeTimerEl = document.getElementById('siegeTimer');
-  const siegeResultEl = document.getElementById('siegeResult');
-  const siegeResultTitleEl = document.getElementById('siegeResultTitle');
-  const siegeResultBodyEl = document.getElementById('siegeResultBody');
-  const siegeResultCloseBtn = document.getElementById('siegeResultClose');
-  siegeResultCloseBtn.addEventListener('click', () => siegeResultEl.classList.add('hidden'));
 
   // ---- Waves of Battle run-end screen (LRNA-072, issue #430) ----
   const waveHudEl = document.getElementById('waveHud');
@@ -2575,7 +2531,7 @@
     waveIsElite = n > 0 && n % ELITE_WAVE_INTERVAL === 0;
     if (waveIsElite) {
       spawnFloatText(nodeA.x, nodeA.y - 180, `⚠ DIFFICULTY SPIKE — ELITE WAVE ${n} ⚠`, '#ff2ea6');
-      sfxSiegeLose(); // reuse the existing ominous stinger - no new sound asset needed
+      sfxEliteStinger();
     }
     updateWaveHud();
   }
@@ -2939,49 +2895,11 @@
     floatingTexts.push({ x, y, text, color, age: 0 });
   }
 
-  // ---- Siege Mode: an optional timed challenge layered on top of the same
-  // sandbox systems - destroy Node Omega before the clock runs out. Sandbox
-  // play (the default) is completely unaffected when siegeActive is false.
-  const SIEGE_DURATION = 300; // 5 minutes
-  let siegeActive = false;
-  let siegeTimeLeft = 0;
-
   function updateModeStatus() {
-    const modeLine = siegeActive
-      ? 'SIEGE ACTIVE — destroy Node Omega before time runs out'
-      : 'SANDBOX — free play, no timer';
-    modeStatusEl.textContent = `${modeLine} · ${DIFFICULTIES[difficulty].label} DIFFICULTY`;
-  }
-
-  function startSiege() {
-    reset();
-    siegeActive = true;
-    siegeTimeLeft = SIEGE_DURATION;
-    siegeResultEl.classList.add('hidden');
-    siegeTimerEl.classList.remove('hidden');
-    updateModeStatus();
-    closeMissionMap(); // LRNA-154: was setOpsCenterOpen(false) - same "show the battlefield, not the panel" intent
-  }
-
-  function endSiege(won) {
-    if (won) sfxSiegeWin(); else sfxSiegeLose();
-    siegeActive = false;
-    siegeTimerEl.classList.add('hidden');
-    siegeResultEl.classList.toggle('lost', !won);
-    siegeResultTitleEl.textContent = won ? 'SIEGE COMPLETE' : 'SIEGE FAILED';
-    siegeResultBodyEl.textContent = won
-      ? `Node Omega destroyed with ${formatETA(Math.max(0, siegeTimeLeft))} to spare. Warheads fired: ${stats.fired}.`
-      : `Node Omega still stood when the clock ran out. Warheads fired: ${stats.fired}.`;
-    siegeResultEl.classList.remove('hidden');
-    updateModeStatus();
-  }
-
-  function updateSiegeTimerHud() {
-    siegeTimerEl.textContent = `SIEGE: ${formatETA(Math.max(0, siegeTimeLeft))}`;
+    modeStatusEl.textContent = `SANDBOX — free play, no timer · ${DIFFICULTIES[difficulty].label} DIFFICULTY`;
   }
 
   function reset(initial) {
-    if (siegeActive) { siegeActive = false; siegeTimerEl.classList.add('hidden'); }
     closeMissionMap();
     missiles = [];
     particles = [];
@@ -3986,12 +3904,7 @@
   }
   function sfxUi() { playTone(700, 0.06, { type: 'sine', gain: 0.1 }); }
   function sfxPurchase() { playTone(500, 0.09, { type: 'triangle', sweepTo: 900, gain: 0.16 }); }
-  function sfxSiegeWin() {
-    playTone(523.25, 0.16, { type: 'triangle', gain: 0.2 });
-    playTone(659.25, 0.16, { type: 'triangle', gain: 0.2, when: 0.16 });
-    playTone(783.99, 0.28, { type: 'triangle', gain: 0.22, when: 0.32 });
-  }
-  function sfxSiegeLose() { playTone(220, 0.35, { type: 'sawtooth', sweepTo: 70, gain: 0.2 }); }
+  function sfxEliteStinger() { playTone(220, 0.35, { type: 'sawtooth', sweepTo: 70, gain: 0.2 }); }
 
   function spawnLaunchFx(x, y, color, kind) {
     sfxLaunch(kind);
@@ -4218,16 +4131,6 @@
 
     if (emergencyCooldown > 0) emergencyCooldown = Math.max(0, emergencyCooldown - dt);
     updateEmergencyBtn();
-
-    if (siegeActive) {
-      if (omegaHealth <= 0) {
-        endSiege(true);
-      } else {
-        siegeTimeLeft -= dt;
-        if (siegeTimeLeft <= 0) { siegeTimeLeft = 0; endSiege(false); }
-        else updateSiegeTimerHud();
-      }
-    }
 
     // LRNA-086: captured before this frame's resolution pass below, so we
     // can tell afterward whether the currently-followed contact was the

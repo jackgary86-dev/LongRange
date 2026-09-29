@@ -520,8 +520,12 @@ them up in order, or together if convenient.
     GAME MODE keeps its `#modeStatus` line (mode + difficulty). That
     button was the only way to start a siege, so Siege Mode itself
     (`startSiege`/`endSiege`, `#siegeTimer`, `#siegeResult`) can no
-    longer be reached in play. The code is left in place in case siege
-    comes back under a different entry point; delete it if it doesn't.
+    longer be reached in play. Follow-up the same day, on request: Siege
+    Mode deleted outright (`SIEGE_DURATION`, `siegeActive`, `startSiege`,
+    `endSiege`, the timer HUD, the result screen and its CSS, and the
+    win jingle). The lose stinger stays as `sfxEliteStinger()`, since the
+    elite-wave warning also plays it. GAME MODE now always reads SANDBOX
+    plus the difficulty.
 - **LRNA-158** — DONE (2026-09-29) — Revised architecture, filed live while LRNA-155 was
   still being scoped (superseding it before any code touched it): one
   screen, not two. Two direct requests, back to back, the second
