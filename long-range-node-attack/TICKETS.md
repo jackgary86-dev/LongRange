@@ -835,7 +835,7 @@ them up in order, or together if convenient.
     status line; new test confirms the bar holds only the zone strip and
     Counter Lane, with no recon elements or Attack Drone buttons, even
     with every node discovered. 51/51.
-- **LRNA-163** — OPEN — START MISSION can't be reached on a short phone
+- **LRNA-163** — DONE (2026-09-29) — START MISSION can't be reached on a short phone
   screen. Found while screenshotting LRNA-158 at 375x700: the start
   screen `#overlay` is `display: flex; justify-content: center;
   overflow-y: auto`, and its content (1179px) is taller than the
@@ -846,6 +846,28 @@ them up in order, or together if convenient.
   auto` on the content instead of flex centering), but not yet verified
   on a real phone. Related, also pre-existing: at 375px wide the bottom
   bar alone is ~600px tall, leaving almost no battlefield visible.
+
+  **Resolution** ("fix the start button on phones"): two bugs, not one.
+  - **Off the top**: `justify-content: center` on the scrolling
+    `#overlay` pushed overflow off the top edge. This also cut the title
+    off at 1280x800 on desktop (-132px). Replaced with
+    `justify-content: flex-start` plus `margin-top/bottom: auto` on the
+    first and last children. That still centers when the content fits
+    (1920x1400: 168px above and below) and starts at the top, scrolling
+    normally, when it doesn't. Chose this over `safe center` for older
+    iOS Safari.
+  - **Covered**: even once on screen, the ~620px phone `#bottomBar`
+    (z-index 13) sat on top of the start screen (z-index 5), so at
+    375x560 a tap on START hit the COUNTER group header underneath.
+    `#overlay` is now z-index 14. It only shows between runs, and the
+    result screens and Mission Map only open mid-run, so nothing else
+    competes for that layer. The game's buttons show faintly through the
+    start screen's translucent background, but nothing is clickable
+    through it.
+  - Test: at 375x560, 375x700 and 1280x800, the title and START are not
+    above the screen, and a real Playwright click on START starts the run.
+    It fails on the old code (title at -524px) and passes now. 52/52.
+  - Still open: in-game, the bottom bar alone takes ~600px on a phone.
 - **LRNA-164** — DONE (2026-09-29) — Player planes no longer fly back
   from Omega. Report: "It looks like things are bouncing off the enemy
   base and coming back at me." Instrumenting 80s of play with every

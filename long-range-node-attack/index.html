@@ -880,15 +880,27 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    /* LRNA-163: not justify-content: center - when the content is
+       taller than the screen (any phone, and 1280x800 desktop) that
+       spills it off the top, where it can't be scrolled to, taking
+       the title and START MISSION with it. Auto margins on the first
+       and last child center it when it fits and collapse to 0 when it
+       doesn't, so it starts at the top and scrolls normally. */
+    justify-content: flex-start;
     text-align: center;
     background: radial-gradient(ellipse at center, rgba(5,6,30,0.55) 0%, rgba(2,2,18,0.87) 65%, rgba(2,2,14,0.97) 100%);
     gap: 10px;
     padding: 24px 20px;
-    z-index: 5;
+    /* LRNA-163: above #bottomBar (13). On a phone that bar is ~600px
+       tall and used to sit on top of this screen, covering START
+       MISSION outright on a short one. Only shown between runs, so
+       nothing that opens mid-run (results, Mission Map) competes. */
+    z-index: 14;
     cursor: default;
     overflow-y: auto;
   }
+  #overlay > :first-child { margin-top: auto; }
+  #overlay > :last-child { margin-bottom: auto; }
   #overlay h1 {
     font-family: "Courier New", ui-monospace, monospace;
     font-size: clamp(24px, 7vw, 38px);

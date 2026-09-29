@@ -755,6 +755,27 @@ test('LRNA-164: planes vanish at the target and rearm - nothing flies back', asy
   });
 });
 
+test('LRNA-163: START MISSION and the title are reachable and tappable on short screens', async () => {
+  for (const viewport of [{ width: 375, height: 560 }, { width: 375, height: 700 }, { width: 1280, height: 800 }]) {
+    await withGame(async (page, errors) => {
+      const before = await page.evaluate(() => {
+        const btn = document.getElementById('startGameBtn').getBoundingClientRect();
+        const title = document.querySelector('#overlay h1').getBoundingClientRect();
+        return { titleTop: title.top, btnTop: btn.top };
+      });
+      const size = `${viewport.width}x${viewport.height}`;
+      assert(before.titleTop >= 0, `${size}: title should not be pushed off the top (top=${before.titleTop})`);
+      assert(before.btnTop >= 0, `${size}: START MISSION should not be pushed off the top (top=${before.btnTop})`);
+      // a real click - Playwright refuses if anything (e.g. #bottomBar) covers the button
+      await page.click('#startGameBtn', { timeout: 3000 });
+      await page.waitForTimeout(200);
+      const started = await page.evaluate(() => document.getElementById('overlay').classList.contains('hidden'));
+      assert(started, `${size}: clicking START MISSION should start the run`);
+      assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+    }, { viewport, skipStart: true });
+  }
+});
+
 test('LRNA-143: UI_DISABLED_TYPES is the single source of truth for launch-bar-less weapon types', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
