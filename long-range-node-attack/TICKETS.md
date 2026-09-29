@@ -571,6 +571,98 @@ them up in order, or together if convenient.
     STATS-not-Counter-Center framing weakens the original case for
     pulling it out to a top-level button.
 
+  **Confirmed after filing** (a marked-up screenshot plus a follow-up
+  question round, same session, before any of this was built):
+  - Concrete first increment, drawn directly on a screenshot: remove
+    the `#opsCenterBtn` ("COUNTER CENTER") button from Main View
+    entirely, and relocate `#missionMapStrip` (the zone/corridor
+    visual) out of the merged window into a new persistent bar on Main
+    View, positioned directly above `#bottomBar`, full width - this
+    *is* the "Counter Operations bar."
+  - STATS's entry point: reuse `#counterMissileBtn`'s existing click
+    (it already opens the merged window today) rather than adding a
+    new dedicated button. Note the real tension this leaves unresolved:
+    COUNTER MISSILE does NOT become a direct-fire bottom-bar button
+    under this choice - clicking it still opens a window, same as
+    before LRNA-158 - which cuts against "every button fires directly"
+    for this one button specifically. Whoever builds this should treat
+    that as confirmed, not re-litigate it, but the tension is real and
+    worth restating in the PR/commit.
+  - Counter Operations bar is visual-only for now (shows the corridor,
+    zones, and live inbound threat marker) - not clickable to select a
+    target. Countering still happens via the bottom-bar buttons, which
+    already show the live threat's own stats.
+  - The SEEK AND DESTROY node list and discovered-AntiPlane list move
+    onto the new Counter Operations bar itself (not into STATS) -
+    keeps all spatial/corridor information in one place on Main View,
+    consistent with the bar already being the spatial element.
+  - **New confirmed mechanic, not just a UI question**: COUNTER MISSILE
+    and COUNTER ATTACK PLANES gain a class-matching restriction -
+    COUNTER MISSILE can only target a missile-class inbound threat,
+    COUNTER ATTACK PLANES only a plane-class one (today both can target
+    either class - `findInboundEnemyMissiles()` doesn't discriminate,
+    and LRNA-051 deliberately made every defense engage both classes
+    the same way). When nothing of a button's own matching class is
+    currently inbound, that button goes fully inert/disabled, even if a
+    different-class threat exists in the window. Confirmed explicitly
+    scoped to just these 2 player-fired buttons - automated defenses
+    (AM batteries, loadout nodes) are untouched, keeping LRNA-051's
+    "engage both the same way" behavior for everything else. This is a
+    real balance/mechanics change, not presentation - needs its own
+    care in `counterPlanesPlan()`/`fireCounterMissile()`'s target
+    selection and in `updateCounterMissileBtn()`/`updateCounterPlanesBtn()`'s
+    disabled-state logic, not just a visual restyle.
+  - **Still genuinely open, not yet asked**: does `#counterPlanesWindow`
+    (Counter Attack Planes' own scramble-and-confirm popup) still exist
+    once the class-matching rule pre-filters its targets to plane-class
+    threats only (arguably simplifying the multi-target planning it was
+    built for), or does Counter Attack Planes also collapse into a
+    single direct-fire button like the others? Confirm before building
+    this specific piece rather than picking silently.
+- **LRNA-159** — Remove REACTOR UPGRADES entirely. Direct request, a
+  screenshot of the current 4-row list attached. Not a restyle or a
+  relocation - the whole feature goes: the UI section (wherever it would
+  otherwise land under LRNA-158 - currently inside the merged window, on
+  its way to STATS), the `UPGRADES` object and `ownedUpgrades`
+  state/save-load (`UPGRADES_KEY`/`loadUpgrades`/`saveUpgrades`), and
+  the 4 real effects each upgrade buys, wired into actual gameplay logic
+  in multiple places, not just display:
+  - **Overcharged Warheads** (+20% warhead damage) - `dmgMultiplier()`,
+    read where player-fired warhead damage is computed at launch.
+  - **Expanded Ammo Bay** (+1 warhead in flight at once) -
+    `currentMaxActive()`, read in 2 places: the main active-shot cap
+    check and the loadout/AM-battery equivalent.
+  - **Reactor Boost** (+1 Intel/sec passive income) -
+    `currentIntelPassiveRate()`, read in the per-frame passive-token-
+    accrual line and in the lifetime-tokens-earned stat tracker.
+  - **Interceptor Calibration** (+10% AM battery hit chance) -
+    `interceptorHitBonus()`, read in AM-battery-node hit-chance
+    calculation.
+  Removing the object is the easy part; each of these 4 call sites
+  needs to either delete the bonus term outright or fall back to the
+  plain base value the function currently returns when nothing is
+  owned - the base behavior (1x damage, `MAX_ACTIVE` cap, plain
+  `TOKEN_PASSIVE_RATE`, 0 bonus hit chance) is what every fresh/no-
+  upgrade run already experiences today, so nothing needs re-tuning,
+  just the bonus paths deleted.
+  - **Worth flagging, not deciding**: these 4 upgrades were a real token
+    sink (250-400 tokens per pillar) - removing them removes a use for
+    surplus tokens, on top of the already-generous token economy
+    (LRNA-138 already found fresh players start with 500/500/500 plus
+    steady passive income). Whoever implements this should note whether
+    that's an acceptable side effect or worth a follow-up balance pass,
+    but shouldn't invent a compensating change here without asking -
+    this ticket is scoped to removal only.
+  - Regression suite: checked, and this one isn't clean - the LRNA-154
+    test "Counter Center carries the merged Operations Center sections"
+    asserts REACTOR UPGRADES lives inside `#missionMapWindow`, and "the
+    recon drone and reactor upgrade controls still work..." purchases
+    `[data-upgrade="overcharge"]` from inside it. Both need updating
+    (drop the REACTOR UPGRADES assertion from the first; replace the
+    upgrade-purchase half of the second with something else worth
+    covering, or remove that half if nothing else needs it) as part of
+    removing the feature, not left pointing at dead markup.
+
 ---
 
 ## OPEN — Medium Priority Improvements
