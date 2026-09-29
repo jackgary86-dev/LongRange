@@ -402,24 +402,57 @@ with the old bottom-bar buttons still present is a valid intermediate
 state; so is a pruned bottom bar before the pause behavior lands) - pick
 them up in order, or together if convenient.
 
-- **LRNA-154** — Merge Operations Center and Mission Map into one Counter
-  Center screen. Combine `#opsCenterPanel`'s content (GAME MODE,
-  RUN STATS, TARGETS, INTELLIGENCE's recon-drone row, REACTOR UPGRADES)
-  with `#missionMapWindow`'s content (the zone strip, COUNTER section,
-  RECON/SEEK AND DESTROY section) into a single screen. Your call on the
-  concrete layout (tabs within one window, one long scrolling screen,
-  side-by-side columns given the extra width a full-screen takeover
-  affords vs. the old 230px sidebar) - but fix the overflow bug in the
-  process: TARGETS needs its own scroll region, not one that can push
-  later sections behind the bottom bar (`z-index` currently loses to
-  `#bottomBar` there). `openMissionMap()`/`closeMissionMap()` and
-  `renderMissionMap()` are the natural functions to extend; whether
-  `#opsCenterPanel` becomes dead code or gets repurposed as the new
-  screen's container is an implementation choice either way. Both
-  `#opsCenterBtn` and `#missionMapOpenBtn` should end up opening the same
-  merged screen. LRNA-084's original consolidation (old Counter Window +
-  SEEK AND DESTROY window -> Mission Map) is the precedent for this kind
-  of merge - same idea, one level up.
+- **LRNA-154** — DONE (2026-09-29) — Merge Operations Center and Mission
+  Map into one Counter Center screen. `#opsCenterPanel`'s content (GAME
+  MODE, RUN STATS, TARGETS, REACTOR UPGRADES) moved directly into
+  `#missionMapWindow`, alongside its existing zone strip/COUNTER/RECON
+  content - one long scrolling screen (the layout call this ticket left
+  open), not tabs or side-by-side columns; `#opsCenterPanel` itself is
+  gone entirely rather than repurposed. `#opsCenterBtn` and the bottom
+  bar's `#counterMissileBtn` both open the same `openMissionMap()`
+  screen now - the ticket's own "both should open the same merged
+  screen" ask, extended to the entry point that already existed rather
+  than adding a second one.
+  - **The real overflow bug, found by measuring rather than guessing**:
+    the ticket suspected a `z-index` fight, but the actual cause was
+    `#missionMapWindow`'s own bottom padding (110px, sized back when it
+    only held 2 sections) against `#bottomBar`'s real rendered height
+    (288px, measured directly) - on a page long enough to actually
+    reach the end, the last content clipped behind the bar before
+    reaching that undersized clearance. Bumped to 300px. TARGETS
+    additionally gets its own bounded, independently-scrolling region
+    (`#targetListScroll`, 220px max-height) so a long target list can't
+    push every section after it down regardless.
+  - **A genuine duplicate found while merging, not just relocated**:
+    Operations Center's own INTELLIGENCE section had its own "fire a
+    recon drone" button (`#reconDroneBtn`) doing the exact same
+    `attemptFire('drone')` as Mission Map's RECON section's button
+    (`#missionMapReconBtn`) - two buttons for one action. Kept the
+    latter (already integrated with the RECON section header),
+    removed the former, and retargeted `updateReconDroneBtn()`'s
+    enabled-state tracking to the surviving button. The two lists these
+    buttons feed are genuinely different (AntiPlane lane defenses vs.
+    SEEK AND DESTROY nodes) and both stayed, now under one RECON
+    section with a small ANTIPLANE LANE DEFENSES sub-label.
+  - `#missionMapOpenBtn` (Operations Center's old bridge into Mission
+    Map) is also gone - nothing left to bridge to once they're one
+    screen.
+  Verified with a rewritten regression test (the old LRNA-084 test this
+  superseded asserted the exact two-screen-with-bridge-button flow this
+  ticket replaced - updating it is the correct outcome for a real
+  behavior change, not a violation of any "tests stay unmodified" rule,
+  which only applies to the pure-rendering ART epic) plus 2 new tests:
+  one confirming the merge is structurally complete (`#opsCenterPanel`/
+  `#missionMapOpenBtn`/`#reconDroneBtn` gone, the 4 relocated sections
+  actually live and visible inside `#missionMapWindow`), one confirming
+  the recon-drone and reactor-upgrade controls still function when
+  clicked from inside the merged screen. Also verified visually -
+  instrumented screenshots scrolled through the full merged page
+  confirm every section renders, the AntiPlane sub-list populates
+  correctly, TARGETS scrolls independently, and REACTOR UPGRADES'
+  4 rows are now fully clear of the bottom bar. Regression suite (47
+  tests, 45 original + 2 new) passes, stable across 8 consecutive runs,
+  zero console errors.
 - **LRNA-155** — Prune Main View's bottom bar to ATTACK + Emergency
   Counter only. Remove the COUNTER and INTEL `abilityGroup` blocks
   (`data-pillar="counter"`/`"intel"`) from the bottom bar - Counter

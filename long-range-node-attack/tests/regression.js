@@ -1214,21 +1214,69 @@ test('LRNA-084: COUNTER MISSILE opens the consolidated Mission Map (not the old 
   });
 });
 
-test('LRNA-084: Ops Center\'s mission map button opens the same screen, showing SEEK AND DESTROY recon status', async () => {
+test('LRNA-154: Operations Center button opens the merged Counter Center screen directly, showing SEEK AND DESTROY recon status', async () => {
+  // Supersedes the old LRNA-084 version of this test: Operations Center
+  // and Mission Map are now one screen, so there's no separate panel to
+  // open first and no #missionMapOpenBtn bridge button to click through.
   await withGame(async (page, errors) => {
     await page.click('#opsCenterBtn');
-    await page.click('#missionMapOpenBtn');
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
       return {
         missionMapOpen: T.missionMapOpen,
         reconStatus: document.getElementById('missionMapReconStatus').textContent,
-        opsCenterHidden: document.getElementById('opsCenterPanel').classList.contains('hidden'),
+        opsCenterBtnHidden: document.getElementById('opsCenterBtn').classList.contains('hidden'),
       };
     });
-    assert(result.missionMapOpen, 'Ops Center\'s mission map button should open the Mission Map');
+    assert(result.missionMapOpen, 'the Operations Center button should open the merged Counter Center screen directly');
     assertEqual(result.reconStatus, '0/3 located · 0/3 neutralized', `fresh game should show all 3 SEEK AND DESTROY nodes as unlocated: ${result.reconStatus}`);
-    assert(result.opsCenterHidden, 'opening the Mission Map from Ops Center should close the Ops Center panel behind it');
+    assert(result.opsCenterBtnHidden, 'opening Counter Center should hide its own entry button behind it, same as before the merge');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-154: Counter Center carries the merged Operations Center sections and drops the now-dead duplicate controls', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#opsCenterBtn');
+    const result = await page.evaluate(() => {
+      const mm = document.getElementById('missionMapWindow');
+      const inside = (id) => mm.contains(document.getElementById(id));
+      const visible = (id) => !!document.getElementById(id).offsetParent;
+      return {
+        opsCenterPanelGone: !document.getElementById('opsCenterPanel'),
+        missionMapOpenBtnGone: !document.getElementById('missionMapOpenBtn'),
+        reconDroneBtnGone: !document.getElementById('reconDroneBtn'),
+        allInsideCounterCenter: ['siegeToggleBtn', 'statsList', 'targetList', 'upgradeList'].every(inside),
+        allVisible: ['siegeToggleBtn', 'statsList', 'targetList', 'upgradeList'].every(visible),
+      };
+    });
+    assert(result.opsCenterPanelGone, '#opsCenterPanel should no longer exist in the DOM - its content moved into #missionMapWindow');
+    assert(result.missionMapOpenBtnGone, 'the OPEN MISSION MAP bridge button should no longer exist - there is nowhere left to bridge to');
+    assert(result.reconDroneBtnGone, 'the standalone #reconDroneBtn duplicate should no longer exist - #missionMapReconBtn covers it');
+    assert(result.allInsideCounterCenter, 'GAME MODE/RUN STATS/TARGETS/REACTOR UPGRADES should all now live inside #missionMapWindow');
+    assert(result.allVisible, 'the merged sections should actually render visible once Counter Center is open, not just exist hidden in the DOM');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-154: the recon drone and reactor upgrade controls still work from inside the merged Counter Center', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#opsCenterBtn');
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.intel = 99999;
+      T.tokens.attack = 99999;
+      const dronesBefore = T.missiles.filter(m => m.typeKey === 'drone').length;
+      document.getElementById('missionMapReconBtn').click();
+      const dronesAfter = T.missiles.filter(m => m.typeKey === 'drone').length;
+
+      const ownedBefore = document.querySelector('#upgradeList [data-upgrade="overcharge"]');
+      ownedBefore.click();
+      const ownedAfter = !document.querySelector('#upgradeList [data-upgrade="overcharge"]');
+      return { dronesBefore, dronesAfter, ownedAfter };
+    });
+    assertEqual(result.dronesAfter - result.dronesBefore, 1, 'clicking the merged RECON DRONE button should still launch a real recon drone');
+    assert(result.ownedAfter, 'clicking a REACTOR UPGRADES row from inside Counter Center should still purchase the upgrade');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });

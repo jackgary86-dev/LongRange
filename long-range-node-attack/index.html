@@ -356,26 +356,12 @@
     50% { box-shadow: 0 0 10px rgba(255,90,54,0.85); }
   }
 
-  #opsCenterPanel {
-    position: absolute;
-    top: 60px; left: 6px;
-    z-index: 4;
-    width: min(230px, calc(100vw - 12px));
-    max-height: 70vh;
-    overflow-y: auto;
-    /* ART-4: a faint scanline texture layered under the solid backdrop -
-       a repeating-gradient overlay, not an image asset, keeping every
-       panel a self-contained CSS effect. */
-    background:
-      repeating-linear-gradient(180deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
-      rgba(3,12,7,0.9);
-    border: 1px solid var(--green-dim);
-    box-shadow: 0 0 16px -6px rgba(53,230,255,0.35);
-    padding: 8px 10px;
-    font-size: 10px;
-    backdrop-filter: blur(3px);
-  }
-  #opsCenterPanel.hidden { display: none; }
+  /* LRNA-154: #opsCenterPanel is gone - its sections (GAME MODE, RUN
+     STATS, TARGETS, REACTOR UPGRADES) moved into #missionMapWindow,
+     merged with its existing COUNTER/RECON content into one "Counter
+     Center" screen. #opsCenterBtn survives as that screen's one entry
+     point (see the .opsHeader/.opsSection rules below, still shared
+     with #missionMapWindow and #counterPlanesWindow). */
   .opsHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--green-dim); }
   .opsHeader h3 {
     font-family: "Courier New", ui-monospace, monospace;
@@ -539,7 +525,7 @@
     transform: translate(-50%, -50%);
     z-index: 12;
     /* ART-4: same scanline-texture-under-solid-backdrop treatment as
-       #opsCenterPanel, so every status panel shares one chrome language. */
+       #missionMapWindow, so every status panel shares one chrome language. */
     background:
       repeating-linear-gradient(180deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
       rgba(4,10,18,0.96);
@@ -584,7 +570,14 @@
       rgba(4,10,18,0.97);
     font-family: "Courier New", ui-monospace, monospace;
     overflow-y: auto;
-    padding: 16px 20px 110px;
+    /* LRNA-154: 110px was tuned back when this window held only the
+       COUNTER/RECON sections - #bottomBar itself actually renders at
+       ~288px tall (measured directly, not assumed), so on a screen
+       already long enough to scroll, the last content still clipped
+       behind it before reaching this padding's old, too-small
+       clearance. Bumped with headroom now that GAME MODE/RUN STATS/
+       TARGETS/REACTOR UPGRADES make the page routinely this long. */
+    padding: 16px 20px 300px;
     backdrop-filter: blur(3px);
   }
   #missionMapWindow.hidden { display: none; }
@@ -596,7 +589,26 @@
   #missionMapCounterActions { display: flex; gap: 8px; margin-top: 16px; }
   #missionMapCounterActions .upgradeBtn { flex: 1; text-align: center; }
   #missionMapReconStatus { font-size: 9.5px; opacity: 0.75; margin-bottom: 10px; letter-spacing: 1px; }
-  #missionMapCounterSection, #missionMapReconSection { max-width: 480px; margin: 0 auto 18px; }
+  /* LRNA-154: same width constraint now covers every merged Counter
+     Center section, not just COUNTER/RECON - Operations Center's former
+     GAME MODE/RUN STATS/TARGETS/REACTOR UPGRADES sections read at the
+     same measure instead of stretching edge-to-edge on a full-screen
+     window sized for far less text per line. */
+  #missionMapCounterSection, #missionMapReconSection,
+  #counterCenterModeSection, #counterCenterStatsSection,
+  #counterCenterTargetsSection, #counterCenterUpgradesSection {
+    max-width: 480px; margin: 0 auto 18px;
+  }
+  #missionMapReconAntiPlaneLabel {
+    margin-top: 10px; font-size: 9.5px; opacity: 0.7; letter-spacing: 1px; color: #ff5a36;
+  }
+  /* LRNA-154: the actual overflow fix - TARGETS can run to a dozen+ rows
+     as the corridor fills with soft targets, which used to push RUN
+     STATS/REACTOR UPGRADES down behind the bottom bar in the old
+     230px sidebar. Its own bounded, independently-scrolling region
+     means the rest of the screen's layout can no longer move because
+     of how many targets happen to be alive right now. */
+  #targetListScroll { max-height: 220px; overflow-y: auto; }
 
   /* The top-down zone strip: Strike Platform on the left, Node Omega on
      the right, the 3 SEEK AND DESTROY recon zones and any discovered
@@ -1028,7 +1040,6 @@
     #centerLabel { grid-column: 1 / -1; order: -1; font-size: 9px; white-space: normal; }
     #contacts { top: 72px; }
     #opsCenterBtn { top: 72px; }
-    #opsCenterPanel { top: 72px; }
     #pauseBtn { top: 110px; }
     #muteBtn { top: 148px; }
     #storageWarning { top: 186px; }
@@ -1060,44 +1071,12 @@
     <div id="radarLaneTrack"></div>
     <div id="contactList"></div>
   </div>
-  <button id="opsCenterBtn">OPERATIONS CENTER</button>
+  <button id="opsCenterBtn">COUNTER CENTER</button>
   <button id="pauseBtn">PAUSE</button>
   <button id="muteBtn">MUTE</button>
   <div id="pausedBanner" class="hidden">PAUSED</div>
   <div id="openingLockedBanner" class="hidden">RECON REQUIRED — LOCATE A HIDDEN NODE TO BEGIN THE ASSAULT (send a DRONE or RECON PLANE)<div class="scanBar"></div></div>
   <div id="storageWarning" class="hidden">⚠ PROGRESS NOT SAVING — storage unavailable</div>
-  <div id="opsCenterPanel" class="hidden">
-    <div class="opsHeader">
-      <h3 style="margin:0; border:none; padding:0;">OPERATIONS CENTER</h3>
-      <span class="opsClose" id="opsCenterClose">&#10005;</span>
-    </div>
-    <div class="opsSection">
-      <h3>GAME MODE</h3>
-      <div id="modeStatus">SANDBOX — free play, no timer</div>
-      <button id="siegeToggleBtn" class="upgradeBtn">START SIEGE (5:00)</button>
-    </div>
-    <div class="opsSection">
-      <h3>RUN STATS</h3>
-      <div id="statsList"></div>
-    </div>
-    <div class="opsSection attackPillar">
-      <h3>TARGETS</h3>
-      <div id="targetList"></div>
-    </div>
-    <div class="opsSection">
-      <h3>INTELLIGENCE</h3>
-      <div class="upgrade-row">
-        <span class="upgrade-name">RECON DRONE<br><span class="upgrade-desc">Slow, wandering scout - reveals hidden AntiPlane lane defenses</span></span>
-        <button id="reconDroneBtn" class="upgradeBtn">5&#9679; INTEL</button>
-      </div>
-      <div id="knownThreatsList"></div>
-      <button id="missionMapOpenBtn" class="upgradeBtn" style="width:100%; margin-top:8px;">OPEN MISSION MAP</button>
-    </div>
-    <div class="opsSection upgrades">
-      <h3>REACTOR UPGRADES</h3>
-      <div id="upgradeList"></div>
-    </div>
-  </div>
 
   <div id="siegeResult" class="hidden">
     <div id="siegeResultTitle">SIEGE COMPLETE</div>
@@ -1135,9 +1114,14 @@
        the three pillars. Opened from either of that content's old entry
        points (COUNTER MISSILE button, Ops Center's mission-map button) -
        both now land on this same screen. -->
+  <!-- LRNA-154: merges the old #opsCenterPanel (game mode, run stats,
+       targets, reactor upgrades) into this screen alongside its existing
+       COUNTER/RECON content - one place for everything that isn't
+       attacking, not two. #opsCenterBtn and the bottom bar's
+       #counterMissileBtn both open this same window. -->
   <div id="missionMapWindow" class="hidden">
     <div class="opsHeader">
-      <h3 style="margin:0; border:none; padding:0; color:#c6e8ff;">MISSION MAP</h3>
+      <h3 style="margin:0; border:none; padding:0; color:#c6e8ff;">COUNTER CENTER</h3>
       <span class="opsClose" id="missionMapClose">&#10005;</span>
     </div>
     <div id="missionMapStrip">
@@ -1148,6 +1132,12 @@
         <div id="missionMapThreatMarker" class="hidden"></div>
       </div>
       <div class="missionMapStripEnd">NODE<br>OMEGA</div>
+    </div>
+
+    <div class="opsSection" id="counterCenterModeSection">
+      <h3>GAME MODE</h3>
+      <div id="modeStatus">SANDBOX — free play, no timer</div>
+      <button id="siegeToggleBtn" class="upgradeBtn">START SIEGE (5:00)</button>
     </div>
 
     <div class="opsSection" id="missionMapCounterSection">
@@ -1175,6 +1165,29 @@
         <button id="missionMapReconBtn" class="upgradeBtn">5&#9679; INTEL</button>
       </div>
       <div id="missionMapReconList"></div>
+      <!-- LRNA-154: folded in from Operations Center's old INTELLIGENCE
+           section - a genuinely different list (discovered AntiPlane
+           lane defenses, not SEEK AND DESTROY nodes) but the same
+           RECON DRONE fire button above already covers both; the old
+           panel's own duplicate button/OPEN MISSION MAP bridge are
+           gone. -->
+      <div id="missionMapReconAntiPlaneLabel">ANTIPLANE LANE DEFENSES</div>
+      <div id="knownThreatsList"></div>
+    </div>
+
+    <div class="opsSection attackPillar" id="counterCenterTargetsSection">
+      <h3>TARGETS</h3>
+      <div id="targetListScroll"><div id="targetList"></div></div>
+    </div>
+
+    <div class="opsSection" id="counterCenterStatsSection">
+      <h3>RUN STATS</h3>
+      <div id="statsList"></div>
+    </div>
+
+    <div class="opsSection upgrades" id="counterCenterUpgradesSection">
+      <h3>REACTOR UPGRADES</h3>
+      <div id="upgradeList"></div>
     </div>
   </div>
 
@@ -1336,15 +1349,13 @@
   const targetListEl = document.getElementById('targetList');
   const targetLabelEl = document.getElementById('targetLabel');
   const launchBarHeaderEl = document.getElementById('launchBarHeader');
+  // LRNA-154: #opsCenterPanel is gone - #opsCenterBtn now just opens the
+  // same merged #missionMapWindow the bottom bar's #counterMissileBtn
+  // already opens (openMissionMap/closeMissionMap, defined below, also
+  // toggle this button's own hidden state, same as setOpsCenterOpen used
+  // to for the panel it opened).
   const opsCenterBtn = document.getElementById('opsCenterBtn');
-  const opsCenterPanel = document.getElementById('opsCenterPanel');
-  const opsCenterClose = document.getElementById('opsCenterClose');
-  function setOpsCenterOpen(open) {
-    opsCenterPanel.classList.toggle('hidden', !open);
-    opsCenterBtn.classList.toggle('hidden', open);
-  }
-  opsCenterBtn.addEventListener('click', () => { sfxUi(); setOpsCenterOpen(true); });
-  opsCenterClose.addEventListener('click', () => { sfxUi(); setOpsCenterOpen(false); });
+  opsCenterBtn.addEventListener('click', () => { sfxUi(); openMissionMap(); });
 
   // ---- LRNA-119: explicit pause/resume, independent of the browser's own
   // tab-blur throttling of requestAnimationFrame (see `paused` above -
@@ -1498,7 +1509,6 @@
   // to keep popping back out after every counter action.
   let missionMapOpen = false;
   const missionMapWindowEl = document.getElementById('missionMapWindow');
-  const missionMapOpenBtnEl = document.getElementById('missionMapOpenBtn');
   const missionMapCloseBtnEl = document.getElementById('missionMapClose');
   const missionMapFireBtnEl = document.getElementById('missionMapFire');
   const missionMapCancelBtnEl = document.getElementById('missionMapCancel');
@@ -1517,11 +1527,13 @@
   function openMissionMap() {
     missionMapOpen = true;
     missionMapWindowEl.classList.remove('hidden');
+    opsCenterBtn.classList.add('hidden'); // LRNA-154: same toggle setOpsCenterOpen used to do for its own panel
     renderMissionMap();
   }
   function closeMissionMap() {
     missionMapOpen = false;
     missionMapWindowEl.classList.add('hidden');
+    opsCenterBtn.classList.remove('hidden');
   }
   function renderMissionMap() {
     renderMissionMapCounter();
@@ -1594,11 +1606,6 @@
       missionMapThreatMarkerEl.classList.add('hidden');
     }
   }
-  missionMapOpenBtnEl.addEventListener('click', () => {
-    if (!running) return;
-    setOpsCenterOpen(false);
-    openMissionMap();
-  });
   missionMapCloseBtnEl.addEventListener('click', closeMissionMap);
   missionMapCancelBtnEl.addEventListener('click', closeMissionMap);
   missionMapFireBtnEl.addEventListener('click', () => {
@@ -1623,21 +1630,19 @@
   // to the same mechanic, since the recon drone's discovery behavior lives
   // on the `drone` typeKey itself, not on how it was fired. LAUNCH ATTACK
   // DRONE rows are rendered per discovered AntiPlane node below.
-  const reconDroneBtnEl = document.getElementById('reconDroneBtn');
+  // LRNA-154: the standalone #reconDroneBtn (and its own duplicate
+  // "fire a recon drone" click handler) is gone - #missionMapReconBtn in
+  // the merged RECON section already fires the identical drone shot, so
+  // this now just tracks that button's enabled state instead of its own.
   const knownThreatsListEl = document.getElementById('knownThreatsList');
-  reconDroneBtnEl.addEventListener('click', () => {
-    if (!running) return;
-    attemptFire('drone');
-    updateReconDroneBtn();
-  });
   knownThreatsListEl.addEventListener('click', (e) => {
     const btn = e.target.closest('.upgradeBtn');
     if (!btn || btn.disabled || !running) return;
     fireAttackDrone(btn.dataset.ap);
   });
   function updateReconDroneBtn() {
-    if (!reconDroneBtnEl) return;
-    reconDroneBtnEl.disabled = shotsRemaining <= 0 || activeCount('A') >= currentMaxActive() || tokens.intel < TYPES.drone.cost;
+    if (!missionMapReconBtnEl) return;
+    missionMapReconBtnEl.disabled = shotsRemaining <= 0 || activeCount('A') >= currentMaxActive() || tokens.intel < TYPES.drone.cost;
   }
   function renderIntel() {
     const known = antiPlaneNodes.filter(a => a.discovered);
@@ -3167,7 +3172,7 @@
     siegeResultEl.classList.add('hidden');
     siegeTimerEl.classList.remove('hidden');
     updateModeStatus();
-    setOpsCenterOpen(false);
+    closeMissionMap(); // LRNA-154: was setOpsCenterOpen(false) - same "show the battlefield, not the panel" intent
   }
 
   function endSiege(won) {
