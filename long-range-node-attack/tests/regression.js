@@ -411,8 +411,9 @@ test('LRNA-116: Omega Counter Missile/Planes readiness is shown in the HUD', asy
 
       return { readyHtml, cooldownHtml };
     });
-    assert(/CM READY/.test(result.readyHtml), `expected "CM READY" while off cooldown, got: ${result.readyHtml}`);
-    assert(/CM 0:0?4/.test(result.cooldownHtml), `expected a countdown while on cooldown, got: ${result.cooldownHtml}`);
+    // LRNA-165: each entry now also carries how many are left this game
+    assert(/CM 10 READY/.test(result.readyHtml), `expected "CM 10 READY" while off cooldown, got: ${result.readyHtml}`);
+    assert(/CM 10 0:0?4/.test(result.cooldownHtml), `expected a countdown while on cooldown, got: ${result.cooldownHtml}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }); // NOT skipStart: the HUD element only reflects real timer state once the game has started
 });
@@ -774,6 +775,136 @@ test('LRNA-163: START MISSION and the title are reachable and tappable on short 
       assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
     }, { viewport, skipStart: true });
   }
+});
+
+test('LRNA-165: the player gets 10 counter missiles, 10 counter planes and 5 emergency counters per game', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.forceOpeningUnlock();
+      T.freezeWaves();
+      T.clearMissiles();
+      T.neutralizeAutoDefense();
+      T.disableOmegaCounters();
+      T.tokens.counter = 999999; // tokens are never the limit here - only the stock is
+      const counters = (src) => T.missiles.filter(m => m.typeKey === 'counter' && m.source === src).length;
+      const strike = (weaponClass, secondsLeft) => {
+        const m = T.launchEnemyStrike(T.nodeO, T.nodeA);
+        m.weaponClass = weaponClass;
+        m.sizeKey = 'medium'; // Emergency Counter skips FAST
+        m.age = secondsLeft == null ? 2 : m.totalSeconds - secondsLeft;
+        return m;
+      };
+      const start = { ...T.counterAmmo };
+
+      // Counter Missile: one threat at a time so each press has a target
+      for (let i = 0; i < 14; i++) { strike('missile'); T.fireCounterMissile(); }
+      T.updateCounterMissileBtn();
+      const missileFired = counters('countermissile');
+      const missileBtnDisabled = document.getElementById('counterMissileBtn').disabled;
+      const missileBadge = document.getElementById('counterMissileAmmo').textContent;
+
+      // Counter Planes: counts planes, and sends only what's left
+      for (let i = 0; i < 8; i++) strike('plane');
+      T.fireCounterAttackPlanes(); T.fireCounterAttackPlanes(); T.fireCounterAttackPlanes(); T.fireCounterAttackPlanes(); // 2+2+2+2 = 8
+      const planesAfterFour = T.counterAmmo.planes;
+      T.fireCounterAttackPlanes(); // 2 left -> 2
+      T.fireCounterAttackPlanes(); // 0 left -> nothing
+      const planesFired = counters('counterplanes');
+
+      // Emergency Counter: threats inside its last-seconds window
+      for (let i = 0; i < 8; i++) strike('missile', 3);
+      for (let i = 0; i < 8; i++) { T.setEmergencyCooldown(0); T.fireEmergencyCounter(); }
+      const emergencyFired = counters('emergency');
+      const emergencyBadge = document.getElementById('emergencyAmmo').textContent;
+      return { start, missileFired, missileBtnDisabled, missileBadge, planesAfterFour, planesFired, emergencyFired, emergencyBadge, end: { ...T.counterAmmo } };
+    });
+    assertEqual(JSON.stringify(result.start), JSON.stringify({ missile: 10, planes: 10, emergency: 5 }), 'a new game starts with 10/10/5');
+    assertEqual(result.missileFired, 10, 'only 10 counter missiles can be fired');
+    assert(result.missileBtnDisabled, 'COUNTER MISSILE should be disabled once none are left');
+    assertEqual(result.missileBadge, 'NONE LEFT', 'the button should say none are left');
+    assertEqual(result.planesAfterFour, 2, 'each 2-plane launch should use 2 of the 10');
+    assertEqual(result.planesFired, 10, 'only 10 counter planes can be sent');
+    assertEqual(result.emergencyFired, 5, 'only 5 emergency counters can be fired');
+    assertEqual(result.emergencyBadge, 'NONE LEFT', 'the emergency button should say none are left');
+    assertEqual(JSON.stringify(result.end), JSON.stringify({ missile: 0, planes: 0, emergency: 0 }), 'all three should be used up');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-165: Omega gets the same 10/10/5, including a new Emergency Counter', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.forceOpeningUnlock();
+      T.freezeWaves();
+      T.clearMissiles();
+      T.tokens.attack = 999999;
+      const omegaCounters = (src) => T.missiles.filter(m => m.typeKey === 'counter' && m.originId === 'O' && m.source === src).length;
+      const warhead = (secondsLeft) => {
+        const m = T.launchAttack(T.nodeA, T.nodeO, 'medium');
+        m.omegaReactionDelay = 0;
+        m.age = secondsLeft == null ? 2 : m.totalSeconds - secondsLeft;
+        return m;
+      };
+      const start = { ...T.omegaCounterAmmo };
+
+      // Counter Missile only (planes and emergency held off)
+      for (let i = 0; i < 16; i++) warhead();
+      for (let i = 0; i < 30; i++) {
+        T.setOmegaCounterMissileTimer(0); T.setOmegaCounterPlanesTimer(1e6); T.setOmegaEmergencyCooldown(1e6);
+        T.tickOmegaCounters(0.01);
+      }
+      const missileFired = omegaCounters('omega');
+
+      // Counter Planes: only 1 left, two candidates -> sends just 1
+      T.clearMissiles();
+      T.omegaCounterAmmo.planes = 1;
+      warhead(); warhead();
+      T.setOmegaCounterMissileTimer(1e6); T.setOmegaCounterPlanesTimer(0); T.setOmegaEmergencyCooldown(1e6);
+      T.tickOmegaCounters(0.01);
+      const planesWithOneLeft = omegaCounters('omega');
+
+      // Emergency Counter: warheads in their last 3 seconds
+      T.clearMissiles();
+      for (let i = 0; i < 8; i++) warhead(3);
+      for (let i = 0; i < 12; i++) {
+        T.setOmegaCounterMissileTimer(1e6); T.setOmegaCounterPlanesTimer(1e6); T.setOmegaEmergencyCooldown(0);
+        T.tickOmegaCounters(0.01);
+      }
+      const emergencyFired = omegaCounters('omegaEmergency');
+      T.updateOmegaCountersHud();
+      const hud = document.getElementById('omegaCounterStatus').textContent;
+      return { start, missileFired, planesWithOneLeft, emergencyFired, hud, end: { ...T.omegaCounterAmmo } };
+    });
+    assertEqual(JSON.stringify(result.start), JSON.stringify({ missile: 10, planes: 10, emergency: 5 }), 'Omega starts with 10/10/5');
+    assertEqual(result.missileFired, 10, 'Omega should fire only 10 counter missiles');
+    assertEqual(result.planesWithOneLeft, 1, 'Omega should send only as many counter planes as it has left');
+    assertEqual(result.emergencyFired, 5, 'Omega should fire only 5 emergency counters');
+    assertEqual(JSON.stringify(result.end), JSON.stringify({ missile: 0, planes: 0, emergency: 0 }), 'all three of Omega\'s should be used up');
+    assert(/CM 0/.test(result.hud) && /CP 0/.test(result.hud) && /EC 0/.test(result.hud), `the HUD should show Omega is out: ${result.hud}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-165: a new game refills both sides\' counters', async () => {
+  await withGame(async (page, errors) => {
+    // leftovers as if from an earlier game, then a real START MISSION click
+    await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.counterAmmo.missile = 0; T.counterAmmo.emergency = 1;
+      T.omegaCounterAmmo.planes = 0;
+    });
+    await page.click('#startGameBtn');
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      return { player: { ...T.counterAmmo }, omega: { ...T.omegaCounterAmmo }, badge: document.getElementById('counterMissileAmmo').textContent };
+    });
+    assertEqual(JSON.stringify(result.player), JSON.stringify({ missile: 10, planes: 10, emergency: 5 }), 'player refilled');
+    assertEqual(JSON.stringify(result.omega), JSON.stringify({ missile: 10, planes: 10, emergency: 5 }), 'Omega refilled');
+    assertEqual(result.badge, '10 LEFT', 'button badge refreshed');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
 });
 
 test('LRNA-143: UI_DISABLED_TYPES is the single source of truth for launch-bar-less weapon types', async () => {

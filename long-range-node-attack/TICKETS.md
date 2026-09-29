@@ -868,6 +868,47 @@ them up in order, or together if convenient.
     above the screen, and a real Playwright click on START starts the run.
     It fails on the old code (title at -524px) and passes now. 52/52.
   - Still open: in-game, the bottom bar alone takes ~600px on a phone.
+- **LRNA-165** — DONE (2026-09-29) — Counters are a limited stock per
+  game, the same for both sides. Request: "Make it to where I only have 10
+  counter missiles 10 counter planes and 5 emergency counters", then "The
+  AI also only has 10 counter planes and missiles and 5 emergency
+  counters". Asked two things: Omega had no Emergency Counter at all, so
+  should it get one ("Give Omega one (5 shots)"), and when do counts
+  refill ("Once per game").
+  - `COUNTER_AMMO = { missile: 10, planes: 10, emergency: 5 }`, copied
+    into `counterAmmo` (player) and `omegaCounterAmmo`. Both are refilled in
+    `reset()`, i.e. only by starting a new game.
+  - Counter planes count planes, not presses: a 2-plane launch uses 2,
+    and with 1 left only 1 plane goes (at the existing 1-plane price).
+  - Token costs are unchanged, so the player now has two limits: tokens
+    and stock.
+  - Each player counter button has an "N LEFT" badge (top-left, opposite
+    the key number), which turns red at "NONE LEFT". The button disables
+    at 0.
+  - **Omega Emergency Counter (new)**: mirrors the player's. It shoots at a
+    player warhead or plane in its last 5s (`EMERGENCY_WINDOW`), with 55%
+    hit chance, 1.2s cooldown, at most 2 per target, and skips FAST. It is
+    tracked separately from Omega's other counters, so it's a real extra
+    last resort. It's jammed along with Omega's other counters, and its
+    intercepts read "OMEGA EMERGENCY COUNTER". This makes Omega somewhat
+    tougher than before, even with the new caps on its other counters.
+  - A shot Omega's planes skip because a Strike Fighter dodged it isn't
+    spent.
+  - Omega's HUD line (LRNA-116) now reads e.g. "CM 8 READY · CP 6 0:04 ·
+    EC 5", and "CM 0" in red when out.
+  - **Found, not fixed**: that HUD line is hidden. On desktop the Radar
+    Lane panel sits over it, and on a phone the whole top-right Omega panel
+    is covered. That was already true of LRNA-116's readiness line. Left
+    alone per "leave the top the same".
+  - Also fixed in passing: `#emergencyBtn` wasn't `position: relative`, so
+    its "6" key label was positioned against some ancestor instead of the
+    button.
+  - Tests: player 10/10/5 caps (buttons disable, badges read NONE LEFT);
+    Omega's 10/10/5 caps, including sending only as many counter planes as
+    it has left; a real START refills both sides. The test API's
+    `disableOmegaCounters()` now also holds Omega's Emergency Counter
+    (LRNA-137's EMP test was otherwise shot down by it). LRNA-116's HUD test
+    is updated for the counts. 55/55.
 - **LRNA-164** — DONE (2026-09-29) — Player planes no longer fly back
   from Omega. Report: "It looks like things are bouncing off the enemy
   base and coming back at me." Instrumenting 80s of play with every
