@@ -951,6 +951,48 @@ them up in order, or together if convenient.
     jams enemy defenses, because with every roll forced to succeed a field
     target could shoot the missile down.) LRNA-159's passive-rate check
     now expects 20/s. 57/57, three runs.
+- **LRNA-167** — DONE (2026-09-29) — Discovered hidden nodes can be
+  attacked again. LRNA-162 removed the only buttons that fired the Attack
+  Drone, so the ATTACK/COUNTER/BASE nodes recon finds could no longer be
+  hit at all. Asked directly, the choice was to put them in TARGETS.
+  - `getTarget()` also returns a SEEK AND DESTROY node once it's
+    discovered (never before), and `renderTargetList()` lists discovered,
+    living ones with their HP. Missiles and attack planes aimed at one
+    take the normal launch/impact path: `applyDamage` against its 500/500/
+    1000 hp, the damage coin payback, and the same fallback to Omega once
+    it's destroyed.
+  - A kill plays the ground-kill effect the Attack Drone kill always had,
+    and a discovered, living node now shows an HP bar on the battlefield.
+    Nodes carry `impacts: 0` so the impact counter doesn't go NaN.
+  - `fireAttackDrone` is kept (the test API still uses it) but has no
+    button.
+  - Test: undiscovered nodes are not listed; a discovered one is listed
+    and selectable; a LONG RANGE shot at it destroys it, and TARGETS and
+    the target label drop back to Omega.
+- **LRNA-168** — DONE (2026-09-29) — Compact ability bar on phones. At
+  390x844 the bottom bar was 604px tall, one full-width button per row,
+  leaving almost no battlefield. Now 336px.
+  - Under 560px each pillar is a 3-column grid, with `display: contents`
+    on `.abilityGroupButtons` so missile and plane buttons share it: ATTACK
+    2 rows, COUNTER 1, INTEL 1. Smaller type and padding throughout,
+    tighter Counter Operations bar and minimap.
+  - Everywhere: COUNTER's empty PLANES label and row are hidden (`:has`),
+    since COUNTER has no planes.
+  - Test: at 390x844 the bar is under 45% of the screen, ATTACK's 6
+    buttons sit in 2 rows, no empty PLANES label, no sideways scroll.
+- **LRNA-169** — DONE (2026-09-29) — Omega's counter readout is visible.
+  `#contacts` (Radar Lane) and the STATS/PAUSE/MUTE column had fixed tops
+  (60px desktop, 72px phone) that sat on the HUD panels: the Radar Lane
+  covered Omega's `#omegaCounterStatus` line and IMPACTS, and STATS
+  covered the Strike Platform's IMPACTS.
+  - `layoutTopStack()` places them 6px under the HUD's real height,
+    re-run on resize and by a ResizeObserver on `#hud` (jam lines grow it
+    mid-run). The old fixed mobile tops are gone.
+  - Phones: the HUD drops the title and address (the start screen shows
+    them), and the recon-required banner sits just above the lanes instead
+    of over the Radar Lane and the Strike Platform.
+  - Tests at 1280x800 and 390x844: nothing covers a HUD panel, and Omega's
+    readout is filled in. 63/63; the 4 new tests fail on the old code.
 - **LRNA-164** — DONE (2026-09-29) — Player planes no longer fly back
   from Omega. Report: "It looks like things are bouncing off the enemy
   base and coming back at me." Instrumenting 80s of play with every
@@ -2598,7 +2640,7 @@ Three more followed the same night (#433-435, below).
     Covered by a new regression test (`LRNA-049`) verifying 3
     differently-sized threats are all engaged in the same tick and the
     cooldown behaves correctly both with and without targets present.
-- **LRNA-051** — PARTIAL — Counter Window. **Shipped**: the core, fully
+- **LRNA-051** — CLOSED (2026-09-29, remaining pieces superseded) — Counter Window. **Shipped**: the core, fully
   unambiguous part — a real second overlay window (not an Operations
   Center tab), opened by the existing COUNTER MISSILE button (LRNA-041)
   instead of firing instantly. Clicking it now opens `#counterWindow`
@@ -2615,6 +2657,14 @@ Three more followed the same night (#433-435, below).
   countdown visibly ticks down live while open, FIRE spends the 500
   cells and launches, HOLD FIRE closes with no spend, zero console
   errors.
+  **Closed (2026-09-29), confirmed directly**: the leftover mockup pieces
+  below were overtaken, not built. The Counter Window became Mission Map
+  (LRNA-084), then the direct-fire COUNTER buttons plus the always-on
+  Counter Operations bar (LRNA-158/161). Missile vs. plane counters exist
+  as Counter Missile and Counter Attack Planes (each matching its own
+  class, LRNA-158), and the symmetric enemy arsenal shipped as LRNA-051's
+  missile/plane strike classes. The tiered roster, stat-card formula and
+  intel list are dropped; file a new ticket if any of them is wanted.
   **Still open / not built** — the rest of the reference mockup's
   content, each needing its own answer before building (unchanged from
   before, listed below): the Counter Weapons roster (Missile/Plane/Drone
@@ -2802,7 +2852,7 @@ Three more followed the same night (#433-435, below).
   THREATS"; once a strike is inbound it turns yellow with a live ETA;
   once that ETA drops under 5s it turns red and starts the existing
   pulse animation. Zero console errors.
-- **LRNA-055** — PARTIAL — New icon art for Missile / Drone / Plane
+- **LRNA-055** — CLOSED (2026-09-29, remaining pieces superseded) — New icon art for Missile / Drone / Plane
   classes. **Shipped**: the real, unblocked gap - DRONE (LRNA-038) never
   got bespoke art and fell through to the generic rocket-body fallback.
   New `drawDrone(r)`: a small quadcopter silhouette (central hub, 4 arms
@@ -2813,6 +2863,10 @@ Three more followed the same night (#433-435, below).
   build, zoomed screenshot): the quadcopter shape renders clearly and
   distinctly from `drawAttackPlane`/`drawBomber`/`drawMissileBody`, zero
   console errors.
+  **Closed (2026-09-29), confirmed directly**: plane icons shipped as
+  ART-1 (one silhouette per plane kind) and missile icons as ART-2. The
+  multi-tier Drone never became a thing (DRONE stayed single-tier), so
+  there's nothing left to draw.
   **Still open / not built**: the Plane-class and multi-tier Drone icons
   described below - both depend on Plane actually existing as a real
   launchable type first (it doesn't yet - LRNA-051's Counter Weapons
@@ -2831,7 +2885,7 @@ Three more followed the same night (#433-435, below).
   silhouette across tiers with only a color change, matching how FAST vs.
   LONG RANGE already read as visually distinct classes, not just
   differently-colored copies of one shape.
-- **LRNA-056** — Base/structure art for the new loadout nodes (LRNA-046's
+- **LRNA-056** — CLOSED (2026-09-29, remaining pieces superseded) — Base/structure art for the new loadout nodes (LRNA-046's
   3 placement slots, populated from LRNA-047/048/049's roster - Ground
   Missile Launcher, Satellite, Counter Battery, etc.). Precedent: every
   existing placeable already has its own distinct silhouette (AM battery
@@ -2845,6 +2899,10 @@ Three more followed the same night (#433-435, below).
   confirm which reading is intended, or if both, scope them as separate
   passes given how different "new node icons" vs. "rework the existing
   main bases" are as tasks.
+  **Closed (2026-09-29), confirmed directly**: the loadout node icons
+  shipped as ART-8. Reworking the Strike Platform/Node Omega art and
+  adding more battlefield layouts were never asked for again; file new
+  tickets if wanted.
   **Partially resolved (2026-09-28), without guessing at the genuinely
   ambiguous part:** the "new node icons" reading is unblocked (all 6
   loadout node types now have shipped mechanics, most recently
@@ -3011,7 +3069,7 @@ Three more followed the same night (#433-435, below).
   (`ANTIPLANE_ENGAGE_RANGE`/`ANTIPLANE_LANES`), SEEK AND DESTROY nodes
   are pure find-and-destroy targets with no engagement role of their
   own, so the concept doesn't apply to them - not a gap.
-- **LRNA-063** — PARTIAL — "SEEK AND DESTROY" window. **Shipped**: the
+- **LRNA-063** — CLOSED (2026-09-29, remaining pieces superseded) — "SEEK AND DESTROY" window. **Shipped**: the
   core mechanic and window. `initSeekDestroyNodes` places exactly 3
   nodes (Attack/Counter 500 hp each, Base 1000 hp) using LRNA-062's
   resolved placement rules (corridor split into 3 thirds, Base always in
@@ -3045,6 +3103,11 @@ Three more followed the same night (#433-435, below).
   leaving no trail at all between the launch boost and impact. Verified
   directly (instrumented build + screenshot): a fired Attack Drone shows
   a real, visibly weaving smoke trail behind it in flight.
+  **Closed (2026-09-29), confirmed directly**: the window itself was
+  replaced (LRNA-084, then LRNA-158/162), recon zones (LRNA-080) took the
+  place of a fog-of-war trail, and discovered nodes are now attacked from
+  TARGETS with regular missiles and planes (LRNA-167), which answers the
+  last question below. Tiered recon options are dropped.
   **Still open / not built**: the fog-of-war recon-trail reveal mechanic
   (vs. the existing radius-based discovery roll, reused here), tiered
   Recon/Threat options, and whether regular launch-bar warheads (not

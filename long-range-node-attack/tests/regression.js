@@ -1557,6 +1557,100 @@ test('LRNA-156: STATS only undoes its own pause - a manual pause or manual resum
   });
 });
 
+test('LRNA-167: a discovered hidden node joins TARGETS and a missile aimed at it can destroy it', async () => {
+  await withGame(async (page, errors) => {
+    const listIds = () => page.evaluate(() => Array.from(document.querySelectorAll('#targetList .target-row')).map((r) => r.dataset.target));
+    await page.click('#statsBtn');
+    const beforeDiscovery = await listIds();
+    await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.seekDestroyNodes.find((n) => n.kind === 'attack').discovered = true;
+      T.forceOpeningUnlock();
+      T.tickUpdate(0.1); // refresh the list
+    });
+    const afterDiscovery = await listIds();
+    await page.click('#targetList .target-row[data-target="sd-attack"]');
+    const label = await page.evaluate(() => document.getElementById('targetLabel').textContent);
+    await page.click('#missionMapClose');
+
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.clearMissiles();
+      T.neutralizeAutoDefense();
+      T.disableOmegaCounters();
+      T.setEmpGlobalJamTimer(1e6); // AntiPlane nodes can't shoot it down
+      T.tokens.attack = 99999;
+      T.attemptFire('large');
+      const shot = T.missiles.find((m) => m.originId === 'A');
+      const node = T.seekDestroyNodes.find((n) => n.kind === 'attack');
+      window.__origRandom = Math.random;
+      Math.random = () => 0.01; // the shot lands
+      for (let i = 0; i < 700 && T.missiles.includes(shot); i++) T.tickUpdate(0.05);
+      Math.random = window.__origRandom;
+      T.tickUpdate(0.1);
+      return {
+        destId: shot && shot.destId,
+        destroyed: node.destroyed,
+        health: node.health,
+        stillListed: Array.from(document.querySelectorAll('#targetList .target-row')).some((row) => row.dataset.target === 'sd-attack'),
+        label: document.getElementById('targetLabel').textContent,
+      };
+    });
+    assert(!beforeDiscovery.some((id) => id.startsWith('sd-')), `undiscovered hidden nodes must not be targetable: ${beforeDiscovery}`);
+    assert(afterDiscovery.includes('sd-attack'), `the discovered ATTACK NODE should be listed in TARGETS: ${afterDiscovery}`);
+    assert(!afterDiscovery.includes('sd-counter') && !afterDiscovery.includes('sd-base'), 'the other two, still hidden, should stay off the list');
+    assertEqual(label, 'TARGET: ATTACK NODE', 'picking it should make it the current target');
+    assertEqual(r.destId, 'sd-attack', 'the LONG RANGE shot should be aimed at the hidden node');
+    assert(r.destroyed && r.health === 0, `a 1000-damage hit should destroy the 500 hp node: ${JSON.stringify(r)}`);
+    assert(!r.stillListed, 'a destroyed node should drop off TARGETS');
+    assertEqual(r.label, 'TARGET: NODE OMEGA', 'the target should fall back to Omega once it is destroyed');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-168: on a phone the ability bar is a compact 3-column grid and leaves room for the battlefield', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const rect = (el) => el.getBoundingClientRect();
+      const attack = document.querySelector('.abilityGroup[data-pillar="attack"]');
+      const tops = Array.from(attack.querySelectorAll('.launchBtn')).map((b) => Math.round(rect(b).top));
+      const counterSub = document.querySelector('.abilityGroup[data-pillar="counter"] .abilityGroupSub');
+      return {
+        barHeight: document.getElementById('bottomBar').offsetHeight,
+        viewport: window.innerHeight,
+        attackRows: new Set(tops).size,
+        attackButtons: tops.length,
+        counterPlanesLabelShown: !!counterSub.offsetParent,
+        scrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+    assert(r.barHeight < r.viewport * 0.45, `the bottom bar should take under 45% of an 844px phone screen: ${r.barHeight}px`);
+    assertEqual(r.attackButtons, 6, 'ATTACK should have its 3 missiles and 3 planes');
+    assertEqual(r.attackRows, 2, 'ATTACK\'s 6 buttons should sit in 2 rows of 3');
+    assert(!r.counterPlanesLabelShown, 'COUNTER has no planes, so no empty PLANES label');
+    assert(r.scrollWidth <= 390, `no sideways scroll: ${r.scrollWidth}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { viewport: { width: 390, height: 844 } });
+});
+
+for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+  test(`LRNA-169: nothing covers the HUD panels at ${viewport.width}px (Omega's counter readout stays visible)`, async () => {
+    await withGame(async (page, errors) => {
+      const r = await page.evaluate(() => {
+        const rect = (id) => document.getElementById(id).getBoundingClientRect();
+        const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        const panels = Array.from(document.querySelectorAll('#hud .panel')).map((p) => p.getBoundingClientRect());
+        const covers = ['contacts', 'statsBtn', 'pauseBtn', 'muteBtn'].filter((id) => panels.some((p) => overlaps(rect(id), p)));
+        return { covers, omegaStatus: document.getElementById('omegaCounterStatus').textContent };
+      });
+      assertEqual(r.covers.length, 0, `these sit on top of the HUD panels: ${r.covers}`);
+      assert(/CM \d+/.test(r.omegaStatus), `Omega's counter readout should be filled in: ${r.omegaStatus}`);
+      assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+    }, { viewport });
+  });
+}
+
 test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon lists', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {

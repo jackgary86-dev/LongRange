@@ -845,6 +845,8 @@
   .abilityGroup[data-pillar="intel"] .abilityGroupHeader { color: #35e6ff; }
   .abilityGroupCount { font-size: 11px; }
   .abilityGroupButtons { display: flex; gap: 6px; flex-wrap: wrap; }
+  /* LRNA-168: COUNTER has no planes, so its PLANES label headed an empty row */
+  .abilityGroupSub:has(+ .abilityGroupButtons:empty), .abilityGroupButtons:empty { display: none; }
   .abilityGroupSub {
     font-size: 8.5px;
     letter-spacing: 1.5px;
@@ -1016,13 +1018,44 @@
      #opsCenterBtn/#opsCenterPanel mobile overrides had the same bug and
      were never actually taking effect.) */
   @media (max-width: 560px) {
-    #hud { grid-template-columns: 1fr 1fr; }
+    #hud { grid-template-columns: 1fr 1fr; padding: 6px 10px; font-size: 11px; }
     #centerLabel { grid-column: 1 / -1; order: -1; font-size: 9px; white-space: normal; }
-    #contacts { top: 72px; }
-    #statsBtn { top: 72px; }
-    #pauseBtn { top: 110px; }
-    #muteBtn { top: 148px; }
-    #storageWarning { top: 186px; }
+    /* LRNA-169: the title and address are the start screen's job; on a
+       phone every row up here costs battlefield. */
+    #centerLabel .hudTitle { display: none; }
+    #contacts { max-height: 22vh; }
+    #openingLockedBanner { font-size: 9px; padding: 6px 12px 8px; width: calc(100vw - 24px); }
+
+    /* LRNA-168: compact ability bar. Each pillar becomes a 3-column grid
+       (display: contents lifts the missile and plane buttons into it), so
+       ATTACK is 2 rows and COUNTER and INTEL 1 row each, instead of one
+       full-width button per row. */
+    #counterOpsBar { padding: 5px 8px; }
+    .missionMapStripEnd { width: 40px; font-size: 6.5px; padding-top: 11px; }
+    .counterLaneEnd { width: 40px; font-size: 6.5px; }
+    #missionMapStripTrack { height: 20px; }
+    #counterLaneRow { margin-top: 4px; }
+    #minimapWrap { height: 22px; }
+    #launchBar { padding: 4px 8px calc(6px + env(safe-area-inset-bottom, 0px)); }
+    #launchBarHeader { font-size: 8px; margin-bottom: 3px; }
+    #targetLabel { font-size: 9px; margin-bottom: 3px; }
+    #incomingAlert { font-size: 9px; padding: 3px 4px; margin-bottom: 4px; }
+    #abilityGroups { gap: 5px; }
+    .abilityGroup {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+    .abilityGroupHeader { grid-column: 1 / -1; font-size: 9px; padding-bottom: 2px; }
+    .abilityGroupButtons { display: contents; }
+    .abilityGroupSub { display: none; }
+    .launchBtn, #emergencyBtn { max-width: none; min-width: 0; padding: 10px 3px 4px; }
+    .btnLabel { font-size: 10px; letter-spacing: 0.5px; }
+    .btnEta { font-size: 8px; margin-top: 1px; }
+    .btnDmg { font-size: 7.5px; }
+    .btnKey, .ammoLeft { font-size: 6.5px; }
   }
 </style>
 
@@ -1035,7 +1068,7 @@
       <div class="barOuter"><div class="barInner" id="aBar" style="background:var(--green)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="aImpacts">0</span></div>
     </div>
-    <div id="centerLabel">LONG RANGE NODE ATTACK<br><span class="url">192.168.1.36:2001</span><br><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span> <span class="tokenChip" style="color:#35e6ff">&#9679; <span id="tokenIntel">0</span></span></span><br><span id="waveHud">WAVE 1</span></div>
+    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span class="url">192.168.1.36:2001</span><br></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span> <span class="tokenChip" style="color:#35e6ff">&#9679; <span id="tokenIntel">0</span></span></span><br><span id="waveHud">WAVE 1</span></div>
     <div class="panel right">
       <div>NODE OMEGA — <span id="oHealth">250</span>/250</div>
       <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
@@ -1461,8 +1494,9 @@
   // LRNA-162: the SEEK AND DESTROY and discovered-AntiPlane lists that
   // used to sit under the lanes are gone (direct request), and with them
   // the only buttons that called fireAttackDrone(). Discovery still works
-  // and still shows on the zone strip/Counter Lane; hidden nodes just
-  // can't be attacked until something new calls fireAttackDrone().
+  // and still shows on the zone strip/Counter Lane. LRNA-167: a
+  // discovered node is now picked from TARGETS and hit with the normal
+  // missiles and attack planes instead (see getTarget).
 
   const modeStatusEl = document.getElementById('modeStatus');
 
@@ -1486,7 +1520,27 @@
   // above it, instead of the corridor's centerline (and the bottom of
   // whatever's drawn there) ending up hidden under the menu.
   let bottomBarPx = 0;
+  // LRNA-169: the STATS/PAUSE/MUTE column and the Radar Lane panel used
+  // fixed tops that sat on the HUD's own lines (the Radar Lane hid Omega's
+  // counter readout). They start under the HUD's real height instead,
+  // which changes with jam lines and screen width.
+  const hudEl = document.getElementById('hud');
+  const contactsEl = document.getElementById('contacts');
+  const storageWarningEl = document.getElementById('storageWarning');
+  const openingBannerEl = document.getElementById('openingLockedBanner');
+  function layoutTopStack() {
+    const top = hudEl.offsetHeight + 6;
+    contactsEl.style.top = top + 'px';
+    [statsBtn, pauseBtnEl, muteBtnEl, storageWarningEl].forEach((el, i) => { el.style.top = (top + i * 38) + 'px'; });
+    // phones: the banner sits just above the lanes, clear of the Radar
+    // Lane and of the Strike Platform on the centerline
+    const mobile = isMobileViewport();
+    openingBannerEl.style.top = mobile ? 'auto' : '';
+    openingBannerEl.style.bottom = mobile ? (bottomBarEl.offsetHeight + counterOpsBarEl.offsetHeight + 6) + 'px' : '';
+  }
+
   function resize() {
+    layoutTopStack();
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
     MW = minimap.width = window.innerWidth;
@@ -1731,6 +1785,9 @@
     const wasAlive = !dest.destroyed;
     dest.health = Math.max(0, dest.health - dmg);
     if (dest.health <= 0) dest.destroyed = true;
+    // LRNA-167: a hidden node killed by a missile or plane gets the same
+    // ground-kill effect the Attack Drone kill always had.
+    if (wasAlive && dest.destroyed && dest.zoneStart != null) spawnGroundKillFx(dest.x, dest.y);
     return wasAlive && dest.destroyed;
   }
 
@@ -2296,7 +2353,7 @@
         // player has to actually go find one, and an instant global
         // reveal from a loadout pick made before the run even starts
         // would trivialize that requirement entirely.
-        discovered: false, destroyed: false,
+        discovered: false, destroyed: false, impacts: 0,
         health: def.maxHealth, maxHealth: def.maxHealth,
         x: bandStart + Math.random() * third,
         y: vh() / 2, yOffset: (Math.random() - 0.5) * NODE_SCATTER,
@@ -2629,7 +2686,10 @@
   function getTarget(id) {
     if (id === 'A') return nodeA;
     if (id === 'O') return nodeO;
-    return fieldTargets.find(t => t.id === id) || null;
+    // LRNA-167: a SEEK AND DESTROY node becomes a normal target once
+    // recon has found it - missiles and attack planes can be aimed at it
+    // from TARGETS like any field target. Never before discovery.
+    return fieldTargets.find(t => t.id === id) || seekDestroyNodes.find(n => n.id === id && n.discovered) || null;
   }
 
   function getDefender(id) {
@@ -4666,6 +4726,10 @@
       if (t.destroyed) continue;
       rows.push({ id: t.id, name: t.name, color: t.color, hp: `${Math.ceil(t.health)}/${t.maxHealth}`, dist: t.x - nodeA.x });
     }
+    for (const n of seekDestroyNodes) { // LRNA-167
+      if (!n.discovered || n.destroyed) continue;
+      rows.push({ id: n.id, name: n.name, color: n.color, hp: `${Math.ceil(n.health)}/${n.maxHealth}`, dist: n.x - nodeA.x });
+    }
     rows.sort((a, b) => a.dist - b.dist);
     let html = '';
     for (const r of rows) {
@@ -5417,6 +5481,13 @@
       ctx.shadowBlur = 0;
     }
     ctx.restore();
+    if (ap.maxHealth != null && !ap.destroyed) { // LRNA-167: SEEK AND DESTROY nodes take several hits now
+      const w = 22;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(sx - w / 2, sy - FIELD_MARKER_OFFSET, w, 3);
+      ctx.fillStyle = c;
+      ctx.fillRect(sx - w / 2, sy - FIELD_MARKER_OFFSET, w * Math.max(0, ap.health / ap.maxHealth), 3);
+    }
     ctx.fillStyle = c;
     ctx.font = '8px "Courier New", ui-monospace, monospace';
     ctx.textAlign = 'center';
@@ -6636,6 +6707,7 @@
   // (after START, and when LRNA-121's mobile labels swap), which left
   // #counterOpsBar and vh() measured against a stale height.
   new ResizeObserver(resize).observe(bottomBarEl);
+  new ResizeObserver(layoutTopStack).observe(hudEl); // LRNA-169: jam lines grow the HUD mid-run
   resize();
   requestAnimationFrame(loop);
 
