@@ -2569,6 +2569,7 @@
         chipOnly: !!def.chipOnly,
         fireTimer: 0.3 + Math.random() * 0.3,
         cycleTimer: def.cycling ? COUNTER_BATTERY_CYCLE : 0, cycleOn: true,
+        volleyFlash: 0, // ART-6: brief synchronized muzzle-flash timer, Base only
       };
     });
   }
@@ -2584,6 +2585,7 @@
     // now match that.
     for (const node of loadoutNodes) {
       if (node.def.vision) continue; // Satellite: pure vision, no combat (see hasSatellite())
+      if (node.volleyFlash > 0) node.volleyFlash = Math.max(0, node.volleyFlash - dt); // ART-6
       if (node.def.cycling) {
         node.cycleTimer -= dt;
         if (node.cycleTimer <= 0) { node.cycleOn = !node.cycleOn; node.cycleTimer = COUNTER_BATTERY_CYCLE; }
@@ -2601,6 +2603,17 @@
         // comes back around.
         const targets = missiles.filter(m => m.typeKey === 'enemyStrike' && node.def.engages(m.sizeKey) && (m.totalSeconds - m.age) > 0);
         for (const m of targets) fireCounter(node, m.id, 'loadout');
+        // ART-6: a shared visual tell for the blanket pulse itself - a
+        // synchronized muzzle-flash burst plus a brief bright-icon
+        // window (drawLoadoutNode reads volleyFlash), so all N shots
+        // read as one coordinated volley rather than N independent
+        // launches with nothing in common. Only when it actually fired
+        // at something - an empty cycle (no inbound targets) stays
+        // silent, same as before.
+        if (targets.length) {
+          node.volleyFlash = 0.35;
+          spawnBurst(node.x, node.y, node.color, 18);
+        }
         node.fireTimer = targets.length ? node.def.cooldown : 0.3;
         continue;
       }
@@ -5766,6 +5779,8 @@
     if (sx < -30 || sx > vw() + 30) return;
     const sy = n.y;
     const active = loadoutNodeActive(n);
+    const isBase = n.def.volley;
+    const flashT = isBase ? n.volleyFlash / 0.35 : 0; // 1 -> 0 right after a volley fires
     ctx.save();
     ctx.translate(sx, sy);
 
@@ -5779,8 +5794,38 @@
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
 
+    // ART-6: Base's own 6s cycle, drawn as a filling charge ring rather
+    // than Counter Battery's solid-vs-faded ring + ON/OFF text - Base
+    // doesn't have a discrete on/off state (it's always "engagable"),
+    // just a buildup to its next blanket pulse, so a progress arc reads
+    // more honestly than a binary indicator would.
+    if (isBase) {
+      const chargeFrac = Math.min(1, Math.max(0, 1 - n.fireTimer / n.def.cooldown));
+      ctx.strokeStyle = n.color;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, -Math.PI / 2, -Math.PI / 2 + chargeFrac * Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // volley flash: a brief bright ring expanding outward at the instant
+    // a Base pulse fires - the shared visual tell that ties all of that
+    // volley's independently-launched counter shots to one coordinated
+    // moment (spawnBurst in updateLoadoutNodes provides the particle half).
+    if (flashT > 0) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.globalAlpha = flashT * 0.8;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12 + (1 - flashT) * 18, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
     // bunker body: wide base block + angled roof
-    ctx.fillStyle = n.color;
+    ctx.fillStyle = flashT > 0 ? '#ffffff' : n.color;
     ctx.globalAlpha = active ? 1 : 0.45;
     ctx.fillRect(-9, -7, 18, 9);
     ctx.beginPath();
@@ -5788,8 +5833,23 @@
     ctx.closePath();
     ctx.fill();
 
-    // stubby barrel
-    ctx.fillRect(-1.2, -16, 2.4, 8);
+    if (isBase) {
+      // ART-6: 3 splayed barrels instead of one stubby barrel - reads as
+      // "engages multiple targets at once" even before it ever fires,
+      // distinct in silhouette from every other loadout node's single
+      // barrel at a glance, not just by color.
+      ctx.strokeStyle = ctx.fillStyle;
+      ctx.lineWidth = 2;
+      for (const ang of [-0.5, 0, 0.5]) {
+        ctx.beginPath();
+        ctx.moveTo(0, -7);
+        ctx.lineTo(Math.sin(ang) * 8, -7 - Math.cos(ang) * 8);
+        ctx.stroke();
+      }
+    } else {
+      // stubby barrel
+      ctx.fillRect(-1.2, -16, 2.4, 8);
+    }
 
     // vent studs
     ctx.fillStyle = 'rgba(0,0,0,0.35)';

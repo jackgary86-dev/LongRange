@@ -244,10 +244,48 @@ to whoever picks these up.
   screen flash tint, Wave 1 strikes beginning immediately after). Pure
   rendering/CSS/timer-state change - regression suite (45 tests) passes
   unmodified, stable across 8 consecutive runs, zero console errors.
-- **ART-6** — Base loadout node visuals: multi-target volley
-  (jackgary86-dev/LongRange#59). Follow-up from LRNA-049's Base node
-  shipping with the same placeholder dot rendering as the other loadout
-  nodes.
+- **ART-6** — DONE (2026-09-29) — Base loadout node visuals: multi-target
+  volley (jackgary86-dev/LongRange#59). Note: the issue's own "current
+  state" claim ("a plain colored dot, matching the other 3 loadout
+  nodes") was stale by the time this got picked up - `drawLoadoutNode`
+  already draws a real bunker silhouette (base block, roof, barrel, vent
+  studs, pulsing status light) shared by all 4 combat loadout nodes,
+  differentiated only by color and Counter Battery's ON/OFF label. The
+  real gap, found by reading the actual draw/update code rather than
+  trusting the ticket's summary: Base's icon was identical in *shape* to
+  GML/MGAA/Ground Units (just recolored purple), and its volley - firing
+  at every inbound target in the same instant - had no shared visual tell
+  distinguishing it from N independent single-target shots.
+  - **Node icon**: Base now draws 3 splayed barrels fanning outward from
+    the bunker roof instead of one stubby barrel - reads as "engages
+    multiple targets" in silhouette alone, before it ever fires, not
+    just by its (still purple) color.
+  - **Charge/cooldown indicator**: a filling ring around the bunker
+    tracking `node.fireTimer` against its 6s cooldown - deliberately a
+    different visual language than Counter Battery's solid-vs-faded
+    ring + ON/OFF text (asked for explicitly in the issue), since Base
+    has no discrete on/off state, just a buildup to its next pulse; a
+    progress arc reads more honestly than a binary indicator would.
+  - **Volley moment**: `updateLoadoutNodes`' `volley` branch now sets a
+    new `node.volleyFlash` timer and calls the existing `spawnBurst`
+    helper (already used elsewhere for impact effects, no new particle
+    system needed) at the node's own position, but only when the volley
+    actually fired at something - an empty cycle stays silent, same as
+    before. `drawLoadoutNode` reads `volleyFlash` to flash the bunker
+    body white and draw a brief expanding ring for ~0.35s, giving every
+    shot in that instant's volley one shared visual origin instead of
+    reading as N unrelated launches.
+  No functional/gameplay change - `LOADOUT_NODE_TYPES.base`'s hitChance/
+  cooldown/engages and the volley-targeting logic itself are untouched;
+  only a new decorative `volleyFlash` field was added to the loadout
+  node's own state. Verified against the existing LRNA-049 volley test
+  (still passing - confirms the targeting/firing logic is unchanged) and
+  with instrumented screenshots showing the flash/burst firing correctly
+  and the counter-missile count matching the number of simultaneous
+  targets engaged. Pure rendering change - regression suite (45 tests)
+  passes unmodified, stable across 8 consecutive runs, zero console
+  errors (including through Base's own draw path, exercised by the
+  LRNA-049 test itself).
 - **ART-7** — Mission Map visuals: full-screen consolidated
   attack/counter/recon view (jackgary86-dev/LongRange#60). Follow-up
   from LRNA-084's placeholder zone-strip/counter/recon DOM schematic.
