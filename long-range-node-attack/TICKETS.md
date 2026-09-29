@@ -286,9 +286,48 @@ to whoever picks these up.
   passes unmodified, stable across 8 consecutive runs, zero console
   errors (including through Base's own draw path, exercised by the
   LRNA-049 test itself).
-- **ART-7** — Mission Map visuals: full-screen consolidated
-  attack/counter/recon view (jackgary86-dev/LongRange#60). Follow-up
-  from LRNA-084's placeholder zone-strip/counter/recon DOM schematic.
+- **ART-7** — DONE (2026-09-29) — Mission Map visuals: full-screen
+  consolidated attack/counter/recon view (jackgary86-dev/LongRange#60).
+  Follow-up from LRNA-084's placeholder zone-strip/counter/recon DOM
+  schematic. Pure CSS - every element the LRNA-084 regression tests read
+  (`.missionMapZone`'s own `style.left`/`style.width`/`.discovered`/
+  `.neutralized`, `.missionMapMarker`'s `style.left`,
+  `#missionMapThreatMarker`'s `.hidden`/`style.left`) stayed untouched by
+  JS; only how those same elements paint changed. The COUNTER/RECON
+  sections already inherited ART-4's `.upgradeBtn`/`.opsSection`
+  treatment for free, so this pass focused on the one genuinely
+  placeholder-grade piece: the zone strip.
+  - **The strip track**: gained the same soft-glow-corridor language the
+    battlefield canvas itself already uses for its corridor (ART-3) -
+    since this strip *is* that corridor, top-down - plus distance-tick
+    marks (a repeating-gradient) for a real map/scale cue, and the same
+    scanline texture as every other panel this epic has touched.
+  - **Zone bands**: undiscovered zones ("an undiscovered zone you can
+    scan," the issue's own framing) now use a diagonal hazard-stripe
+    fill with a slow pulse, replacing the flat grey rectangle - reads as
+    "active scan target" rather than just an outlined area, still
+    derived only from `zoneStart`/`zoneEnd` (no new positional signal -
+    same hard rule as ART-5/LRNA-039/LRNA-112/LRNA-117). Discovered
+    (hostile) zones are now a solid red band; neutralized zones get a
+    green hazard-stripe variant instead of the same visual weight as an
+    active target - the 3 states now read as genuinely different at a
+    glance, not just 3 shades of one rectangle.
+  - **Markers**: AntiPlane markers gained a pulsing radar-blip glow ring
+    (`::after`, CSS-only). The strip ends (STRIKE PLATFORM / NODE OMEGA)
+    got a small diamond icon colored to match each node's own real color
+    (`nodeA.color`/`nodeO.color` - verified against the actual constants
+    rather than guessing) instead of plain uncolored text.
+  - **Threat marker**: the issue called this out by name as "currently
+    just a rotated square" - replaced with a proper left-pointing
+    chevron (`clip-path`) plus a fading trailing tail, correctly
+    oriented since inbound strikes always travel Node Omega -> Strike
+    Platform (right to left on this strip).
+  Verified with an instrumented screenshot mixing all 3 zone states
+  (unscanned/discovered/neutralized) plus a live inbound threat and a
+  discovered AntiPlane marker in one view - each state reads as visually
+  distinct, the chevron points the correct direction. Pure rendering/CSS
+  change - regression suite (45 tests) passes unmodified, stable across
+  8 consecutive runs, zero console errors.
 - **ART-8** — Distinct silhouettes for the 6 loadout node types
   (jackgary86-dev/LongRange#61). Resolves `LRNA-056`'s "new node icons"
   reading (the unblocked one - see that ticket's own resolution note for

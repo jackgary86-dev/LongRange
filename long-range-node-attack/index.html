@@ -607,16 +607,94 @@
      precedent for gameplay-first builds in this pass) - deliberately
      plain so the underlying data (zone bounds, discovery state) is easy
      to verify against, both by eye and in tests. */
+  /* ART-7: the zone strip restyled as a real top-down map lane rather
+     than a flat grey bar - same soft-glow-corridor language the
+     battlefield canvas itself uses (ART-3's drawn corridor), distance
+     ticks for a real map/scale cue, and a scanline texture matching
+     every other panel this epic has touched. Every element the
+     LRNA-084 regression tests read (`.missionMapZone`'s own
+     `style.left`/`style.width`/`.discovered`/`.neutralized`,
+     `.missionMapMarker`'s `style.left`, `#missionMapThreatMarker`'s
+     `.hidden`/`style.left`) is untouched by JS - only how those same
+     elements paint. */
   #missionMapStrip { display: flex; align-items: center; gap: 10px; max-width: 700px; margin: 14px auto 22px; }
-  .missionMapStripEnd { font-size: 8.5px; letter-spacing: 1px; opacity: 0.85; width: 70px; flex-shrink: 0; text-align: center; line-height: 1.3; }
-  #missionMapStripTrack { position: relative; flex: 1; height: 22px; background: rgba(255,255,255,0.05); border: 1px solid #345; }
+  .missionMapStripEnd {
+    font-size: 8.5px; letter-spacing: 1px; opacity: 0.9; width: 70px; flex-shrink: 0;
+    text-align: center; line-height: 1.3; position: relative; padding-top: 14px;
+  }
+  .missionMapStripEnd::before {
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%) rotate(45deg);
+    width: 8px; height: 8px; border: 1.5px solid currentColor; opacity: 0.8;
+  }
+  #missionMapStrip .missionMapStripEnd:first-child { color: var(--green); }
+  #missionMapStrip .missionMapStripEnd:last-child { color: var(--amber); }
+  #missionMapStripTrack {
+    position: relative; flex: 1; height: 26px;
+    background:
+      repeating-linear-gradient(180deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
+      repeating-linear-gradient(90deg, rgba(143,107,255,0.12) 0, rgba(143,107,255,0.12) 1px, transparent 1px, transparent 40px),
+      linear-gradient(180deg, rgba(3,12,7,0.4), rgba(3,12,7,0.75));
+    border: 1px solid #345;
+  }
+  /* the corridor centerline glow, same visual language as the
+     battlefield's own drawn corridor (ART-3) - the strip *is* that
+     corridor, top-down. */
+  #missionMapStripTrack::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%;
+    height: 6px; transform: translateY(-50%);
+    background: linear-gradient(90deg, rgba(143,107,255,0), rgba(143,107,255,0.25), rgba(143,107,255,0));
+  }
   #missionMapZones, #missionMapMarkers { position: absolute; inset: 0; }
-  .missionMapZone { position: absolute; top: 0; bottom: 0; background: rgba(140,140,140,0.28); border-left: 1px solid rgba(255,255,255,0.18); border-right: 1px solid rgba(255,255,255,0.18); }
-  .missionMapZone.discovered { background: rgba(255,90,54,0.4); }
-  .missionMapZone.neutralized { background: rgba(123,255,160,0.35); }
-  .missionMapMarker { position: absolute; top: 50%; width: 6px; height: 6px; border-radius: 50%; transform: translate(-50%, -50%); background: #ff5a36; }
-  .missionMapMarker.neutralized { background: #7bffa0; }
-  #missionMapThreatMarker { position: absolute; top: 50%; width: 8px; height: 8px; transform: translate(-50%, -50%) rotate(45deg); background: #ffe066; }
+  .missionMapZone {
+    position: absolute; top: 2px; bottom: 2px;
+    background: repeating-linear-gradient(135deg, rgba(180,180,190,0.3) 0 5px, rgba(180,180,190,0.12) 5px 10px);
+    border-left: 1px dashed rgba(255,255,255,0.35); border-right: 1px dashed rgba(255,255,255,0.35);
+    animation: missionMapZoneScan 2.2s ease-in-out infinite;
+  }
+  @keyframes missionMapZoneScan { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.95; } }
+  .missionMapZone.discovered {
+    background: rgba(255,90,54,0.4);
+    border-left: 1px solid #ff5a36cc; border-right: 1px solid #ff5a36cc;
+    animation: none;
+  }
+  .missionMapZone.neutralized {
+    background: repeating-linear-gradient(135deg, rgba(123,255,160,0.3) 0 5px, rgba(123,255,160,0.12) 5px 10px);
+    border-left: 1px solid #7bffa0cc; border-right: 1px solid #7bffa0cc;
+    animation: none;
+  }
+  .missionMapMarker {
+    position: absolute; top: 50%; width: 7px; height: 7px;
+    transform: translate(-50%, -50%) rotate(45deg);
+    background: #ff5a36; box-shadow: 0 0 6px 1px #ff5a36aa;
+  }
+  .missionMapMarker::after {
+    content: ''; position: absolute; inset: -4px; border: 1px solid #ff5a3688;
+    animation: missionMapPulse 1.4s ease-out infinite;
+  }
+  .missionMapMarker.neutralized { background: #7bffa0; box-shadow: 0 0 6px 1px #7bffa0aa; }
+  .missionMapMarker.neutralized::after { border-color: #7bffa088; animation: none; opacity: 0; }
+  @keyframes missionMapPulse {
+    0% { transform: scale(0.6); opacity: 0.9; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+  /* a directional chevron instead of the old plain rotated square -
+     inbound threats always travel Omega -> Strike Platform (right to
+     left on this strip), so the chevron points left and trails a short
+     glowing tail behind it. */
+  #missionMapThreatMarker {
+    position: absolute; top: 50%; width: 12px; height: 10px;
+    transform: translate(-50%, -50%);
+    background: #ffe066;
+    clip-path: polygon(0% 50%, 100% 0%, 100% 100%);
+    box-shadow: 0 0 8px 1px #ffe066aa;
+    animation: missionMapThreatPulse 0.7s ease-in-out infinite;
+  }
+  #missionMapThreatMarker::after {
+    content: ''; position: absolute; top: 50%; left: 100%; width: 22px; height: 1px;
+    transform: translateY(-50%);
+    background: linear-gradient(90deg, #ffe06699, transparent);
+  }
+  @keyframes missionMapThreatPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
   #missionMapThreatMarker.hidden { display: none; }
 
   #targetLabel {
