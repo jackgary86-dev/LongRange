@@ -594,6 +594,7 @@ test('LRNA-121: ability-bar buttons abbreviate on mobile instead of wrapping/rea
       // budget below expects it to, vanishing mid-test).
       const strike = T.launchAttack(T.nodeO, T.nodeA, 'enemyStrike', T.ENEMY_STRIKE_SIZES.medium);
       strike.sizeKey = 'medium';
+      strike.weaponClass = 'plane'; // LRNA-158: Counter Attack Planes only engages plane-class threats
       strike.defended = true; // keep the generic getDefender() auto-defend loop off it too
       // Emergency Counter only targets threats within EMERGENCY_WINDOW (5s)
       // of impact - fast-forward close to that without letting it land.
@@ -1171,73 +1172,69 @@ test('LRNA-049: Base loadout node fires a volley at every inbound threat at once
   }, { skipStart: true });
 });
 
-test('LRNA-084: COUNTER MISSILE opens the consolidated Mission Map (not the old standalone window), and firing keeps it open', async () => {
+test('LRNA-158: COUNTER MISSILE fires directly from the bottom bar - no window, no popup', async () => {
+  // Supersedes the old LRNA-084 version: "scrap the whole counter
+  // operations window" reversed LRNA-084/154's "COUNTER MISSILE opens a
+  // screen" behavior - it fires immediately now, same as every other
+  // ability button.
   await withGame(async (page, errors) => {
     await page.evaluate(() => {
       const T = window.__TEST__;
       T.forceOpeningUnlock();
       T.freezeWaves();
       T.clearMissiles();
-      T.neutralizeAutoDefense(); // the live game loop keeps running between page.evaluate calls - without this, real AM batteries/loadout nodes can intercept this test's own manually-launched strike before its own FIRE click gets to it
+      T.neutralizeAutoDefense(); // the live game loop keeps running between page.evaluate calls - without this, real AM batteries/loadout nodes can intercept this test's own manually-launched strike before its own click gets to it
       T.tokens.counter = 99999;
       const m = T.launchEnemyStrike(T.nodeO, T.nodeA);
       m.age = 2;
+      m.weaponClass = 'missile'; // LRNA-158: COUNTER MISSILE only engages its own matching class now
       T.updateCounterMissileBtn();
     });
+    const before = await page.evaluate(() => ({
+      missionMapOpen: window.__TEST__.missionMapOpen,
+      counterMissilesBefore: window.__TEST__.missiles.filter((mm) => mm.typeKey === 'counter').length,
+    }));
     await page.click('#counterMissileBtn');
-    const afterOpen = await page.evaluate(() => {
-      const T = window.__TEST__;
-      return {
-        missionMapOpen: T.missionMapOpen,
-        threatName: document.getElementById('missionMapThreatName').textContent,
-        oldCounterWindowExists: !!document.getElementById('counterWindow'),
-        oldSeekDestroyWindowExists: !!document.getElementById('seekDestroyWindow'),
-        counterMissilesBefore: T.missiles.filter(mm => mm.typeKey === 'counter').length,
-      };
-    });
-    assert(afterOpen.missionMapOpen, 'clicking COUNTER MISSILE should open the Mission Map');
-    assert(afterOpen.threatName !== 'no inbound threat', `Mission Map should show the live inbound threat: ${afterOpen.threatName}`);
-    assert(!afterOpen.oldCounterWindowExists, 'the old standalone #counterWindow should no longer exist in the DOM');
-    assert(!afterOpen.oldSeekDestroyWindowExists, 'the old standalone #seekDestroyWindow should no longer exist in the DOM');
-
-    await page.click('#missionMapFire');
-    const afterFire = await page.evaluate(() => {
-      const T = window.__TEST__;
-      return {
-        missionMapOpen: T.missionMapOpen,
-        counterMissilesAfter: T.missiles.filter(mm => mm.typeKey === 'counter').length,
-      };
-    });
-    assert(afterFire.counterMissilesAfter > afterOpen.counterMissilesBefore, 'FIRE COUNTER MISSILE should actually launch a counter missile');
-    assert(afterFire.missionMapOpen, 'unlike the old Counter Window, firing should not auto-close the consolidated Mission Map');
+    const after = await page.evaluate(() => ({
+      missionMapOpen: window.__TEST__.missionMapOpen,
+      counterMissilesAfter: window.__TEST__.missiles.filter((mm) => mm.typeKey === 'counter').length,
+    }));
+    assert(!before.missionMapOpen && !after.missionMapOpen, 'clicking COUNTER MISSILE should never open the STATS window');
+    assert(after.counterMissilesAfter > before.counterMissilesBefore, 'clicking COUNTER MISSILE should fire a counter missile immediately, with no window or popup in between');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
 
-test('LRNA-154: Operations Center button opens the merged Counter Center screen directly, showing SEEK AND DESTROY recon status', async () => {
-  // Supersedes the old LRNA-084 version of this test: Operations Center
-  // and Mission Map are now one screen, so there's no separate panel to
-  // open first and no #missionMapOpenBtn bridge button to click through.
+test('LRNA-158: STATS button opens a pure reference window - GAME MODE/RUN STATS/TARGETS only, no COUNTER or RECON content', async () => {
+  // Supersedes the old LRNA-084/154 versions of this test: #opsCenterBtn
+  // is #statsBtn now, and the window it opens dropped COUNTER/RECON
+  // entirely (they moved to the always-visible #counterOpsBar, which
+  // needs no window open at all to show SEEK AND DESTROY recon status).
   await withGame(async (page, errors) => {
-    await page.click('#opsCenterBtn');
-    const result = await page.evaluate(() => {
-      const T = window.__TEST__;
-      return {
-        missionMapOpen: T.missionMapOpen,
-        reconStatus: document.getElementById('missionMapReconStatus').textContent,
-        opsCenterBtnHidden: document.getElementById('opsCenterBtn').classList.contains('hidden'),
-      };
-    });
-    assert(result.missionMapOpen, 'the Operations Center button should open the merged Counter Center screen directly');
-    assertEqual(result.reconStatus, '0/3 located · 0/3 neutralized', `fresh game should show all 3 SEEK AND DESTROY nodes as unlocated: ${result.reconStatus}`);
-    assert(result.opsCenterBtnHidden, 'opening Counter Center should hide its own entry button behind it, same as before the merge');
+    const beforeOpen = await page.evaluate(() => ({
+      missionMapOpen: window.__TEST__.missionMapOpen,
+      reconStatus: document.getElementById('missionMapReconStatus').textContent,
+    }));
+    await page.click('#statsBtn');
+    const afterOpen = await page.evaluate(() => ({
+      missionMapOpen: window.__TEST__.missionMapOpen,
+      statsBtnHidden: document.getElementById('statsBtn').classList.contains('hidden'),
+      noCounterSection: !document.getElementById('missionMapCounterSection'),
+      noReconSection: !document.getElementById('missionMapReconSection'),
+    }));
+    assert(!beforeOpen.missionMapOpen, 'STATS should start closed');
+    assertEqual(beforeOpen.reconStatus, '0/3 located · 0/3 neutralized', `SEEK AND DESTROY recon status should already be visible on the Counter Operations bar before STATS is ever opened: ${beforeOpen.reconStatus}`);
+    assert(afterOpen.missionMapOpen, 'the STATS button should open the window');
+    assert(afterOpen.statsBtnHidden, 'opening STATS should hide its own entry button behind it');
+    assert(afterOpen.noCounterSection, 'the old COUNTER section should no longer exist anywhere - it moved to the bottom bar (direct-fire) entirely');
+    assert(afterOpen.noReconSection, 'the old RECON section should no longer exist inside the window - it moved to #counterOpsBar');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
 
-test('LRNA-154: Counter Center carries the merged Operations Center sections and drops the now-dead duplicate controls', async () => {
+test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-dead duplicate control', async () => {
   await withGame(async (page, errors) => {
-    await page.click('#opsCenterBtn');
+    await page.click('#statsBtn');
     const result = await page.evaluate(() => {
       const mm = document.getElementById('missionMapWindow');
       const inside = (id) => mm.contains(document.getElementById(id));
@@ -1246,37 +1243,89 @@ test('LRNA-154: Counter Center carries the merged Operations Center sections and
         opsCenterPanelGone: !document.getElementById('opsCenterPanel'),
         missionMapOpenBtnGone: !document.getElementById('missionMapOpenBtn'),
         reconDroneBtnGone: !document.getElementById('reconDroneBtn'),
-        allInsideCounterCenter: ['siegeToggleBtn', 'statsList', 'targetList', 'upgradeList'].every(inside),
-        allVisible: ['siegeToggleBtn', 'statsList', 'targetList', 'upgradeList'].every(visible),
+        missionMapReconBtnGone: !document.getElementById('missionMapReconBtn'), // LRNA-158: the bottom bar's own DRONE button already covers this
+        upgradeListGone: !document.getElementById('upgradeList'), // LRNA-159: Reactor Upgrades removed entirely
+        counterPlanesWindowStillExists: !!document.getElementById('counterPlanesWindow'), // LRNA-158: left as-is, explicitly not decided either way this pass
+        allInsideStats: ['siegeToggleBtn', 'statsList', 'targetList'].every(inside),
+        allVisible: ['siegeToggleBtn', 'statsList', 'targetList'].every(visible),
       };
     });
-    assert(result.opsCenterPanelGone, '#opsCenterPanel should no longer exist in the DOM - its content moved into #missionMapWindow');
-    assert(result.missionMapOpenBtnGone, 'the OPEN MISSION MAP bridge button should no longer exist - there is nowhere left to bridge to');
-    assert(result.reconDroneBtnGone, 'the standalone #reconDroneBtn duplicate should no longer exist - #missionMapReconBtn covers it');
-    assert(result.allInsideCounterCenter, 'GAME MODE/RUN STATS/TARGETS/REACTOR UPGRADES should all now live inside #missionMapWindow');
-    assert(result.allVisible, 'the merged sections should actually render visible once Counter Center is open, not just exist hidden in the DOM');
+    assert(result.opsCenterPanelGone, '#opsCenterPanel should no longer exist in the DOM');
+    assert(result.missionMapOpenBtnGone, 'the OPEN MISSION MAP bridge button should no longer exist');
+    assert(result.reconDroneBtnGone, 'the standalone #reconDroneBtn duplicate should no longer exist');
+    assert(result.missionMapReconBtnGone, 'the merged-window RECON DRONE button should no longer exist - the bottom bar DRONE button already covers it');
+    assert(result.upgradeListGone, '#upgradeList should no longer exist - LRNA-159 removed Reactor Upgrades entirely');
+    assert(result.counterPlanesWindowStillExists, '#counterPlanesWindow should still exist - LRNA-158 left this specific piece unresolved rather than guessing');
+    assert(result.allInsideStats, 'GAME MODE/RUN STATS/TARGETS should all now live inside #missionMapWindow');
+    assert(result.allVisible, 'the STATS sections should actually render visible once open, not just exist hidden in the DOM');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
 
-test('LRNA-154: the recon drone and reactor upgrade controls still work from inside the merged Counter Center', async () => {
+test('LRNA-158: the bottom bar DRONE button fires a recon drone regardless of whether STATS is open', async () => {
   await withGame(async (page, errors) => {
-    await page.click('#opsCenterBtn');
-    const result = await page.evaluate(() => {
+    const result = await page.evaluate(async () => {
       const T = window.__TEST__;
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
       T.tokens.intel = 99999;
-      T.tokens.attack = 99999;
-      const dronesBefore = T.missiles.filter(m => m.typeKey === 'drone').length;
-      document.getElementById('missionMapReconBtn').click();
-      const dronesAfter = T.missiles.filter(m => m.typeKey === 'drone').length;
-
-      const ownedBefore = document.querySelector('#upgradeList [data-upgrade="overcharge"]');
-      ownedBefore.click();
-      const ownedAfter = !document.querySelector('#upgradeList [data-upgrade="overcharge"]');
-      return { dronesBefore, dronesAfter, ownedAfter };
+      const dronesBefore = T.missiles.filter((m) => m.typeKey === 'drone').length;
+      document.querySelector('.launchBtn[data-type="drone"]').click();
+      const dronesAfterClosed = T.missiles.filter((m) => m.typeKey === 'drone').length;
+      T.clearMissiles();
+      T.openMissionMap();
+      await wait(360); // attemptFire's fire-rate cooldown is keyed on real wall-clock time
+      document.querySelector('.launchBtn[data-type="drone"]').click();
+      const dronesAfterOpen = T.missiles.filter((m) => m.typeKey === 'drone').length;
+      return { dronesBefore, dronesAfterClosed, dronesAfterOpen };
     });
-    assertEqual(result.dronesAfter - result.dronesBefore, 1, 'clicking the merged RECON DRONE button should still launch a real recon drone');
-    assert(result.ownedAfter, 'clicking a REACTOR UPGRADES row from inside Counter Center should still purchase the upgrade');
+    assertEqual(result.dronesAfterClosed - result.dronesBefore, 1, 'DRONE should fire with STATS closed');
+    assertEqual(result.dronesAfterOpen, 1, 'DRONE should fire exactly the same with STATS open - firing abilities never depended on this window');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-159: Reactor Upgrades removed entirely - no UI remnants, and every mechanic it used to boost is back to its plain base value', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(async () => {
+      const T = window.__TEST__;
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      T.tokens.attack = 99999;
+      T.forceOpeningUnlock();
+      T.freezeWaves();
+      T.clearMissiles();
+
+      // no damage multiplier: a FAST warhead deals exactly its base TYPES.fast.dmg
+      const m = T.launchAttack(T.nodeA, T.nodeO, 'fast');
+
+      // no +1 active-shot cap from the old Ammo Bay upgrade: MAX_ACTIVE (3) blocks a 4th.
+      // attemptFire's fire-rate cooldown is keyed on real wall-clock time
+      // (performance.now()), not simulated dt, so wait real milliseconds
+      // between attempts rather than calling it in a tight synchronous loop.
+      T.clearMissiles();
+      for (let i = 0; i < 3; i++) { T.attemptFire('fast'); await wait(360); }
+      const activeAtCap = T.missiles.filter(mm => mm.originId === 'A').length;
+      T.attemptFire('fast');
+      const activeAfterOneMore = T.missiles.filter(mm => mm.originId === 'A').length;
+
+      // no +1 Intel/sec from the old Reactor Boost upgrade
+      const intelBefore = T.tokens.intel;
+      T.tickUpdate(1);
+      const intelGain = T.tokens.intel - intelBefore;
+
+      return {
+        dmg: m.dmg,
+        activeAtCap, activeAfterOneMore,
+        intelGain,
+        upgradeListGone: !document.getElementById('upgradeList'),
+        dataUpgradeGone: !document.querySelector('[data-upgrade]'),
+      };
+    });
+    assertEqual(result.dmg, 50, `FAST warhead damage should be its plain base value (TYPES.fast.dmg = 50), no Overcharged Warheads multiplier: got ${result.dmg}`);
+    assertEqual(result.activeAtCap, 3, 'active-shot cap should be the plain MAX_ACTIVE (3), no Expanded Ammo Bay bonus');
+    assertEqual(result.activeAfterOneMore, 3, 'a 4th shot should still be refused at the plain cap');
+    assert(Math.abs(result.intelGain - 100) < 1, `Intel should accrue at the plain TOKEN_PASSIVE_RATE (100/s), no Reactor Boost bonus: got ${result.intelGain}/s`);
+    assert(result.upgradeListGone, '#upgradeList should not exist anywhere in the DOM');
+    assert(result.dataUpgradeGone, 'no [data-upgrade] button should exist anywhere in the DOM');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });

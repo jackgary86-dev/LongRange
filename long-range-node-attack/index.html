@@ -197,7 +197,7 @@
     margin-left: 4px;
   }
 
-  #opsCenterBtn {
+  #statsBtn {
     position: absolute;
     top: 60px; left: 6px;
     z-index: 3;
@@ -211,8 +211,8 @@
     letter-spacing: 1.5px;
     padding: 7px 10px;
   }
-  #opsCenterBtn:hover { background: rgba(53,230,255,0.12); }
-  #opsCenterBtn.hidden { display: none; }
+  #statsBtn:hover { background: rgba(53,230,255,0.12); }
+  #statsBtn.hidden { display: none; }
 
   /* LRNA-119: an explicit pause the player controls, independent of the
      browser's own tab-blur throttling of requestAnimationFrame. */
@@ -359,9 +359,12 @@
   /* LRNA-154: #opsCenterPanel is gone - its sections (GAME MODE, RUN
      STATS, TARGETS, REACTOR UPGRADES) moved into #missionMapWindow,
      merged with its existing COUNTER/RECON content into one "Counter
-     Center" screen. #opsCenterBtn survives as that screen's one entry
-     point (see the .opsHeader/.opsSection rules below, still shared
-     with #missionMapWindow and #counterPlanesWindow). */
+     Center" screen (see the .opsHeader/.opsSection rules below, still
+     shared with #missionMapWindow and #counterPlanesWindow).
+     LRNA-158/159, same session: COUNTER/RECON moved back out again
+     (see #counterOpsBar) and REACTOR UPGRADES was removed outright, so
+     #missionMapWindow (opened by #statsBtn, renamed from #opsCenterBtn)
+     is pure reference content now - GAME MODE/RUN STATS/TARGETS only. */
   .opsHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--green-dim); }
   .opsHeader h3 {
     font-family: "Courier New", ui-monospace, monospace;
@@ -406,16 +409,13 @@
   .stats-value { color: var(--green); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .target-hp { font-size: 9px; opacity: 0.85; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-  .opsSection.upgrades h3 { color: #ffe066; border-bottom-color: #6b5a1c; }
   /* LRNA-050: Operations Center sections recolored by pillar where one
      applies - TARGETS is what Attack picks a target from, recolored to
      the exact ATTACK red LRNA-074 already established for the button
      bar (`#ff5a36`). GAME MODE and RUN STATS stay the default color -
      reviewed and deliberately left meta/outside the three-pillar frame,
-     not an oversight. REACTOR UPGRADES keeps its own pre-existing amber
-     (unchanged above) rather than being folded into Counter's yellow,
-     which would collide with an already-established, unrelated meaning
-     for that color - flagged, not silently fixed.
+     not an oversight (REACTOR UPGRADES, formerly its own amber section
+     here, was removed entirely by LRNA-159).
      INTELLIGENCE is NOT recolored here, on purpose: LRNA-074's own
      established INTEL color is `#35e6ff`, which is also this whole
      theme's base/default color (`var(--green)`, used everywhere
@@ -581,24 +581,16 @@
     backdrop-filter: blur(3px);
   }
   #missionMapWindow.hidden { display: none; }
-  #missionMapBase, #missionMapThreat {
-    font-size: 10px; letter-spacing: 1px; margin-top: 10px; opacity: 0.9;
-  }
-  #missionMapThreatName { color: #ff8a5c; font-size: 11px; margin-bottom: 4px; }
-  #missionMapThreatStats { font-size: 9px; opacity: 0.75; line-height: 1.5; }
-  #missionMapCounterActions { display: flex; gap: 8px; margin-top: 16px; }
-  #missionMapCounterActions .upgradeBtn { flex: 1; text-align: center; }
-  #missionMapReconStatus { font-size: 9.5px; opacity: 0.75; margin-bottom: 10px; letter-spacing: 1px; }
-  /* LRNA-154: same width constraint now covers every merged Counter
-     Center section, not just COUNTER/RECON - Operations Center's former
-     GAME MODE/RUN STATS/TARGETS/REACTOR UPGRADES sections read at the
-     same measure instead of stretching edge-to-edge on a full-screen
-     window sized for far less text per line. */
-  #missionMapCounterSection, #missionMapReconSection,
+  /* LRNA-158: same width constraint, now just for the STATS window's
+     own sections (COUNTER/RECON's own former sections here are gone -
+     see #counterOpsBar) - reads at a comfortable measure instead of
+     stretching edge-to-edge on a full-screen window sized for far less
+     text per line. */
   #counterCenterModeSection, #counterCenterStatsSection,
-  #counterCenterTargetsSection, #counterCenterUpgradesSection {
+  #counterCenterTargetsSection {
     max-width: 480px; margin: 0 auto 18px;
   }
+  #missionMapReconStatus { font-size: 9.5px; opacity: 0.75; letter-spacing: 1px; }
   #missionMapReconAntiPlaneLabel {
     margin-top: 10px; font-size: 9.5px; opacity: 0.7; letter-spacing: 1px; color: #ff5a36;
   }
@@ -629,7 +621,10 @@
      `.missionMapMarker`'s `style.left`, `#missionMapThreatMarker`'s
      `.hidden`/`style.left`) is untouched by JS - only how those same
      elements paint. */
-  #missionMapStrip { display: flex; align-items: center; gap: 10px; max-width: 700px; margin: 14px auto 22px; }
+  /* LRNA-158: the strip's own outer layout, now inside the persistent
+     #counterOpsBar instead of a centered card in a full-screen window -
+     full width, no more max-width/auto-centering. */
+  #missionMapStrip { display: flex; align-items: center; gap: 10px; }
   .missionMapStripEnd {
     font-size: 8.5px; letter-spacing: 1px; opacity: 0.9; width: 70px; flex-shrink: 0;
     text-align: center; line-height: 1.3; position: relative; padding-top: 14px;
@@ -722,6 +717,29 @@
     border-top: 1px solid var(--green-dim);
   }
   #minimap { width: 100%; height: 100%; display: block; cursor: pointer; }
+
+  /* LRNA-158: the "Counter Operations bar" - always visible on Main
+     View, positioned directly above #bottomBar. `bottom` is set by JS
+     (resize(), using the same bottomBarPx measurement vh() relies on)
+     rather than a static value here, since the bar it sits above
+     varies in real height by breakpoint/content. */
+  #counterOpsBar {
+    position: absolute;
+    left: 0; right: 0;
+    z-index: 3;
+    background: rgba(3,12,7,0.85);
+    border-top: 1px solid var(--green-dim);
+    padding: 10px 16px;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+  #counterOpsBarRecon {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--green-dim);
+    font-size: 9.5px;
+  }
+  #counterOpsBarRecon > span { opacity: 0.75; letter-spacing: 1px; }
 
   #bottomBar {
     position: absolute;
@@ -1039,7 +1057,7 @@
     #hud { grid-template-columns: 1fr 1fr; }
     #centerLabel { grid-column: 1 / -1; order: -1; font-size: 9px; white-space: normal; }
     #contacts { top: 72px; }
-    #opsCenterBtn { top: 72px; }
+    #statsBtn { top: 72px; }
     #pauseBtn { top: 110px; }
     #muteBtn { top: 148px; }
     #storageWarning { top: 186px; }
@@ -1071,7 +1089,9 @@
     <div id="radarLaneTrack"></div>
     <div id="contactList"></div>
   </div>
-  <button id="opsCenterBtn">COUNTER CENTER</button>
+  <!-- LRNA-158: renamed from #opsCenterBtn/"COUNTER CENTER" - this now
+       opens the STATS-only window, not an operations screen. -->
+  <button id="statsBtn">STATS</button>
   <button id="pauseBtn">PAUSE</button>
   <button id="muteBtn">MUTE</button>
   <div id="pausedBanner" class="hidden">PAUSED</div>
@@ -1119,60 +1139,21 @@
        COUNTER/RECON content - one place for everything that isn't
        attacking, not two. #opsCenterBtn and the bottom bar's
        #counterMissileBtn both open this same window. -->
+  <!-- LRNA-158: no more COUNTER or RECON content here - COUNTER MISSILE/
+       COUNTER ATTACK PLANES fire directly from the bottom bar now, and
+       the zone strip + RECON status/lists live on the always-visible
+       #counterOpsBar below. This window is pure reference/meta content,
+       retitled STATS, opened by the new #statsBtn. -->
   <div id="missionMapWindow" class="hidden">
     <div class="opsHeader">
-      <h3 style="margin:0; border:none; padding:0; color:#c6e8ff;">COUNTER CENTER</h3>
+      <h3 style="margin:0; border:none; padding:0; color:#c6e8ff;">STATS</h3>
       <span class="opsClose" id="missionMapClose">&#10005;</span>
-    </div>
-    <div id="missionMapStrip">
-      <div class="missionMapStripEnd">STRIKE<br>PLATFORM</div>
-      <div id="missionMapStripTrack">
-        <div id="missionMapZones"></div>
-        <div id="missionMapMarkers"></div>
-        <div id="missionMapThreatMarker" class="hidden"></div>
-      </div>
-      <div class="missionMapStripEnd">NODE<br>OMEGA</div>
     </div>
 
     <div class="opsSection" id="counterCenterModeSection">
       <h3>GAME MODE</h3>
       <div id="modeStatus">SANDBOX — free play, no timer</div>
       <button id="siegeToggleBtn" class="upgradeBtn">START SIEGE (5:00)</button>
-    </div>
-
-    <div class="opsSection" id="missionMapCounterSection">
-      <h3 style="color:#c6e8ff;">COUNTER</h3>
-      <div id="missionMapBase">
-        STRIKE PLATFORM <span id="missionMapBaseHp">250</span>/250
-        <div class="barOuter"><div class="barInner" id="missionMapBaseBar" style="background:var(--green)"></div></div>
-      </div>
-      <div id="missionMapThreat">
-        <div id="missionMapThreatName">no inbound threat</div>
-        <div id="missionMapThreatStats"></div>
-        <div class="barOuter"><div class="barInner" id="missionMapThreatBar" style="background:var(--red)"></div></div>
-      </div>
-      <div id="missionMapCounterActions">
-        <button id="missionMapFire" class="upgradeBtn">FIRE COUNTER MISSILE — 500&#9679; COUNTER</button>
-        <button id="missionMapCancel" class="upgradeBtn" style="border-color:#666; color:#aaa;">HOLD FIRE</button>
-      </div>
-    </div>
-
-    <div class="opsSection" id="missionMapReconSection">
-      <h3 style="color:#ff5a36;">RECON — SEEK AND DESTROY</h3>
-      <div id="missionMapReconStatus">0/3 located · 0/3 neutralized</div>
-      <div class="upgrade-row">
-        <span class="upgrade-name">RECON DRONE<br><span class="upgrade-desc">Locate the 3 hidden nodes</span></span>
-        <button id="missionMapReconBtn" class="upgradeBtn">5&#9679; INTEL</button>
-      </div>
-      <div id="missionMapReconList"></div>
-      <!-- LRNA-154: folded in from Operations Center's old INTELLIGENCE
-           section - a genuinely different list (discovered AntiPlane
-           lane defenses, not SEEK AND DESTROY nodes) but the same
-           RECON DRONE fire button above already covers both; the old
-           panel's own duplicate button/OPEN MISSION MAP bridge are
-           gone. -->
-      <div id="missionMapReconAntiPlaneLabel">ANTIPLANE LANE DEFENSES</div>
-      <div id="knownThreatsList"></div>
     </div>
 
     <div class="opsSection attackPillar" id="counterCenterTargetsSection">
@@ -1184,10 +1165,35 @@
       <h3>RUN STATS</h3>
       <div id="statsList"></div>
     </div>
+  </div>
 
-    <div class="opsSection upgrades" id="counterCenterUpgradesSection">
-      <h3>REACTOR UPGRADES</h3>
-      <div id="upgradeList"></div>
+  <!-- LRNA-158: "Counter Operations bar" - the zone strip (was inside
+       the merged window) plus SEEK AND DESTROY/AntiPlane status, now a
+       persistent, always-visible bar on Main View instead of hidden
+       behind a second screen, so inbound threats can be tracked and
+       countered (via the bottom bar's own COUNTER buttons) without
+       leaving the battlefield. Visual/status only, not clickable to
+       select a target (confirmed explicitly - the bottom bar's buttons
+       already show the live threat's own stats). Positioned by JS
+       (see resize()) directly above #bottomBar, using the same
+       bottomBarPx measurement vh() already relies on, since the bottom
+       bar's real height varies by breakpoint/content and a static CSS
+       offset would drift out of sync with it. -->
+  <div id="counterOpsBar">
+    <div id="missionMapStrip">
+      <div class="missionMapStripEnd">STRIKE<br>PLATFORM</div>
+      <div id="missionMapStripTrack">
+        <div id="missionMapZones"></div>
+        <div id="missionMapMarkers"></div>
+        <div id="missionMapThreatMarker" class="hidden"></div>
+      </div>
+      <div class="missionMapStripEnd">NODE<br>OMEGA</div>
+    </div>
+    <div id="counterOpsBarRecon">
+      <span id="missionMapReconStatus">0/3 located · 0/3 neutralized</span>
+      <div id="missionMapReconList"></div>
+      <div id="missionMapReconAntiPlaneLabel">ANTIPLANE LANE DEFENSES</div>
+      <div id="knownThreatsList"></div>
     </div>
   </div>
 
@@ -1329,7 +1335,7 @@
       <span class="loadout-chip" style="color:#ff3b3b"><span class="dot"></span>LAUNCHERS</span>
       <span class="loadout-chip" style="color:#ff2ea6"><span class="dot"></span>SUB-BASES</span>
     </div>
-    <div class="featuring">12 FIELD TARGETS &middot; HIDDEN ENEMY NODES &middot; AUTO-SEEKING INTERCEPTORS &middot; REACTOR UPGRADES</div>
+    <div class="featuring">12 FIELD TARGETS &middot; HIDDEN ENEMY NODES &middot; AUTO-SEEKING INTERCEPTORS</div>
     <div id="entrance">
       ENTRANCE<br>
       <span class="url">192.168.1.36:2001</span>
@@ -1344,6 +1350,7 @@
   const minimap = document.getElementById('minimap');
   const mctx = minimap.getContext('2d');
   const bottomBarEl = document.getElementById('bottomBar');
+  const counterOpsBarEl = document.getElementById('counterOpsBar'); // LRNA-158
   const overlay = document.getElementById('overlay');
   const contactListEl = document.getElementById('contactList');
   const targetListEl = document.getElementById('targetList');
@@ -1354,8 +1361,8 @@
   // already opens (openMissionMap/closeMissionMap, defined below, also
   // toggle this button's own hidden state, same as setOpsCenterOpen used
   // to for the panel it opened).
-  const opsCenterBtn = document.getElementById('opsCenterBtn');
-  opsCenterBtn.addEventListener('click', () => { sfxUi(); openMissionMap(); });
+  const statsBtn = document.getElementById('statsBtn');
+  statsBtn.addEventListener('click', () => { sfxUi(); openMissionMap(); });
 
   // ---- LRNA-119: explicit pause/resume, independent of the browser's own
   // tab-blur throttling of requestAnimationFrame (see `paused` above -
@@ -1402,9 +1409,11 @@
 
   const counterMissileBtnEl = document.getElementById('counterMissileBtn');
   const counterMissileEtaEl = document.getElementById('counterMissileEta');
+  // LRNA-158: fires directly now instead of opening a window - "bring
+  // all the buttons to the main screen," same as every other ability.
   counterMissileBtnEl.addEventListener('click', () => {
     if (!running) return;
-    openMissionMap();
+    fireCounterMissile();
   });
 
   // LRNA-121: below this width, the ability-bar buttons are narrow enough
@@ -1496,28 +1505,18 @@
   // comment on #missionMapWindow) is a plain DOM/CSS schematic, not a
   // second canvas.
   //
-  // One real behavior change from the old windows, required by the
-  // merge rather than guessed at: the old Counter Window auto-closed
-  // itself the instant its one inbound threat resolved (destroyed, or
-  // hit home) while open, since it had nothing else to show. Mission
-  // Map always has the recon section and zone strip to show even with
-  // no threat inbound, so it no longer closes on that condition -
-  // renderMissionMapCounter() just falls back to "no inbound threat"
-  // instead. Firing FIRE COUNTER MISSILE also no longer auto-closes the
-  // whole screen the way the old window did (it stays open, refreshed) -
-  // the point of a persistent "one main screen" is to stay on it, not
-  // to keep popping back out after every counter action.
+  // LRNA-158: reversed course from the paragraph above, same session -
+  // "scrap the whole counter operations window and bring all the
+  // buttons to the main screen." #missionMapWindow (now titled STATS,
+  // opened by the new #statsBtn) keeps only GAME MODE/RUN STATS/TARGETS
+  // - the COUNTER section (base HP/threat/Fire Counter Missile) is gone
+  // entirely, since COUNTER MISSILE fires directly from the bottom bar
+  // now; the RECON section moved out onto the new persistent
+  // #counterOpsBar instead (see below), which also inherited the zone
+  // strip this comment block used to describe living in this window.
   let missionMapOpen = false;
   const missionMapWindowEl = document.getElementById('missionMapWindow');
   const missionMapCloseBtnEl = document.getElementById('missionMapClose');
-  const missionMapFireBtnEl = document.getElementById('missionMapFire');
-  const missionMapCancelBtnEl = document.getElementById('missionMapCancel');
-  const missionMapBaseHpEl = document.getElementById('missionMapBaseHp');
-  const missionMapBaseBarEl = document.getElementById('missionMapBaseBar');
-  const missionMapThreatNameEl = document.getElementById('missionMapThreatName');
-  const missionMapThreatStatsEl = document.getElementById('missionMapThreatStats');
-  const missionMapThreatBarEl = document.getElementById('missionMapThreatBar');
-  const missionMapReconBtnEl = document.getElementById('missionMapReconBtn');
   const missionMapReconStatusEl = document.getElementById('missionMapReconStatus');
   const missionMapReconListEl = document.getElementById('missionMapReconList');
   const missionMapZonesEl = document.getElementById('missionMapZones');
@@ -1527,37 +1526,16 @@
   function openMissionMap() {
     missionMapOpen = true;
     missionMapWindowEl.classList.remove('hidden');
-    opsCenterBtn.classList.add('hidden'); // LRNA-154: same toggle setOpsCenterOpen used to do for its own panel
-    renderMissionMap();
+    statsBtn.classList.add('hidden');
   }
   function closeMissionMap() {
     missionMapOpen = false;
     missionMapWindowEl.classList.add('hidden');
-    opsCenterBtn.classList.remove('hidden');
+    statsBtn.classList.remove('hidden');
   }
-  function renderMissionMap() {
-    renderMissionMapCounter();
-    renderMissionMapRecon();
-    renderMissionMapStrip();
-  }
-  function renderMissionMapCounter() {
-    missionMapBaseHpEl.textContent = Math.max(0, Math.round(nodeA.health));
-    missionMapBaseBarEl.style.width = Math.max(0, nodeA.health / PLAYER_MAX_HEALTH * 100) + '%';
-    const target = findInboundEnemyMissiles()[0];
-    if (!target) {
-      missionMapThreatNameEl.textContent = 'no inbound threat';
-      missionMapThreatStatsEl.textContent = '';
-      missionMapThreatBarEl.style.width = '0%';
-      missionMapFireBtnEl.disabled = true;
-      return;
-    }
-    const remaining = Math.max(0, target.totalSeconds - target.age);
-    missionMapThreatNameEl.textContent = `${target.name} [${(target.sizeKey || '').toUpperCase()}]`;
-    missionMapThreatStatsEl.textContent =
-      `SPD ${Math.round(Math.abs(target.vx))} · IMPACT ${formatETA(remaining)}`;
-    missionMapThreatBarEl.style.width = Math.max(0, Math.min(100, remaining / target.totalSeconds * 100)) + '%';
-    missionMapFireBtnEl.disabled = tokens.counter < COUNTER_MISSILE_COST;
-  }
+  // Both now run every frame unconditionally (not gated on missionMapOpen)
+  // since the zone strip and RECON status/list live on the always-visible
+  // #counterOpsBar, not inside the STATS window they used to share.
   function renderMissionMapRecon() {
     if (!missionMapReconListEl) return;
     let found = 0, neutralized = 0, html = '';
@@ -1607,17 +1585,6 @@
     }
   }
   missionMapCloseBtnEl.addEventListener('click', closeMissionMap);
-  missionMapCancelBtnEl.addEventListener('click', closeMissionMap);
-  missionMapFireBtnEl.addEventListener('click', () => {
-    if (!running || !missionMapOpen) return;
-    fireCounterMissile();
-    renderMissionMap();
-  });
-  missionMapReconBtnEl.addEventListener('click', () => {
-    if (!running) return;
-    attemptFire('drone');
-    updateReconDroneBtn();
-  });
   missionMapReconListEl.addEventListener('click', (e) => {
     const btn = e.target.closest('.upgradeBtn');
     if (!btn || btn.disabled || !running) return;
@@ -1625,25 +1592,20 @@
     renderMissionMapRecon();
   });
 
-  // ---- Intelligence panel (LRNA-039): LAUNCH RECON DRONE reuses the exact
-  // same DRONE missile as the launch bar (LRNA-038) - a second entry point
-  // to the same mechanic, since the recon drone's discovery behavior lives
-  // on the `drone` typeKey itself, not on how it was fired. LAUNCH ATTACK
-  // DRONE rows are rendered per discovered AntiPlane node below.
-  // LRNA-154: the standalone #reconDroneBtn (and its own duplicate
-  // "fire a recon drone" click handler) is gone - #missionMapReconBtn in
-  // the merged RECON section already fires the identical drone shot, so
-  // this now just tracks that button's enabled state instead of its own.
+  // ---- Intelligence panel (LRNA-039): LAUNCH ATTACK DRONE rows are
+  // rendered per discovered AntiPlane node below. LRNA-158: the
+  // standalone RECON DRONE fire button (Ops Center's own, then Mission
+  // Map's after LRNA-154 deduped them) is gone entirely now - the
+  // bottom bar's own DRONE button (data-type="drone") already fires the
+  // identical shot and already has its own disabled-state handling via
+  // updateTurnHud()'s generic launchButtons loop, so there's nothing
+  // left for a dedicated updateReconDroneBtn() to track.
   const knownThreatsListEl = document.getElementById('knownThreatsList');
   knownThreatsListEl.addEventListener('click', (e) => {
     const btn = e.target.closest('.upgradeBtn');
     if (!btn || btn.disabled || !running) return;
     fireAttackDrone(btn.dataset.ap);
   });
-  function updateReconDroneBtn() {
-    if (!missionMapReconBtnEl) return;
-    missionMapReconBtnEl.disabled = shotsRemaining <= 0 || activeCount('A') >= currentMaxActive() || tokens.intel < TYPES.drone.cost;
-  }
   function renderIntel() {
     const known = antiPlaneNodes.filter(a => a.discovered);
     if (known.length === 0) {
@@ -1710,6 +1672,7 @@
     MW = minimap.width = window.innerWidth;
     MH = minimap.height = 32;
     bottomBarPx = bottomBarEl.offsetHeight;
+    counterOpsBarEl.style.bottom = bottomBarPx + 'px'; // LRNA-158: sits directly above the bottom bar, whatever its real height is
     layout();
   }
 
@@ -2908,7 +2871,7 @@
   // LRNA-146: was 0.2s (5fps) - a fast missile's on-screen position (the
   // canvas draw() loop, unthrottled) could visibly outrun the radar
   // lane/contact list's numbers by up to 200ms. 20fps keeps the DOM
-  // rebuild (renderContacts/renderTargetList/renderUpgrades all rebuild
+  // rebuild (renderContacts/renderTargetList all rebuild
   // innerHTML) well short of doing it every single canvas frame, while
   // cutting the worst-case staleness by 4x.
   const CONTACTS_RENDER_INTERVAL = 0.05;
@@ -3086,65 +3049,14 @@
     spawnFloatText(x, y, `-${amount} ${TOKEN_META[pillar].label}`, TOKEN_META[pillar].color);
   }
 
-  // ---- reactor upgrades: a permanent, one-time-purchase token sink beyond
-  // ammo. Persisted separately from the token balances and never reset by
-  // 'R' — meta-progression that carries across runs, same as before.
-  // Each upgrade now has a `pillar` (LRNA-073/#429): overcharge/ammobay
-  // boost the player's own offense, so Attack; interceptor boosts a
-  // defensive stat, so Counter; reactor's old "+1 cell/sec" no longer
-  // means anything with 3 separate balances, so it's repurposed as a
-  // small Intel-specific passive boost (reactors power the sensors) and
-  // priced from Intel.
-  const UPGRADES = {
-    overcharge: { name: 'OVERCHARGED WARHEADS', desc: '+20% warhead damage', cost: 400, pillar: 'attack' },
-    ammobay:    { name: 'EXPANDED AMMO BAY',    desc: '+1 warhead in flight at once', cost: 300, pillar: 'attack' },
-    reactor:    { name: 'REACTOR BOOST',        desc: '+1 Intel/sec passive income', cost: 250, pillar: 'intel' },
-    interceptor:{ name: 'INTERCEPTOR CALIBRATION', desc: '+10% AM battery hit chance', cost: 350, pillar: 'counter' },
-  };
-  const UPGRADES_KEY = 'lrna_upgrades_v1';
-  let ownedUpgrades = {};
-  (function loadUpgrades() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(UPGRADES_KEY) || '{}');
-      if (saved && typeof saved === 'object') ownedUpgrades = saved;
-    } catch (e) { ownedUpgrades = {}; }
-  })();
-  function saveUpgrades() {
-    trySaveStorage(UPGRADES_KEY, JSON.stringify(ownedUpgrades));
-  }
-  function dmgMultiplier() { return ownedUpgrades.overcharge ? 1.2 : 1; }
-  function currentMaxActive() { return MAX_ACTIVE + (ownedUpgrades.ammobay ? 1 : 0); }
-  function currentIntelPassiveRate() { return TOKEN_PASSIVE_RATE + (ownedUpgrades.reactor ? 1 : 0); }
-  function interceptorHitBonus() { return ownedUpgrades.interceptor ? 0.10 : 0; }
-
-  const upgradeListEl = document.getElementById('upgradeList');
-  function renderUpgrades() {
-    let html = '';
-    for (const key of Object.keys(UPGRADES)) {
-      const u = UPGRADES[key];
-      const owned = !!ownedUpgrades[key];
-      html += `<div class="upgrade-row">` +
-              `<span class="upgrade-name">${u.name}<br><span class="upgrade-desc">${u.desc}</span></span>` +
-              (owned
-                ? `<span class="upgrade-owned">OWNED</span>`
-                : `<button class="upgradeBtn" data-upgrade="${key}" style="border-color:${TOKEN_META[u.pillar].color};color:${TOKEN_META[u.pillar].color}" ${tokens[u.pillar] < u.cost ? 'disabled' : ''}>${u.cost}&#9679; ${TOKEN_META[u.pillar].label}</button>`) +
-              `</div>`;
-    }
-    upgradeListEl.innerHTML = html;
-  }
-  upgradeListEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.upgradeBtn');
-    if (!btn || btn.disabled || !running || paused) return; // LRNA-119
-    const key = btn.dataset.upgrade;
-    const u = UPGRADES[key];
-    if (!u || ownedUpgrades[key] || tokens[u.pillar] < u.cost) return;
-    sfxPurchase();
-    spendTokens(u.pillar, u.cost, nodeA.x, nodeA.y - 70);
-    ownedUpgrades[key] = true;
-    saveUpgrades();
-    renderUpgrades();
-    updateTurnHud();
-  });
+  // LRNA-159: Reactor Upgrades removed entirely - was a permanent,
+  // one-time-purchase token sink layered on top of the base stats it
+  // modified (dmgMultiplier/currentMaxActive/currentIntelPassiveRate/
+  // interceptorHitBonus). Every call site that read one of those is
+  // simplified to the plain base value directly - MAX_ACTIVE,
+  // TOKEN_PASSIVE_RATE, no damage multiplier, no AM battery hit bonus -
+  // which is exactly what a fresh/no-upgrade run already experienced,
+  // so nothing needed re-tuning.
 
   function spawnFloatText(x, y, text, color) {
     floatingTexts.push({ x, y, text, color, age: 0 });
@@ -3241,7 +3153,6 @@
     updatePlaneButtons();
     renderTargetList();
     updateTargetLabel();
-    renderUpgrades();
     updateModeStatus();
     renderIntel();
     renderMissionMapRecon();
@@ -3265,7 +3176,6 @@
     renderStats();
     updateCounterPlanesBtn();
     updateCounterMissileBtn();
-    updateReconDroneBtn();
     renderIntel();
   }
 
@@ -3289,7 +3199,7 @@
 
   function updateTurnHud() {
     const active = activeCount('A');
-    const cap = currentMaxActive();
+    const cap = MAX_ACTIVE;
     const atCap = active >= cap;
     if (shotsRemaining > 0) {
       launchBarHeaderEl.innerHTML = `WARHEADS <span class="hot">${shotsRemaining}/${TURN_SIZE}</span> &nbsp;·&nbsp; IN FLIGHT <span class="hot">${active}/${cap}</span> &nbsp;·&nbsp; ~85% HIT CHANCE`;
@@ -3324,7 +3234,7 @@
       id: Math.random().toString(36).slice(2, 9),
       name: nextName(typeKey),
       typeKey, label: t.label,
-      color: t.color, radius: t.radius, dmg: Math.round(t.dmg * (origin.id === 'A' ? dmgMultiplier() : 1)),
+      color: t.color, radius: t.radius, dmg: Math.round(t.dmg),
       splitCount: t.splitCount || 0,
       originId: origin.id, destId: dest.id,
       dest, targetX,
@@ -3373,8 +3283,7 @@
     const target = missiles.find(m => m.id === targetId);
     if (!target) return null;
     const lane = (Math.random() - 0.5) * LANE_SPAN;
-    const baseHitChance = (origin.hitChance != null ? origin.hitChance : COUNTER.hitChance) +
-      (origin.kind === 'amnode' ? interceptorHitBonus() : 0);
+    const baseHitChance = origin.hitChance != null ? origin.hitChance : COUNTER.hitChance;
     const hitChance = Math.min(0.92, baseHitChance * speedInterceptFactor(target.vx));
     const success = Math.random() < hitChance;
     // Planes (LRNA-078/#435) fly at a constant, much slower speed than a
@@ -3537,11 +3446,20 @@
       .filter(m => m.typeKey === 'enemyStrike')
       .sort((a, b) => (a.totalSeconds - a.age) - (b.totalSeconds - b.age));
   }
+  // LRNA-158: COUNTER MISSILE and COUNTER ATTACK PLANES each only engage
+  // their own matching weaponClass now - direct request ("only missiles
+  // can counter missiles and only planes can counter planes"), scoped to
+  // just these 2 player-fired abilities per the same confirmation -
+  // automated defenses (AM batteries, loadout nodes) are untouched,
+  // keeping LRNA-051's "engage both classes the same way" behavior.
+  function findInboundEnemyMissilesOfClass(weaponClass) {
+    return findInboundEnemyMissiles().filter(m => m.weaponClass === weaponClass);
+  }
   // each plane can only kill one missile, so a single live threat only
   // gets one plane (at half price) rather than wastefully sending both
   // after the same target.
   function counterPlanesPlan() {
-    const targets = findInboundEnemyMissiles();
+    const targets = findInboundEnemyMissilesOfClass('plane');
     const planeCount = Math.min(2, targets.length);
     const cost = planeCount === 1 ? COUNTER_PLANES_COST / 2 : COUNTER_PLANES_COST;
     return { targets, planeCount, cost };
@@ -3577,14 +3495,14 @@
   function fireCounterMissile() {
     if (paused) return; // LRNA-119
     if (tokens.counter < COUNTER_MISSILE_COST) return;
-    const target = findInboundEnemyMissiles()[0];
+    const target = findInboundEnemyMissilesOfClass('missile')[0];
     if (!target) return;
     spendTokens('counter', COUNTER_MISSILE_COST, nodeA.x, nodeA.y - 90);
     fireCounter({ id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#c6e8ff', hitChance: COUNTER_MISSILE_HIT_CHANCE }, target.id, 'countermissile');
   }
   function updateCounterMissileBtn() {
     if (!counterMissileBtnEl) return;
-    const target = findInboundEnemyMissiles()[0];
+    const target = findInboundEnemyMissilesOfClass('missile')[0];
     counterMissileBtnEl.disabled = !target || tokens.counter < COUNTER_MISSILE_COST;
     counterMissileEtaEl.textContent = isMobileViewport() ? '1x · 75%' : '1 target · 75% kill';
   }
@@ -4803,13 +4721,17 @@
     // (the REINFORCED HULL upgrade, which only ever bought +regen, is
     // removed along with it - nothing else it did).
     updateHud();
-    if (missionMapOpen) renderMissionMap();
+    // LRNA-158: unconditional now - the zone strip and RECON status/list
+    // live on the always-visible #counterOpsBar, not gated behind
+    // missionMapOpen like the window they used to share.
+    renderMissionMapStrip();
+    renderMissionMapRecon();
     if (counterPlanesWindowOpen) renderCounterPlanesWindow();
 
     tokens.attack += TOKEN_PASSIVE_RATE * dt;
     tokens.counter += TOKEN_PASSIVE_RATE * dt;
-    tokens.intel += currentIntelPassiveRate() * dt;
-    lifetimeTokensTotal += (TOKEN_PASSIVE_RATE * 2 + currentIntelPassiveRate()) * dt;
+    tokens.intel += TOKEN_PASSIVE_RATE * dt;
+    lifetimeTokensTotal += TOKEN_PASSIVE_RATE * 3 * dt;
     updateTokenHud(false);
     tokenSaveTimer -= dt;
     if (tokenSaveTimer <= 0) { tokenSaveTimer = 1; saveTokens(); saveLifetimeTokens(); }
@@ -4846,7 +4768,6 @@
       contactsRenderTimer = CONTACTS_RENDER_INTERVAL;
       renderContacts();
       renderTargetList();
-      renderUpgrades();
     }
   }
 
@@ -6706,7 +6627,7 @@
     const pillar = ABILITY_PILLARS[typeKey];
     if (openingLocked && pillar === 'attack') return; // LRNA-080: intel/counter tools still work (recon needs to fly)
     const dest = getTarget(selectedTargetId) || nodeO;
-    if (shotsRemaining <= 0 || activeCount('A') >= currentMaxActive() || tokens[pillar] < cost) return;
+    if (shotsRemaining <= 0 || activeCount('A') >= MAX_ACTIVE || tokens[pillar] < cost) return;
     const now = performance.now();
     if (now - lastFireTime < 350) return;
     lastFireTime = now;
@@ -6885,6 +6806,10 @@
   });
 
   window.addEventListener('resize', resize);
+  // LRNA-158: #bottomBar's height also changes without a window resize
+  // (after START, and when LRNA-121's mobile labels swap), which left
+  // #counterOpsBar and vh() measured against a stale height.
+  new ResizeObserver(resize).observe(bottomBarEl);
   resize();
   requestAnimationFrame(loop);
 

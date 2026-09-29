@@ -505,7 +505,7 @@ them up in order, or together if convenient.
   filed - GAME MODE arguably belongs in STATS as naturally as RUN STATS
   does now. Still worth confirming with the person asking rather than
   assuming either way before implementing.
-- **LRNA-158** — Revised architecture, filed live while LRNA-155 was
+- **LRNA-158** — DONE (2026-09-29) — Revised architecture, filed live while LRNA-155 was
   still being scoped (superseding it before any code touched it): one
   screen, not two. Two direct requests, back to back, the second
   generalizing the first:
@@ -619,7 +619,52 @@ them up in order, or together if convenient.
     built for), or does Counter Attack Planes also collapse into a
     single direct-fire button like the others? Confirm before building
     this specific piece rather than picking silently.
-- **LRNA-159** — Remove REACTOR UPGRADES entirely. Direct request, a
+
+  **Resolution**:
+  - **Class-matching rule**: new `findInboundEnemyMissilesOfClass()`;
+    `counterPlanesPlan()` now targets only `weaponClass === 'plane'`,
+    `fireCounterMissile()`/`updateCounterMissileBtn()` only `'missile'`.
+    Each button is disabled when nothing of its own class is inbound.
+    AM batteries and loadout nodes are untouched, so LRNA-051's "engage
+    both classes the same" still holds for every automated defense.
+  - **COUNTER MISSILE fires directly** (`fireCounterMissile()`), and is
+    *not* the STATS entry point. This deliberately departs from the
+    confirmed "reuse `#counterMissileBtn`'s click to open STATS" item
+    above: that item and "all buttons work live" contradict each other
+    for this one button, and the build sided with direct fire. Because
+    COUNTER MISSILE no longer opens STATS, the old `#opsCenterBtn` was
+    kept and relabeled `#statsBtn` ("STATS") as its entry point, rather
+    than removed as the screenshot asked. Both departures are flagged
+    here for review, not presented as settled.
+  - **Counter Operations bar** (`#counterOpsBar`): a persistent bar
+    directly above `#bottomBar` holding `#missionMapStrip` (the zone
+    strip, moved out of the merged window) plus the RECON status line,
+    SEEK AND DESTROY list and discovered-AntiPlane list.
+    `renderMissionMapStrip()`/`renderMissionMapRecon()` now run every
+    frame instead of only while the window was open. Its `bottom`
+    offset tracks `#bottomBar`'s real height via a `ResizeObserver`, not
+    just window resizes: the bottom bar's height changes after START
+    (mobile label abbreviation, LRNA-121), which left the bar positioned
+    from a stale measurement in the first build.
+  - **STATS window**: `#missionMapWindow` retitled STATS, holding GAME
+    MODE, TARGETS and RUN STATS (REACTOR UPGRADES went with LRNA-159).
+    Its COUNTER section, RECON section and duplicate recon-drone fire
+    button are gone (the bottom bar's own DRONE button covers the
+    latter); `renderMissionMap()`/`renderMissionMapCounter()`/
+    `updateReconDroneBtn()` removed with them.
+  - **Left as-is, still the open question above**: `#counterPlanesWindow`
+    remains a modal opened from `#counterPlanesBtn`.
+  - **Known limitation, not fixed here**: on a 375px-wide phone the
+    bottom bar alone is ~600px tall, so the bar's recon lists push above
+    the top HUD and the battlefield is barely visible. The bottom bar's
+    height predates this ticket; the bar's own content is what a
+    follow-up should trim.
+  - Tests: the LRNA-084/LRNA-154 tests whose premise changed were
+    rewritten as LRNA-158 tests (Counter Missile fires directly, STATS
+    contents, DRONE unaffected by STATS). The LRNA-121 mobile-label test
+    now gives its strike `weaponClass = 'plane'`, since Counter Attack
+    Planes ignores unclassed threats under the new rule.
+- **LRNA-159** — DONE (2026-09-29) — Remove REACTOR UPGRADES entirely. Direct request, a
   screenshot of the current 4-row list attached. Not a restyle or a
   relocation - the whole feature goes: the UI section (wherever it would
   otherwise land under LRNA-158 - currently inside the merged window, on
@@ -662,6 +707,39 @@ them up in order, or together if convenient.
     upgrade-purchase half of the second with something else worth
     covering, or remove that half if nothing else needs it) as part of
     removing the feature, not left pointing at dead markup.
+
+  **Resolution**: removed the `UPGRADES` object, `ownedUpgrades` state,
+  `UPGRADES_KEY`/`loadUpgrades`/`saveUpgrades`, `renderUpgrades()`, the
+  `#upgradeList`/`#counterCenterUpgradesSection` markup, and all 4
+  helper functions - each of their 6 real call sites now uses the plain
+  base value directly (`t.dmg` with no multiplier, `MAX_ACTIVE` in both
+  places, `TOKEN_PASSIVE_RATE` in both the per-frame accrual and the
+  lifetime-tokens tracker, and the AM-battery hit-chance calculation
+  with no bonus term at all) rather than a function that always
+  returned that same base value anyway. Also dropped the now-false
+  "REACTOR UPGRADES" mention from the start-screen feature tagline and
+  cleaned up the stale `.opsSection.upgrades` CSS rule and its
+  width-constraint selector entry.
+  - **Token-economy flag carried through, not resolved**: left exactly
+    as scoped - no compensating balance change made.
+  - **Regression suite**: fixed both tests flagged above (dropped the
+    REACTOR UPGRADES assertion from the structural test; replaced the
+    upgrade-purchase half of the other with a plain drone-fire check,
+    renamed to reflect what it actually verifies now) and added a new
+    dedicated test confirming the removal itself - no `#upgradeList` or
+    `[data-upgrade]` element exists anywhere, a FAST warhead deals
+    exactly its base 50 damage, the active-shot cap holds at the plain
+    `MAX_ACTIVE` (3), and Intel accrues at exactly the plain
+    `TOKEN_PASSIVE_RATE` (100/s). Caught and fixed a real bug in my own
+    first draft of that test while writing it: `attemptFire`'s fire-rate
+    cooldown is keyed on real wall-clock time (`performance.now()`), not
+    simulated `dt` - a tight loop of 3 calls with `tickUpdate()` between
+    them still only fired once, same class of mistake as this session's
+    earlier Playwright-script cooldown bugs, this time inside a real
+    regression test rather than a throwaway scratch script. Fixed by
+    awaiting a real `setTimeout` between attempts instead. 48 tests
+    total (47 + 1 new), stable across 8 consecutive runs, zero console
+    errors.
 
 ---
 
