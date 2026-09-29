@@ -360,7 +360,7 @@
      STATS, TARGETS, REACTOR UPGRADES) moved into #missionMapWindow,
      merged with its existing COUNTER/RECON content into one "Counter
      Center" screen (see the .opsHeader/.opsSection rules below, still
-     shared with #missionMapWindow and #counterPlanesWindow).
+     shared with #missionMapWindow).
      LRNA-158/159, same session: COUNTER/RECON moved back out again
      (see #counterOpsBar) and REACTOR UPGRADES was removed outright, so
      #missionMapWindow (opened by #statsBtn, renamed from #opsCenterBtn)
@@ -515,36 +515,6 @@
     padding: 9px 18px;
   }
   #waveResultClose:hover { background: rgba(255,90,54,0.22); }
-
-  /* Counter Attack Planes window - same layout/status-panel pattern the
-     old Counter Missile window used (see #missionMapWindow below for
-     where that one went), just listing up to 2 threats instead of 1. */
-  #counterPlanesWindow {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 12;
-    /* ART-4: same scanline-texture-under-solid-backdrop treatment as
-       #missionMapWindow, so every status panel shares one chrome language. */
-    background:
-      repeating-linear-gradient(180deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
-      rgba(4,10,18,0.96);
-    border: 1px solid #4a7a94;
-    box-shadow: 0 0 20px -6px rgba(74,122,148,0.5);
-    padding: 16px 20px;
-    font-family: "Courier New", ui-monospace, monospace;
-    width: min(340px, calc(100vw - 24px));
-    backdrop-filter: blur(3px);
-  }
-  #counterPlanesWindow.hidden { display: none; }
-  #counterPlanesWindowBase {
-    font-size: 10px; letter-spacing: 1px; margin-top: 10px; opacity: 0.9;
-  }
-  .counterPlanesThreat { font-size: 10px; letter-spacing: 1px; margin-top: 10px; opacity: 0.9; }
-  .counterPlanesThreatName { color: #ff8a5c; font-size: 11px; margin-bottom: 4px; }
-  .counterPlanesThreatStats { font-size: 9px; opacity: 0.75; line-height: 1.5; }
-  #counterPlanesWindowActions { display: flex; gap: 8px; margin-top: 16px; }
-  #counterPlanesWindowActions .upgradeBtn { flex: 1; text-align: center; }
 
   /* Mission Map (LRNA-084): replaces the old Counter Missile Intercept
      window (LRNA-051) and SEEK AND DESTROY window (LRNA-063) with the
@@ -1110,22 +1080,6 @@
     <button id="waveResultClose">RETURN TO START</button>
   </div>
 
-  <div id="counterPlanesWindow" class="hidden">
-    <div class="opsHeader">
-      <h3 style="margin:0; border:none; padding:0; color:#8fd8ff;">COUNTER ATTACK PLANES</h3>
-      <span class="opsClose" id="counterPlanesWindowClose">&#10005;</span>
-    </div>
-    <div id="counterPlanesWindowBase">
-      STRIKE PLATFORM <span id="counterPlanesWindowBaseHp">250</span>/250
-      <div class="barOuter"><div class="barInner" id="counterPlanesWindowBaseBar" style="background:var(--green)"></div></div>
-    </div>
-    <div id="counterPlanesWindowThreats"></div>
-    <div id="counterPlanesWindowActions">
-      <button id="counterPlanesWindowFire" class="upgradeBtn">SCRAMBLE PLANES — <span id="counterPlanesWindowCost">1000</span>&#9679; COUNTER</button>
-      <button id="counterPlanesWindowCancel" class="upgradeBtn" style="border-color:#666; color:#aaa;">HOLD FIRE</button>
-    </div>
-  </div>
-
   <!-- LRNA-084: replaces the old separate Counter Window and SEEK AND
        DESTROY window with the "one main screen" the direct request asked
        for - a real full-screen map view (not a small centered card like
@@ -1402,9 +1356,11 @@
   const counterPlanesLabelEl = document.getElementById('counterPlanesLabel');
   const counterPlanesEtaEl = document.getElementById('counterPlanesEta');
   const counterPlanesCostEl = document.getElementById('counterPlanesCost');
+  // LRNA-160: fires directly, same as Counter Missile (LRNA-158) - the
+  // scramble-and-confirm popup is gone.
   counterPlanesBtnEl.addEventListener('click', () => {
     if (!running) return;
-    openCounterPlanesWindow();
+    fireCounterAttackPlanes();
   });
 
   const counterMissileBtnEl = document.getElementById('counterMissileBtn');
@@ -1420,71 +1376,6 @@
   // that the full desktop label/stat text wraps across 2-3 lines and reads
   // as cut off - swap to short forms instead of just shrinking the font.
   function isMobileViewport() { return window.matchMedia('(max-width: 560px)').matches; }
-
-  // ---- Counter Attack Planes window: same status-panel pattern as the
-  // Counter Missile window above, listing up to 2 inbound threats
-  // instead of 1 (counterPlanesPlan's own scramble-1-or-2 logic).
-  let counterPlanesWindowOpen = false;
-  const counterPlanesWindowEl = document.getElementById('counterPlanesWindow');
-  const counterPlanesWindowCloseBtn = document.getElementById('counterPlanesWindowClose');
-  const counterPlanesWindowCancelBtn = document.getElementById('counterPlanesWindowCancel');
-  const counterPlanesWindowFireBtn = document.getElementById('counterPlanesWindowFire');
-  const counterPlanesWindowBaseHpEl = document.getElementById('counterPlanesWindowBaseHp');
-  const counterPlanesWindowBaseBarEl = document.getElementById('counterPlanesWindowBaseBar');
-  const counterPlanesWindowThreatsEl = document.getElementById('counterPlanesWindowThreats');
-  const counterPlanesWindowCostEl = document.getElementById('counterPlanesWindowCost');
-
-  function openCounterPlanesWindow() {
-    counterPlanesWindowOpen = true;
-    counterPlanesWindowEl.classList.remove('hidden');
-    renderCounterPlanesWindow();
-  }
-  function closeCounterPlanesWindow() {
-    counterPlanesWindowOpen = false;
-    counterPlanesWindowEl.classList.add('hidden');
-  }
-  function renderCounterPlanesWindow() {
-    counterPlanesWindowBaseHpEl.textContent = Math.max(0, Math.round(nodeA.health));
-    counterPlanesWindowBaseBarEl.style.width = Math.max(0, nodeA.health / PLAYER_MAX_HEALTH * 100) + '%';
-    const { targets, planeCount, cost } = counterPlanesPlan();
-    if (planeCount === 0) {
-      // every threat this window was opened for resolved while it was
-      // open - nothing left to scramble against, close rather than sit
-      // on a stale view (same rule the Counter Missile window uses).
-      closeCounterPlanesWindow();
-      return;
-    }
-    let html = '';
-    for (let i = 0; i < planeCount; i++) {
-      const t = targets[i];
-      const remaining = Math.max(0, t.totalSeconds - t.age);
-      const pct = Math.max(0, Math.min(100, remaining / t.totalSeconds * 100));
-      html += `<div class="counterPlanesThreat">
-        <div class="counterPlanesThreatName">${t.name} [${(t.sizeKey || '').toUpperCase()}]</div>
-        <div class="counterPlanesThreatStats">SPD ${Math.round(Math.abs(t.vx))} &middot; IMPACT ${formatETA(remaining)}</div>
-        <div class="barOuter"><div class="barInner" style="background:var(--red); width:${pct}%"></div></div>
-      </div>`;
-    }
-    // LRNA-135: each plane can only kill one target, so scrambling never
-    // engages more than these `planeCount` threats - but if more are
-    // inbound, say so, rather than letting the player assume this covers
-    // everything currently on radar.
-    if (targets.length > planeCount) {
-      html += `<div class="counterPlanesThreat" style="opacity:0.6; text-align:center;">
-        +${targets.length - planeCount} more inbound - not covered by this scramble
-      </div>`;
-    }
-    counterPlanesWindowThreatsEl.innerHTML = html;
-    counterPlanesWindowCostEl.textContent = cost;
-    counterPlanesWindowFireBtn.disabled = tokens.counter < cost;
-  }
-  counterPlanesWindowFireBtn.addEventListener('click', () => {
-    if (!running || !counterPlanesWindowOpen) return;
-    fireCounterAttackPlanes();
-    closeCounterPlanesWindow();
-  });
-  counterPlanesWindowCancelBtn.addEventListener('click', closeCounterPlanesWindow);
-  counterPlanesWindowCloseBtn.addEventListener('click', closeCounterPlanesWindow);
 
   // ---- SEEK AND DESTROY window (LRNA-063, scoped MVP): opened from the
   // Intelligence panel, shows the 3 hidden nodes (UNKNOWN until a recon
@@ -3107,7 +2998,6 @@
   function reset(initial) {
     if (siegeActive) { siegeActive = false; siegeTimerEl.classList.add('hidden'); }
     closeMissionMap();
-    closeCounterPlanesWindow();
     missiles = [];
     particles = [];
     launchRings = [];
@@ -4726,7 +4616,6 @@
     // missionMapOpen like the window they used to share.
     renderMissionMapStrip();
     renderMissionMapRecon();
-    if (counterPlanesWindowOpen) renderCounterPlanesWindow();
 
     tokens.attack += TOKEN_PASSIVE_RATE * dt;
     tokens.counter += TOKEN_PASSIVE_RATE * dt;

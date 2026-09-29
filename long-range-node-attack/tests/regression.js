@@ -1205,6 +1205,37 @@ test('LRNA-158: COUNTER MISSILE fires directly from the bottom bar - no window, 
   });
 });
 
+test('LRNA-160: COUNTER ATTACK PLANES fires directly from the bottom bar - no popup', async () => {
+  await withGame(async (page, errors) => {
+    await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.forceOpeningUnlock();
+      T.freezeWaves();
+      T.clearMissiles();
+      T.neutralizeAutoDefense();
+      T.tokens.counter = 99999;
+      const m = T.launchEnemyStrike(T.nodeO, T.nodeA);
+      m.age = 2;
+      m.weaponClass = 'plane'; // Counter Attack Planes only engages plane-class threats (LRNA-158)
+      T.updateCounterPlanesBtn();
+    });
+    const before = await page.evaluate(() => ({
+      counterTokens: window.__TEST__.tokens.counter,
+      countersInFlight: window.__TEST__.missiles.filter((mm) => mm.typeKey === 'counter').length,
+    }));
+    await page.click('#counterPlanesBtn');
+    const after = await page.evaluate(() => ({
+      counterTokens: window.__TEST__.tokens.counter,
+      countersInFlight: window.__TEST__.missiles.filter((mm) => mm.typeKey === 'counter').length,
+      popupExists: !!document.getElementById('counterPlanesWindow'),
+    }));
+    assert(!after.popupExists, 'there should be no Counter Attack Planes popup in the DOM at all');
+    assert(after.countersInFlight > before.countersInFlight, 'clicking COUNTER ATTACK PLANES should launch its intercept immediately');
+    assert(after.counterTokens < before.counterTokens, 'clicking COUNTER ATTACK PLANES should spend Counter tokens immediately');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 test('LRNA-158: STATS button opens a pure reference window - GAME MODE/RUN STATS/TARGETS only, no COUNTER or RECON content', async () => {
   // Supersedes the old LRNA-084/154 versions of this test: #opsCenterBtn
   // is #statsBtn now, and the window it opens dropped COUNTER/RECON
@@ -1245,7 +1276,7 @@ test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-de
         reconDroneBtnGone: !document.getElementById('reconDroneBtn'),
         missionMapReconBtnGone: !document.getElementById('missionMapReconBtn'), // LRNA-158: the bottom bar's own DRONE button already covers this
         upgradeListGone: !document.getElementById('upgradeList'), // LRNA-159: Reactor Upgrades removed entirely
-        counterPlanesWindowStillExists: !!document.getElementById('counterPlanesWindow'), // LRNA-158: left as-is, explicitly not decided either way this pass
+        counterPlanesWindowGone: !document.getElementById('counterPlanesWindow'), // LRNA-160: Counter Attack Planes fires directly now
         allInsideStats: ['siegeToggleBtn', 'statsList', 'targetList'].every(inside),
         allVisible: ['siegeToggleBtn', 'statsList', 'targetList'].every(visible),
       };
@@ -1255,7 +1286,7 @@ test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-de
     assert(result.reconDroneBtnGone, 'the standalone #reconDroneBtn duplicate should no longer exist');
     assert(result.missionMapReconBtnGone, 'the merged-window RECON DRONE button should no longer exist - the bottom bar DRONE button already covers it');
     assert(result.upgradeListGone, '#upgradeList should no longer exist - LRNA-159 removed Reactor Upgrades entirely');
-    assert(result.counterPlanesWindowStillExists, '#counterPlanesWindow should still exist - LRNA-158 left this specific piece unresolved rather than guessing');
+    assert(result.counterPlanesWindowGone, '#counterPlanesWindow should no longer exist - LRNA-160 made Counter Attack Planes fire directly');
     assert(result.allInsideStats, 'GAME MODE/RUN STATS/TARGETS should all now live inside #missionMapWindow');
     assert(result.allVisible, 'the STATS sections should actually render visible once open, not just exist hidden in the DOM');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));

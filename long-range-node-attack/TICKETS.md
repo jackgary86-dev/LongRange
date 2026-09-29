@@ -738,8 +738,34 @@ them up in order, or together if convenient.
     earlier Playwright-script cooldown bugs, this time inside a real
     regression test rather than a throwaway scratch script. Fixed by
     awaiting a real `setTimeout` between attempts instead. 48 tests
-    total (47 + 1 new), stable across 8 consecutive runs, zero console
-    errors.
+    total (47 + 1 new), zero console errors. Stability: an 8-run check
+    started mid-session was invalid (the file was being edited for
+    LRNA-158 while it ran, and its last 2 runs failed for that reason);
+    the combined LRNA-158+159 state was then re-checked cleanly, 48/48
+    on 5 consecutive runs, before committing.
+- **LRNA-160** — DONE (2026-09-29) — Counter Attack Planes fires directly
+  from the bottom bar; `#counterPlanesWindow` (its scramble-and-confirm
+  popup) is removed. Resolves the one piece LRNA-158 left open. The
+  direction was shown and approved on a separate build first: the same
+  change was made by mistake in the `jackgary86-dev/Alert` repo's copy
+  of this game (its LRNA-100), and after trying it the owner said "I can
+  use my counter buttons on this screen now to intercept and recon",
+  then asked for all of that night's Alert work to be moved here.
+  - `#counterPlanesBtn`'s click now calls `fireCounterAttackPlanes()`
+    directly, matching Counter Missile. `counterPlanesPlan()`'s
+    targeting and cost logic (1 plane at half price for a single threat,
+    2 for two or more, plane-class threats only per LRNA-158) is
+    unchanged.
+  - Removed: the popup's markup, CSS, `open`/`close`/`render` functions,
+    and its `reset()`/per-frame hooks.
+  - **Lost with the popup**: LRNA-135's "+N more inbound - not covered by
+    this scramble" note. With direct fire there's no pre-fire view to
+    show it in; the button's own "1 plane / 2 planes" label is now the
+    only hint at coverage.
+  - Tests: LRNA-158's STATS test now asserts the popup is gone rather
+    than still present; new test confirms a click on COUNTER ATTACK
+    PLANES spends tokens and launches the intercept immediately, with
+    no popup. 49/49.
 
 ---
 
