@@ -397,6 +397,15 @@ in the bottom bar. Confirmed directly before filing:
   touch pause at all, so enemy strikes and wave timers keep running
   underneath them.
 
+Update (2026-09-29, same session): the "split into two screens by
+pillar" direction above only survived as far as LRNA-154 shipping.
+Immediately after, the direct request reversed course - see LRNA-158,
+which keeps every ability button on Main View after all and turns the
+second screen into a pure STATS reference window instead. LRNA-155 is
+marked superseded rather than deleted; LRNA-156/157 got updated notes
+reflecting the new framing rather than being rewritten outright, since
+neither had shipped yet.
+
 Scoped as 3 tickets since they're logically separable (a merged screen
 with the old bottom-bar buttons still present is a valid intermediate
 state; so is a pruned bottom bar before the pause behavior lands) - pick
@@ -453,17 +462,17 @@ them up in order, or together if convenient.
   4 rows are now fully clear of the bottom bar. Regression suite (47
   tests, 45 original + 2 new) passes, stable across 8 consecutive runs,
   zero console errors.
-- **LRNA-155** — Prune Main View's bottom bar to ATTACK + Emergency
-  Counter only. Remove the COUNTER and INTEL `abilityGroup` blocks
-  (`data-pillar="counter"`/`"intel"`) from the bottom bar - Counter
-  Missile, Counter Attack Planes, Drone, and Recon Plane stop being
-  directly fireable from Main View once LRNA-154 gives them a home in
-  Counter Center. Emergency Counter (`#emergencyBtn`) stays - it's
-  explicitly the one counter action still usable while attacking, per
-  the direct request ("I can only do a emergency button quick counter on
-  the main screen when I'm attacking"). Depends on LRNA-154 landing
-  first (or at least alongside) - pulling these buttons before their
-  abilities have a working home elsewhere would strand them.
+- **LRNA-155** — SUPERSEDED by LRNA-158 (2026-09-29, before any code was
+  written against it). Originally: prune Main View's bottom bar to
+  ATTACK + Emergency Counter only, moving Counter Missile/Counter Attack
+  Planes/Drone/Recon Plane into Counter Center. Reversed in the same
+  design-review session, immediately after LRNA-154 shipped and while
+  this ticket was still being scoped out: the direct request became
+  "bring all the buttons to the main screen" instead - see LRNA-158 for
+  the actual direction that replaced this one. Left in place (not
+  deleted) so the reversal itself stays on the record, same as how
+  earlier stale/superseded tickets in this file were handled rather than
+  silently removed.
 - **LRNA-156** — Pause the live battle while Counter Center is open.
   Call `setPaused(true)` on open and restore the prior state on close
   (don't force-unpause if the player had already manually paused before
@@ -473,29 +482,94 @@ them up in order, or together if convenient.
   reflect it) rather than inventing a second pause mechanism. Real
   behavior change, not pure presentation - worth flagging that this
   removes the current time pressure of reacting to an inbound strike
-  while doing recon/counter setup (Emergency Counter on Main View,
-  LRNA-155, becomes the only way to react to a strike in real time once
-  this lands - confirm that's still enough of an outlet before shipping).
+  while doing recon setup (updated note, 2026-09-29: LRNA-158 keeps
+  Counter Missile/Counter Attack Planes/Emergency Counter on Main View
+  after all, superseding LRNA-155's plan to move them out - so the real
+  question this flag now raises is narrower, just about RECON: is losing
+  real-time reaction ability while checking SEEK AND DESTROY/AntiPlane
+  status and RUN STATS/REACTOR UPGRADES in the STATS window an
+  acceptable tradeoff, now that countering itself stays live on Main
+  View regardless of whether STATS is open).
 - **LRNA-157** — Move the START SIEGE button out of GAME MODE. Direct,
   separate request from the same session, right after LRNA-154 through
   LRNA-156 were filed - a distinct ask from "your call" latitude given
   where in `#opsCenterPanel`'s GAME MODE section `#siegeToggleBtn` (with
   its `#modeStatus` sandbox/siege readout) currently lives, but the
   target location wasn't specified; whoever picks this up should confirm
-  the destination rather than guess. Worth noting the connection to
-  LRNA-154: once GAME MODE moves into Counter Center along with the rest
-  of `#opsCenterPanel`'s content, starting/ending a siege - a session-
-  level mode toggle, not a Counter or Recon operation - arguably doesn't
-  belong buried in a Counter/Recon-only screen either, which is likely
-  part of why this was called out separately. The most obvious candidate
-  given the new architecture: promote it to a standalone top-level HUD
-  button alongside `#pauseBtn`/`#muteBtn` (same visual language already
-  established there - see ART-4's gradient/corner-bracket treatment),
-  since it's a meta/session control like PAUSE and MUTE, not attack-,
-  counter-, or recon-specific - confirm with a screenshot before
-  committing to that placement, and keep `#modeStatus`'s sandbox-vs-siege
-  readout somewhere still visible (Counter Center's RUN STATS section is
-  the natural home for the readout even if the button itself moves out).
+  the destination rather than guess. Originally reasoned about relative
+  to a "Counter/Recon-only" second screen - that framing is gone now
+  that LRNA-158 makes the second screen a pure STATS window (GAME MODE/
+  RUN STATS/TARGETS/REACTOR UPGRADES, no operational buttons at all), so
+  the original rationale for pulling START SIEGE out to a top-level
+  button alongside `#pauseBtn`/`#muteBtn` is weaker than when this was
+  filed - GAME MODE arguably belongs in STATS as naturally as RUN STATS
+  does now. Still worth confirming with the person asking rather than
+  assuming either way before implementing.
+- **LRNA-158** — Revised architecture, filed live while LRNA-155 was
+  still being scoped (superseding it before any code touched it): one
+  screen, not two. Two direct requests, back to back, the second
+  generalizing the first:
+  1. "Scrap the WHOLE counter operations window and just bring all the
+     buttons to the main screen - Add this Counter Operations bar so I
+     can track incoming missiles and counter them by plane or missile"
+     (with a screenshot of the existing zone-strip/`#missionMapStrip`
+     visual attached, pointing at what the new bar should look like).
+  2. "So One Screen --- 2 Bars -- 1 map - all buttons -- Move all the
+     stats stuff to a window where Operations center is and Call it
+     STATS."
+  Net direction: Main View keeps (or regains) every ability button -
+  ATTACK, COUNTER (Counter Missile, Counter Attack Planes, Emergency
+  Counter), and INTEL (Drone, Recon Plane) all fire directly from the
+  bottom bar, same as before LRNA-154/155 ever touched it. A new second
+  bar - a persistent "Counter Operations" strip on Main View itself,
+  visually based on the existing corridor/zone-strip
+  (`#missionMapStrip`'s look: Strike-Platform-to-Node-Omega track,
+  hazard-striped zones) - gives real-time visibility into inbound
+  missiles so the player can track and counter them (by plane or by
+  missile) without leaving the battlefield. The second screen
+  (`#missionMapWindow`, currently labeled COUNTER CENTER per LRNA-154)
+  stops being an operations screen at all - it's retitled STATS and
+  holds only the non-operational reference content: GAME MODE, RUN
+  STATS, TARGETS, REACTOR UPGRADES.
+  - This **reverses** LRNA-155's plan (COUNTER/INTEL leave the bottom
+    bar) - the opposite now: nothing leaves the bottom bar. Emergency
+    Counter is no longer a special exception among removed abilities;
+    it's just one of several counter abilities that were never removed.
+  - This **partially reverses LRNA-154's shipped work**: the COUNTER
+    section (Fire Counter Missile controls) and RECON section (SEEK AND
+    DESTROY/AntiPlane lists, recon-drone fire button) that LRNA-154
+    moved into the merged screen need to come back out - COUNTER's
+    fire controls return to the bottom bar's existing `#counterMissileBtn`
+    (already a real button there, currently just opening the merged
+    screen - it should fire directly again) and `#counterPlanesBtn`/
+    `#counterPlanesWindow` (LRNA-154 left this one untouched, still its
+    own modal - now the question is whether it stays a modal, gets
+    inlined into the new Counter Operations bar, or something else, see
+    below). What LRNA-154 actually keeps under the new STATS title: GAME
+    MODE, RUN STATS, TARGETS, REACTOR UPGRADES - the parts that were
+    never operational in the first place. The zone strip itself
+    (`#missionMapStrip`) is the one piece of the old merged screen that
+    the new Counter Operations bar is explicitly modeled on, so it may
+    move to Main View wholesale rather than being rebuilt from scratch.
+  - **Open calls for whoever builds this** (flagged rather than guessed,
+    same as every other "your call" item in this file): where do the
+    SEEK AND DESTROY node list and discovered-AntiPlane list end up -
+    folded into the new Counter Operations bar/map (they're spatial,
+    corridor-position data, which argues for living there), kept in
+    STATS as reference info even though their action buttons move to
+    the bottom bar, or somewhere else? Does `#counterPlanesWindow`
+    (Counter Attack Planes' own scramble dialog, still a separate modal
+    after LRNA-154) get inlined into the new Counter Operations bar
+    too, or stay a modal opened from the bottom bar's
+    `#counterPlanesBtn` as it already does today? Confirm before
+    building rather than picking silently.
+  - LRNA-156 (pause while the second screen is open) still applies, now
+    to the renamed STATS window - if anything, pausing for a pure
+    reference window (no operational buttons left in it at all) is an
+    easier call than pausing over live counter/recon controls was.
+  - LRNA-157 (move START SIEGE) - see its own updated note; the
+    STATS-not-Counter-Center framing weakens the original case for
+    pulling it out to a top-level button.
 
 ---
 
