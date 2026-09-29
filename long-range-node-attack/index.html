@@ -2820,6 +2820,10 @@
     const share = Math.floor(total / 3);
     return { attack: share, counter: share, intel: total - share * 2 };
   }
+  // LRNA-166: every game now starts from this purse - tokens no longer
+  // carry over from one game to the next (reset() below). "There is too
+  // much currency in rotation each game - lower this."
+  const STARTING_TOKENS = { attack: 500, counter: 500, intel: 500 };
   let tokens = { attack: 0, counter: 0, intel: 0 };
   let tokenSaveTimer = 1;
   (function loadTokens() {
@@ -2845,7 +2849,7 @@
     // fresh player had no real resource pressure for the first couple of
     // minutes regardless of difficulty. Still flat across categories, no
     // difficulty scaling.
-    tokens = { attack: 500, counter: 500, intel: 500 };
+    tokens = { ...STARTING_TOKENS };
   })();
   function saveTokens() {
     trySaveStorage(TOKENS_KEY, JSON.stringify(tokens));
@@ -2857,13 +2861,20 @@
   // target") and the old small counter/intel trickle. The only other way
   // to earn coins now is DMG_TO_COIN_RATIO below - every other bonus
   // (discovery, destroy, wave-clear, intercept) has been removed.
-  const TOKEN_PASSIVE_RATE = 100; // per second, every category
+  // LRNA-166: cut from 100/s. At 100/s every category earned 6,000 a
+  // minute on top of a carried-over balance, far more than a game could
+  // spend (the attack fire rate caps out near a Long Range every 2s, and
+  // counters are capped at 10/10/5 by LRNA-165).
+  const TOKEN_PASSIVE_RATE = 20; // per second, every category
   // Direct request: "only get extra coins from DMG impact of missiles
   // and planes on base... how much dmg was done back in coins one for
   // one" - every Attack-pillar weapon (main arsenal, planes, Attack
   // Drone) pays its own dealt damage back as coins, 1:1, on each landed
   // hit. Nothing else earns tokens beyond the flat passive rate above.
-  const DMG_TO_COIN_RATIO = 1;
+  // LRNA-166: cut from 1:1 to a quarter. At 1:1 every hit paid back more
+  // than it cost (a 500 Long Range returned 1,000), so attacking was a
+  // money printer; now a hit refunds part of its cost instead.
+  const DMG_TO_COIN_RATIO = 0.25;
 
   const LIFETIME_TOKENS_KEY = 'lrna_lifetime_tokens_v1';
   let lifetimeTokensTotal = 0;
@@ -3016,6 +3027,14 @@
     omegaCountersJamTimer = 0;
     omegaEmergencyCooldown = 0;
     resetCounterAmmo();
+    // LRNA-166: a fresh game starts from STARTING_TOKENS, not whatever the
+    // last game left behind. A dev snapshot resume (`initial`) keeps its
+    // balance, same as it keeps its wave.
+    if (!initial) {
+      tokens = { ...STARTING_TOKENS };
+      saveTokens();
+      updateTokenHud(false);
+    }
     initPlaneSlots();
     startWave((initial && typeof initial.wave === 'number') ? initial.wave : 1);
     waveResultEl.classList.add('hidden');
@@ -6790,6 +6809,8 @@
       fireAttackDrone: (apId) => fireAttackDrone(apId),
       fireCounterMissile: () => fireCounterMissile(),
       get counterAmmo() { return counterAmmo; },
+      get TOKEN_PASSIVE_RATE() { return TOKEN_PASSIVE_RATE; },
+      get DMG_TO_COIN_RATIO() { return DMG_TO_COIN_RATIO; },
       get omegaCounterAmmo() { return omegaCounterAmmo; },
       get COUNTER_AMMO() { return COUNTER_AMMO; },
       fireCounterAttackPlanes: () => fireCounterAttackPlanes(),

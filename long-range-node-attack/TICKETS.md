@@ -909,6 +909,27 @@ them up in order, or together if convenient.
     `disableOmegaCounters()` now also holds Omega's Emergency Counter
     (LRNA-137's EMP test was otherwise shot down by it). LRNA-116's HUD test
     is updated for the counts. 55/55.
+- **LRNA-166** — DONE (2026-09-29) — Less currency per game. Request:
+  "there is too much currency in rotation each game - lower this." No
+  amounts given; picked these, easy to retune:
+  - **No carry-over**: tokens used to be saved and carried from game to
+    game, so balances only ever grew. `reset()` now starts every fresh
+    game at `STARTING_TOKENS` (500 each, same as a brand-new player). A dev
+    snapshot resume keeps its balance, as it keeps its wave.
+  - **Passive income 100/s -> 20/s** per category (6,000 -> 1,200 a
+    minute).
+  - **Hit payback 1:1 -> 25%** (`DMG_TO_COIN_RATIO`). At 1:1 every hit
+    paid back more than it cost: a 500 Long Range returned 1,000, a 350
+    Strike Bomber 700. Now a hit refunds part of its cost: Long Range 250,
+    Medium 63, Fast 13.
+  - Rough effect: a 5-minute game used to add about 30,000 per category
+    plus hit profits, on top of whatever was carried in. It now starts at
+    500 and earns 6,000 per category, plus partial refunds.
+  - Tests: a real START resets a large carried-over balance to 500; a
+    guaranteed MEDIUM hit pays back 63 on top of 20/s passive. (That test
+    jams enemy defenses, because with every roll forced to succeed a field
+    target could shoot the missile down.) LRNA-159's passive-rate check
+    now expects 20/s. 57/57, three runs.
 - **LRNA-164** — DONE (2026-09-29) — Player planes no longer fly back
   from Omega. Report: "It looks like things are bouncing off the enemy
   base and coming back at me." Instrumenting 80s of play with every

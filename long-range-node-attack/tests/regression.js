@@ -907,6 +907,47 @@ test('LRNA-165: a new game refills both sides\' counters', async () => {
   }, { skipStart: true });
 });
 
+test('LRNA-166: tokens reset each game instead of carrying over', async () => {
+  await withGame(async (page, errors) => {
+    // a big balance left over from an earlier game, then a real START
+    await page.evaluate(() => { const T = window.__TEST__; T.tokens.attack = 50000; T.tokens.counter = 40000; T.tokens.intel = 30000; });
+    await page.click('#startGameBtn');
+    const t = await page.evaluate(() => ({ ...window.__TEST__.tokens }));
+    for (const k of ['attack', 'counter', 'intel']) {
+      assert(t[k] >= 500 && t[k] < 520, `${k} should restart at 500, not carry over: got ${t[k]}`);
+    }
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('LRNA-166: passive income is 20/s and a hit pays back a quarter of its damage', async () => {
+  await withGame(async (page, errors) => {
+    const result = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.forceOpeningUnlock();
+      T.freezeWaves();
+      T.clearMissiles();
+      T.disableOmegaCounters();
+      T.setEmpGlobalJamTimer(1e6); // with every roll forced to succeed, a defending field target would otherwise shoot it down
+      T.tokens.attack = 10000;
+      const m = T.launchAttack(T.nodeA, T.nodeO, 'medium'); // 250 dmg
+      m.defended = true;
+      const before = T.tokens.attack;
+      const realRandom = Math.random;
+      Math.random = () => 0.01; // guaranteed hit
+      let steps = 0;
+      for (; steps < 1000 && T.missiles.some(x => x.id === m.id); steps++) T.tickUpdate(0.05);
+      Math.random = realRandom;
+      const passive = T.TOKEN_PASSIVE_RATE * steps * 0.05;
+      return { rate: T.TOKEN_PASSIVE_RATE, ratio: T.DMG_TO_COIN_RATIO, hitReward: T.tokens.attack - before - passive };
+    });
+    assertEqual(result.rate, 20, 'passive income should be 20/s per category');
+    assertEqual(result.ratio, 0.25, 'hits should pay back a quarter of their damage');
+    assert(Math.abs(result.hitReward - 63) < 1, `a 250-damage MEDIUM hit should pay back 63 (was 250): got ${result.hitReward}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 test('LRNA-143: UI_DISABLED_TYPES is the single source of truth for launch-bar-less weapon types', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
@@ -1578,7 +1619,8 @@ test('LRNA-159: Reactor Upgrades removed entirely - no UI remnants, and every me
     assertEqual(result.dmg, 50, `FAST warhead damage should be its plain base value (TYPES.fast.dmg = 50), no Overcharged Warheads multiplier: got ${result.dmg}`);
     assertEqual(result.activeAtCap, 3, 'active-shot cap should be the plain MAX_ACTIVE (3), no Expanded Ammo Bay bonus');
     assertEqual(result.activeAfterOneMore, 3, 'a 4th shot should still be refused at the plain cap');
-    assert(Math.abs(result.intelGain - 100) < 1, `Intel should accrue at the plain TOKEN_PASSIVE_RATE (100/s), no Reactor Boost bonus: got ${result.intelGain}/s`);
+    // LRNA-166 lowered TOKEN_PASSIVE_RATE from 100/s to 20/s
+    assert(Math.abs(result.intelGain - 20) < 1, `Intel should accrue at the plain TOKEN_PASSIVE_RATE (20/s), no Reactor Boost bonus: got ${result.intelGain}/s`);
     assert(result.upgradeListGone, '#upgradeList should not exist anywhere in the DOM');
     assert(result.dataUpgradeGone, 'no [data-upgrade] button should exist anywhere in the DOM');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
