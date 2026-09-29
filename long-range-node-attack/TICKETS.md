@@ -373,6 +373,99 @@ never pixels) passed unmodified through every one of them.
 
 ---
 
+## OPEN — Counter Center Restructuring
+
+Direct request from a live design-review session (2026-09-29), working from
+a screenshot of the current Operations Center panel. The panel itself is
+cramped and overflows (TARGETS can run long enough to push INTELLIGENCE/
+REACTOR UPGRADES behind the bottom ability bar), but the real ask goes
+beyond a restyle: split the game into two explicit screens by pillar,
+instead of one battlefield view with all 3 pillars' buttons always present
+in the bottom bar. Confirmed directly before filing:
+- Operations Center (game mode/stats/targets/upgrades) and Mission Map
+  (Counter fire controls + SEEK AND DESTROY recon status/actions) merge
+  into one second screen - "Counter Center." One place for everything
+  that isn't attacking, not two.
+- Main View (the battlefield/attacking screen) drops the COUNTER and
+  INTEL button groups from the bottom bar entirely - only ATTACK's 3
+  buttons plus Emergency Counter remain. Counter Missile, Counter Attack
+  Planes, Recon Drone, and Recon Plane become reachable only from Counter
+  Center.
+- Opening Counter Center pauses the live battle (reuses the existing
+  `setPaused`/`paused` mechanism already gating `update(dt)` in the main
+  loop) - new behavior; today `openMissionMap()`/Operations Center don't
+  touch pause at all, so enemy strikes and wave timers keep running
+  underneath them.
+
+Scoped as 3 tickets since they're logically separable (a merged screen
+with the old bottom-bar buttons still present is a valid intermediate
+state; so is a pruned bottom bar before the pause behavior lands) - pick
+them up in order, or together if convenient.
+
+- **LRNA-154** — Merge Operations Center and Mission Map into one Counter
+  Center screen. Combine `#opsCenterPanel`'s content (GAME MODE,
+  RUN STATS, TARGETS, INTELLIGENCE's recon-drone row, REACTOR UPGRADES)
+  with `#missionMapWindow`'s content (the zone strip, COUNTER section,
+  RECON/SEEK AND DESTROY section) into a single screen. Your call on the
+  concrete layout (tabs within one window, one long scrolling screen,
+  side-by-side columns given the extra width a full-screen takeover
+  affords vs. the old 230px sidebar) - but fix the overflow bug in the
+  process: TARGETS needs its own scroll region, not one that can push
+  later sections behind the bottom bar (`z-index` currently loses to
+  `#bottomBar` there). `openMissionMap()`/`closeMissionMap()` and
+  `renderMissionMap()` are the natural functions to extend; whether
+  `#opsCenterPanel` becomes dead code or gets repurposed as the new
+  screen's container is an implementation choice either way. Both
+  `#opsCenterBtn` and `#missionMapOpenBtn` should end up opening the same
+  merged screen. LRNA-084's original consolidation (old Counter Window +
+  SEEK AND DESTROY window -> Mission Map) is the precedent for this kind
+  of merge - same idea, one level up.
+- **LRNA-155** — Prune Main View's bottom bar to ATTACK + Emergency
+  Counter only. Remove the COUNTER and INTEL `abilityGroup` blocks
+  (`data-pillar="counter"`/`"intel"`) from the bottom bar - Counter
+  Missile, Counter Attack Planes, Drone, and Recon Plane stop being
+  directly fireable from Main View once LRNA-154 gives them a home in
+  Counter Center. Emergency Counter (`#emergencyBtn`) stays - it's
+  explicitly the one counter action still usable while attacking, per
+  the direct request ("I can only do a emergency button quick counter on
+  the main screen when I'm attacking"). Depends on LRNA-154 landing
+  first (or at least alongside) - pulling these buttons before their
+  abilities have a working home elsewhere would strand them.
+- **LRNA-156** — Pause the live battle while Counter Center is open.
+  Call `setPaused(true)` on open and restore the prior state on close
+  (don't force-unpause if the player had already manually paused before
+  opening it - track whatever `paused` was on open, restore that exact
+  value on close, not just `false`). Reuses the existing pause plumbing
+  (`paused` flag gates `update(dt)`; `pausedBannerEl`/`pauseBtnEl` already
+  reflect it) rather than inventing a second pause mechanism. Real
+  behavior change, not pure presentation - worth flagging that this
+  removes the current time pressure of reacting to an inbound strike
+  while doing recon/counter setup (Emergency Counter on Main View,
+  LRNA-155, becomes the only way to react to a strike in real time once
+  this lands - confirm that's still enough of an outlet before shipping).
+- **LRNA-157** — Move the START SIEGE button out of GAME MODE. Direct,
+  separate request from the same session, right after LRNA-154 through
+  LRNA-156 were filed - a distinct ask from "your call" latitude given
+  where in `#opsCenterPanel`'s GAME MODE section `#siegeToggleBtn` (with
+  its `#modeStatus` sandbox/siege readout) currently lives, but the
+  target location wasn't specified; whoever picks this up should confirm
+  the destination rather than guess. Worth noting the connection to
+  LRNA-154: once GAME MODE moves into Counter Center along with the rest
+  of `#opsCenterPanel`'s content, starting/ending a siege - a session-
+  level mode toggle, not a Counter or Recon operation - arguably doesn't
+  belong buried in a Counter/Recon-only screen either, which is likely
+  part of why this was called out separately. The most obvious candidate
+  given the new architecture: promote it to a standalone top-level HUD
+  button alongside `#pauseBtn`/`#muteBtn` (same visual language already
+  established there - see ART-4's gradient/corner-bracket treatment),
+  since it's a meta/session control like PAUSE and MUTE, not attack-,
+  counter-, or recon-specific - confirm with a screenshot before
+  committing to that placement, and keep `#modeStatus`'s sandbox-vs-siege
+  readout somewhere still visible (Counter Center's RUN STATS section is
+  the natural home for the readout even if the button itself moves out).
+
+---
+
 ## OPEN — Medium Priority Improvements
 
 (none currently - LRNA-115 through LRNA-117 shipped; see the resolution log below)
