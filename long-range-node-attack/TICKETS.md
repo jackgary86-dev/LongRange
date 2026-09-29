@@ -993,6 +993,19 @@ them up in order, or together if convenient.
     of over the Radar Lane and the Strike Platform.
   - Tests at 1280x800 and 390x844: nothing covers a HUD panel, and Omega's
     readout is filled in. 63/63; the 4 new tests fail on the old code.
+- **LRNA-170** — DONE (2026-09-29) — The address shown is wherever the
+  game was opened from. The HUD and the start screen's ENTRANCE box both
+  printed a fixed `192.168.1.36:2001`, which went stale once the game
+  moved hosts (it's being rehosted on 192.168.1.89).
+  - `showHostAddress()` fills both from `location.host` when the page was
+    served over http(s). The ENTRANCE path line shows the folder
+    (`location.pathname` minus a trailing file name) and is hidden at `/`.
+    Opened as a local file there's no address, so both are hidden.
+  - Test: as a file, nothing shown and no 192.168.1.36 anywhere visible;
+    served at `http://192.168.1.89:2001/` (via Playwright routing) it shows
+    `192.168.1.89:2001` with no path line; at
+    `http://gameserver.lan:8080/long-range-node-attack/index.html` it shows
+    that host and `/long-range-node-attack/`. 64/64.
 - **LRNA-164** — DONE (2026-09-29) — Player planes no longer fly back
   from Omega. Report: "It looks like things are bouncing off the enemy
   base and coming back at me." Instrumenting 80s of play with every

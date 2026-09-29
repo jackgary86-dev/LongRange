@@ -1068,7 +1068,7 @@
       <div class="barOuter"><div class="barInner" id="aBar" style="background:var(--green)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="aImpacts">0</span></div>
     </div>
-    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span class="url">192.168.1.36:2001</span><br></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span> <span class="tokenChip" style="color:#35e6ff">&#9679; <span id="tokenIntel">0</span></span></span><br><span id="waveHud">WAVE 1</span></div>
+    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span id="hudHostLine"><span class="url" id="hudHost"></span><br></span></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span> <span class="tokenChip" style="color:#35e6ff">&#9679; <span id="tokenIntel">0</span></span></span><br><span id="waveHud">WAVE 1</span></div>
     <div class="panel right">
       <div>NODE OMEGA — <span id="oHealth">250</span>/250</div>
       <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
@@ -1318,8 +1318,8 @@
     <div class="featuring">12 FIELD TARGETS &middot; HIDDEN ENEMY NODES &middot; AUTO-SEEKING INTERCEPTORS</div>
     <div id="entrance">
       ENTRANCE<br>
-      <span class="url">192.168.1.36:2001</span>
-      <div class="path">/long-range-node-attack/</div>
+      <span class="url" id="entranceHost"></span>
+      <div class="path" id="entrancePath"></div>
     </div>
   </div>
 </div>
@@ -1334,6 +1334,23 @@
   const bottomBarEl = document.getElementById('bottomBar');
   const counterOpsBarEl = document.getElementById('counterOpsBar'); // LRNA-158
   const overlay = document.getElementById('overlay');
+
+  // LRNA-170: the HUD and the start screen's ENTRANCE box used to print a
+  // fixed 192.168.1.36:2001, which went stale as soon as the game was
+  // hosted anywhere else. Show the address this page was actually opened
+  // from; opened as a local file there is no address, so both are hidden.
+  (function showHostAddress() {
+    const host = /^https?:$/.test(location.protocol) ? location.host : '';
+    document.getElementById('hudHostLine').hidden = !host;
+    document.getElementById('entrance').hidden = !host;
+    if (!host) return;
+    document.getElementById('hudHost').textContent = host;
+    document.getElementById('entranceHost').textContent = host;
+    const dir = location.pathname.replace(/[^/]*$/, ''); // drop a trailing index.html
+    const pathEl = document.getElementById('entrancePath');
+    pathEl.textContent = dir;
+    pathEl.hidden = dir === '/';
+  })();
   const contactListEl = document.getElementById('contactList');
   const targetListEl = document.getElementById('targetList');
   const targetLabelEl = document.getElementById('targetLabel');

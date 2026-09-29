@@ -1651,6 +1651,40 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
   });
 }
 
+test('LRNA-170: the HUD and ENTRANCE box show the address the game was opened from', async () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  await withGame(async (page, errors) => {
+    const read = () => page.evaluate(() => ({
+      hud: document.getElementById('hudHost').textContent,
+      hudShown: !document.getElementById('hudHostLine').hidden,
+      entrance: document.getElementById('entranceHost').textContent,
+      entranceShown: !!document.getElementById('entrance').offsetParent,
+      path: document.getElementById('entrancePath').textContent,
+      pathShown: !document.getElementById('entrancePath').hidden,
+      stale: document.body.innerText.includes('192.168.1.36'),
+    }));
+    const asFile = await read(); // the harness opens it as file://
+    const serve = (url) => page.route(url, (route) => route.fulfill({ contentType: 'text/html', body: html }));
+    await serve('http://192.168.1.89:2001/**');
+    await page.goto('http://192.168.1.89:2001/');
+    const atRoot = await read();
+    await serve('http://gameserver.lan:8080/**');
+    await page.goto('http://gameserver.lan:8080/long-range-node-attack/index.html');
+    const inFolder = await read();
+    assert(!asFile.hudShown && !asFile.entranceShown, `opened as a file there is no address to show: ${JSON.stringify(asFile)}`);
+    assert(!asFile.stale, 'the old fixed 192.168.1.36 address should be gone');
+    assertEqual(atRoot.hud, '192.168.1.89:2001', 'HUD address');
+    assertEqual(atRoot.entrance, '192.168.1.89:2001', 'ENTRANCE address');
+    assert(atRoot.hudShown && atRoot.entranceShown && !atRoot.pathShown, `served from the root: address shown, no path line: ${JSON.stringify(atRoot)}`);
+    assertEqual(inFolder.hud, 'gameserver.lan:8080', 'any host and port');
+    assertEqual(inFolder.path, '/long-range-node-attack/', 'the folder it was opened from, without index.html');
+    assert(inFolder.pathShown, 'the path line should show when the game is in a folder');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
 test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon lists', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {
