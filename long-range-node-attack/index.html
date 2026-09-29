@@ -2749,8 +2749,8 @@
   // ---- PLANE ARSENAL (LRNA-078, issue #435, LRNA-047's "Plane Class"):
   // a genuinely separate arsenal from the missile TYPES above, not a
   // reskin. One aircraft per type, not an infinite-fire button - it
-  // flies out, does its job, flies back if it survives, then needs
-  // PLANE_REARM_COOLDOWN before it can launch again. Represented as
+  // flies out and does its job (no flight home since LRNA-164), then
+  // needs PLANE_REARM_COOLDOWN before it can launch again. Represented as
   // `missiles` entries (typeKey 'plane') so Radar Lane visibility,
   // camera-tracking, minimap dots and being shot down all come free
   // from existing shared code, same as every other missile type.
@@ -3140,6 +3140,8 @@
     // Give the seeker exactly as long as the plane itself has left in its
     // current leg, rather than a fixed guess - it's pointless to keep
     // chasing past the moment the plane would complete that leg anyway.
+    // (LRNA-164 removed the return leg; the rule still fits the one
+    // outbound leg.)
     const totalSeconds = target.typeKey === 'plane' ? Math.max(1, target.totalSeconds - target.age) : COUNTER.totalSeconds;
     const missile = {
       id: Math.random().toString(36).slice(2, 9),
@@ -3529,7 +3531,7 @@
       vx: speed * dir,
       totalSeconds: def.eta, age: 0, peak: 200,
       boost: 1.4, boostTimer: 0, smokeTimer: 0,
-      phase: 'outbound', weavePhase: Math.random() * Math.PI * 2,
+      weavePhase: Math.random() * Math.PI * 2,
       pathProfile: PLANE_PATHS[(Math.random() * PLANE_PATHS.length) | 0],
       dodgesLeft: def.dodge ? 1 : 0,
     };
@@ -4263,9 +4265,8 @@
         continue;
       }
 
-      // ---- plane arsenal (LRNA-078/#435): out to its job, back to base
-      // if it survives, then rearm - genuinely two flight legs, not one
-      // ballistic hop like every missile type above.
+      // ---- plane arsenal (LRNA-078/#435): out to its job, then rearm.
+      // LRNA-164 removed the flight back to base.
       if (m.typeKey === 'plane') {
         const speedFrac0 = Math.min(1, Math.abs(m.vx) / 700);
         m.smokeTimer -= dt;
@@ -4284,91 +4285,45 @@
           maybeSpawnSpeedLine(m, m.x - dir0 * (m.radius + 3), vh() / 2 + m.laneY + weaveOffset(m) - alt0 + 4); // LRNA-087
         }
 
-        if (m.phase === 'outbound') {
-          let arrived = false;
-          if (m.planeKind === 'interceptorJet') {
-            const target = missiles.find(mm => mm.id === m.seekTargetId && !toRemove.has(mm.id));
-            if (!target) {
-              arrived = true; // target already resolved by someone/something else
-            } else {
-              const dir = target.x > m.x ? 1 : -1;
-              m.vx = Math.abs(m.vx) * dir;
-              m.x += m.vx * dt;
-              const prox = Math.abs(target.x - m.x);
-              if (prox <= 18) {
-                if (Math.random() < PLANE_TYPES.interceptorJet.hitChance) {
-                  sfxIntercept();
-                  spawnBurst(m.x, vh() / 2 + m.laneY, '#8f6bff', 26);
-                  spawnScorch(m.x, 30, 'rgba(143,107,255,0.35)');
-                  stats.intercepts += 1;
-                  toRemove.add(target.id);
-                } else {
-                  sfxMiss();
-                }
-                arrived = true;
-              } else if (m.age >= m.totalSeconds * 3) {
-                arrived = true; // gave up the chase
-              }
-            }
+        let arrived = false;
+        if (m.planeKind === 'interceptorJet') {
+          const target = missiles.find(mm => mm.id === m.seekTargetId && !toRemove.has(mm.id));
+          if (!target) {
+            arrived = true; // target already resolved by someone/something else
           } else {
+            const dir = target.x > m.x ? 1 : -1;
+            m.vx = Math.abs(m.vx) * dir;
             m.x += m.vx * dt;
-            const dist = Math.abs(m.dest.x - m.x);
-            if (dist <= 20 || m.age >= m.totalSeconds) {
-              resolvePlaneOutboundJob(m);
+            const prox = Math.abs(target.x - m.x);
+            if (prox <= 18) {
+              if (Math.random() < PLANE_TYPES.interceptorJet.hitChance) {
+                sfxIntercept();
+                spawnBurst(m.x, vh() / 2 + m.laneY, '#8f6bff', 26);
+                spawnScorch(m.x, 30, 'rgba(143,107,255,0.35)');
+                stats.intercepts += 1;
+                toRemove.add(target.id);
+              } else {
+                sfxMiss();
+              }
               arrived = true;
+            } else if (m.age >= m.totalSeconds * 3) {
+              arrived = true; // gave up the chase
             }
           }
-          if (arrived) {
-            const def = PLANE_TYPES[m.planeKind];
-            // LRNA-123 safety: if plane type is invalid/removed, force-land it now
-            if (!def) {
-              m.x = nodeA.x;
-              const slot = planeSlots[m.planeKind];
-              if (slot) { slot.state = 'rearming'; slot.cooldown = PLANE_REARM_COOLDOWN; }
-              spawnBurst(nodeA.x, vh() / 2 + m.laneY, m.color, 12);
-              toRemove.add(m.id);
-              updatePlaneButtons();
-            } else {
-              const backDist = Math.max(1, Math.abs(nodeA.x - m.x));
-              const dir = nodeA.x > m.x ? 1 : -1;
-              m.phase = 'returning';
-              m.age = 0;
-              m.totalSeconds = def.eta;
-              m.vx = (backDist / def.eta) * dir;
-              // LRNA-141: dodge used to be spent for the whole round trip
-              // the moment Omega's Counter Planes first tried it outbound,
-              // leaving the plane defenseless for the entire return leg -
-              // effectively single-use per sortie despite the per-flight
-              // framing. A fresh dodge charge for the return leg makes it
-              // actually persist across the whole flight, not just the
-              // first half of it.
-              if (def.dodge) m.dodgesLeft = 1;
-            }
+        } else {
+          m.x += m.vx * dt;
+          const dist = Math.abs(m.dest.x - m.x);
+          if (dist <= 20 || m.age >= m.totalSeconds) {
+            resolvePlaneOutboundJob(m);
+            arrived = true;
           }
-          continue;
         }
-
-        // returning: the trip home always takes exactly def.eta seconds
-        // (vx = backDist / def.eta), so a plane recalled from deep in enemy
-        // territory returns at a much higher speed than one recalled from
-        // nearby - fast enough, at a long enough backDist, that a single
-        // frame's step can jump clean over the `homeDist <= 20` arrival
-        // window without ever landing inside it. Left unguarded, that read
-        // as the plane "flying through"/overshooting the base at speed
-        // instead of landing - catch it by also checking whether this
-        // frame's move crossed nodeA.x, not just whether it's currently
-        // close to it. LRNA-123: added guards for NaN velocity and forced
-        // landing if velocity is invalid.
-        const prevX = m.x;
-        m.x += m.vx * dt;
-        const homeDist = Math.abs(nodeA.x - m.x);
-        const crossedHome = (prevX - nodeA.x) * (m.x - nodeA.x) <= 0;
-        const invalidVelocity = !isFinite(m.vx) || m.vx === 0;
-        if (invalidVelocity || homeDist <= 20 || crossedHome || m.age >= m.totalSeconds * 1.5) {
-          m.x = nodeA.x;
+        if (arrived) {
+          // LRNA-164: no return leg - a plane flying home read as
+          // something bouncing off Omega and coming back at the player.
+          // It's done once its job resolves; the slot starts rearming now.
           const slot = planeSlots[m.planeKind];
           if (slot) { slot.state = 'rearming'; slot.cooldown = PLANE_REARM_COOLDOWN; }
-          spawnBurst(nodeA.x, vh() / 2 + m.laneY, m.color, 12);
           toRemove.add(m.id);
           updatePlaneButtons();
         }
@@ -6521,7 +6476,7 @@
       btn.dataset.plane = def.key;
       btn.style.setProperty('--btncolor', def.color);
       btn.innerHTML = `<span class="btnLabel">${def.label}</span>` +
-        `<span class="btnEta">${def.eta}s out/back</span>` +
+        `<span class="btnEta">${def.eta}s flight</span>` +
         `<span class="btnDmg">&#9679; ${def.cost} ${pillar.toUpperCase()}</span>`;
       btn.addEventListener('click', () => {
         if (!running) return;
@@ -6565,7 +6520,7 @@
         btn.disabled = tokens[def.pillar] < def.cost;
         btn.classList.remove('away');
         etaEl.classList.remove('rearming');
-        etaEl.textContent = `${def.eta}s out/back`;
+        etaEl.textContent = `${def.eta}s flight`;
       } else if (slot.state === 'flying') {
         btn.disabled = true;
         btn.classList.add('away');
@@ -6761,6 +6716,7 @@
       launchAttack: (origin, dest, typeKey, overrides) => launchAttack(origin, dest, typeKey, overrides),
       launchEnemyStrike: (origin, dest) => launchEnemyStrike(origin, dest),
       firePlane: (key) => firePlane(key),
+      get planeSlots() { return planeSlots; },
       startWave: (n) => startWave(n),
       get waveIsElite() { return waveIsElite; },
       get waveStrikesLaunched() { return waveStrikesLaunched; },

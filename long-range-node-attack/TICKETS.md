@@ -846,6 +846,33 @@ them up in order, or together if convenient.
   auto` on the content instead of flex centering), but not yet verified
   on a real phone. Related, also pre-existing: at 375px wide the bottom
   bar alone is ~600px tall, leaving almost no battlefield visible.
+- **LRNA-164** — DONE (2026-09-29) — Player planes no longer fly back
+  from Omega. Report: "It looks like things are bouncing off the enemy
+  base and coming back at me." Instrumenting 80s of play with every
+  weapon type found exactly one thing reversing direction: a player
+  Strike Fighter turning around at Omega for its designed return leg
+  (LRNA-078). It shares its silhouette with Omega's plane-class strikes,
+  so it read as an enemy coming in. Missiles, counters and enemy strikes
+  never reversed. Asked which fix; the answer was "Disappear after
+  bombing": planes vanish at the target once they drop their bombs and
+  start rearming right away.
+  - A plane is removed the tick its job resolves (bombs, recon reveal,
+    or the Interceptor Jet's intercept/give-up), and its slot goes
+    straight to `rearming` with the usual `PLANE_REARM_COOLDOWN` (5s).
+    The `phase` field, the returning branch and the fly-home code are
+    gone. Plane buttons read "Ns flight" instead of "Ns out/back".
+  - **Balance change, flagged**: rearm used to start after the flight
+    home, so each plane now comes back into service much sooner. Full
+    cycle: Strike Fighter 25s -> 15s, Strike Bomber and Recon Plane
+    45s -> 25s, Heavy Bomber 65s -> 35s. Planes also can't be shot down
+    on the way home any more, because there is no way home. Not re-tuned;
+    say if planes now feel too available.
+  - **LRNA-141 is moot**: the Strike Fighter's dodge refresh for the
+    return leg no longer has a leg to apply to. Its test is replaced.
+  - Tests: new LRNA-164 test flies a Strike Fighter to Omega and checks
+    it never moves back toward the player, is gone by the end of its
+    one-way flight, and leaves its slot rearming. LRNA-123/129 comments
+    updated (no round trip). Test API gains a `planeSlots` getter. 51/51.
 
 ---
 

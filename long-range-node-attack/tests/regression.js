@@ -20,7 +20,7 @@ test('LRNA-123: planes complete their flight and land (no NaN-velocity stuck pla
       const T = window.__TEST__;
       T.tokens.attack = 99999;
       T.forceOpeningUnlock(); // LRNA-080: a fresh game starts recon-locked, attack planes can't fire yet
-      T.firePlane('strikeFighter'); // 10s outbound + 10s return = ~20s round trip
+      T.firePlane('strikeFighter'); // 10s one-way flight (no return leg since LRNA-164)
       return { firedCount: T.missiles.filter(m => m.typeKey === 'plane').length };
     });
     assert(result.firedCount === 1, 'plane should have launched');
@@ -28,7 +28,7 @@ test('LRNA-123: planes complete their flight and land (no NaN-velocity stuck pla
     await page.evaluate((secs) => {
       const T = window.__TEST__;
       for (let i = 0; i < secs / 0.05; i++) T.tickUpdate(0.05);
-    }, 25); // outlasts the full round trip
+    }, 25); // comfortably outlasts the flight
 
     const after = await page.evaluate(() => {
       const T = window.__TEST__;
@@ -37,7 +37,7 @@ test('LRNA-123: planes complete their flight and land (no NaN-velocity stuck pla
         stuckWithBadVelocity: T.missiles.filter(m => m.typeKey === 'plane' && !isFinite(m.vx)).length,
       };
     });
-    assertEqual(after.planesRemaining, 0, 'plane should have landed and been removed after its full round trip');
+    assertEqual(after.planesRemaining, 0, 'plane should have been removed once its flight finished');
     assertEqual(after.stuckWithBadVelocity, 0, 'no plane should have NaN/invalid velocity');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
@@ -195,7 +195,7 @@ test('LRNA-129: Counter Plane chase timeout matches the target\'s real remaining
       const def = { eta: 30 }; // Heavy Bomber-equivalent leg length
       const plane = {
         id: 'test-plane-1', typeKey: 'plane', planeKind: 'heavyBomber', originId: 'A',
-        x: T.nodeA.x, laneY: 0, vx: -1, totalSeconds: def.eta, age: 18, phase: 'returning',
+        x: T.nodeA.x, laneY: 0, vx: -1, totalSeconds: def.eta, age: 18,
         color: '#ff5a36', radius: 6, dmg: 0,
       };
       T.missiles.push(plane);
@@ -716,32 +716,41 @@ test('LRNA-140: enemy strike damage scales with difficulty', async () => {
   }
 });
 
-test('LRNA-141: Strike Fighter dodge refreshes for the return leg', async () => {
+test('LRNA-164: planes vanish at the target and rearm - nothing flies back', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
       T.tokens.attack = 99999;
       T.forceOpeningUnlock(); // LRNA-080: a fresh game starts recon-locked, attack planes can't fire yet
-      // isolate from Omega's REAL Counter Planes ability - this test
-      // deliberately zeroes dodgesLeft below, leaving the plane genuinely
-      // vulnerable, so without this it could occasionally get shot down
-      // for real before ever reaching the outbound->returning transition
-      // this test is checking.
-      T.disableOmegaCounters();
+      T.disableOmegaCounters(); // keep Omega from shooting it down mid-flight
       const plane = T.firePlane('strikeFighter');
-      plane.dodgesLeft = 0; // simulate the outbound dodge already having been spent
-      // fast-forward to just before it reaches its outbound destination
-      const steps = Math.round((plane.totalSeconds - 0.2) / 0.05);
-      for (let i = 0; i < steps; i++) T.tickUpdate(0.05);
-      const beforeTransition = plane.dodgesLeft;
-      // a couple more ticks should push it past the arrival distance and
-      // flip it into the returning phase
-      for (let i = 0; i < 20 && plane.phase !== 'returning'; i++) T.tickUpdate(0.05);
-      return { beforeTransition, phase: plane.phase, dodgesLeft: plane.dodgesLeft };
+      const startX = plane.x;
+      const towardOmega = Math.sign(T.nodeO.x - startX);
+      let reversed = false;
+      let lastX = plane.x;
+      let steps = 0;
+      while (T.missiles.includes(plane) && steps < 400) {
+        T.tickUpdate(0.05);
+        steps++;
+        if (T.missiles.includes(plane)) {
+          if (Math.sign(plane.x - lastX) === -towardOmega) reversed = true;
+          lastX = plane.x;
+        }
+      }
+      return {
+        removed: !T.missiles.includes(plane),
+        reversed,
+        lastDistToOmega: Math.abs(T.nodeO.x - lastX),
+        slotState: T.planeSlots.strikeFighter.state,
+        eta: plane.totalSeconds,
+        flightSeconds: steps * 0.05,
+      };
     });
-    assertEqual(result.beforeTransition, 0, 'sanity check - dodge should still read as spent right before landing outbound');
-    assertEqual(result.phase, 'returning', 'plane should have transitioned to its return leg');
-    assertEqual(result.dodgesLeft, 1, 'dodge should refresh for the return leg instead of staying spent for the whole sortie');
+    assert(result.removed, 'plane should be removed once it reaches its target');
+    assert(!result.reversed, 'plane should never turn around and fly back toward the player');
+    assert(result.flightSeconds <= result.eta + 0.2,
+      `plane should be gone by the end of its one-way flight (${result.flightSeconds}s vs ${result.eta}s)`);
+    assertEqual(result.slotState, 'rearming', 'slot should start rearming the moment the plane finishes its job');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
