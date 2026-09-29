@@ -291,7 +291,13 @@
 
   /* LRNA-080: persistent, non-blocking (unlike PAUSED) reminder during
      the recon-gated opening - the player needs to keep looking at/
-     navigating the map while this is up, not have it covered. */
+     navigating the map while this is up, not have it covered.
+     ART-5: restyled from a plain bordered text box into a HUD scan
+     readout - same scanline-texture-under-solid-backdrop language as
+     ART-4's status panels, corner brackets instead of a full border
+     (matching the reticle look ART-5 also gave the recon zone markers
+     themselves), and a small scanning indicator bar under the text
+     instead of relying on opacity-pulse alone to read as "active." */
   #openingLockedBanner {
     position: absolute;
     top: 96px; left: 50%;
@@ -302,12 +308,28 @@
     font-size: 11px;
     letter-spacing: 1.5px;
     color: #9fffcf;
-    background: rgba(3,12,7,0.75);
-    border: 1px solid #9fffcf88;
-    padding: 6px 14px;
+    background:
+      repeating-linear-gradient(180deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
+      rgba(3,12,7,0.8);
+    padding: 8px 20px 10px;
     text-align: center;
     animation: omegaJamPulse 1.6s infinite;
   }
+  /* Same top-left/bottom-right corner-bracket pattern ART-4 gave the
+     HUD buttons - one element only has 2 pseudo-elements to spend, so
+     it covers 2 opposing corners rather than all 4. */
+  #openingLockedBanner::before, #openingLockedBanner::after {
+    content: ''; position: absolute; width: 9px; height: 9px;
+    border-color: #9fffcf; border-style: solid; opacity: 0.85;
+  }
+  #openingLockedBanner::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+  #openingLockedBanner::after { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+  #openingLockedBanner .scanBar {
+    position: absolute; left: 6px; right: 6px; bottom: 2px; height: 1px;
+    background: linear-gradient(90deg, transparent, #9fffcf, transparent);
+    animation: reconSweep 1.8s linear infinite;
+  }
+  @keyframes reconSweep { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
   #openingLockedBanner.hidden { display: none; }
 
   /* Emergency Counter (LRNA-074/#431): moved out of its old floating
@@ -684,6 +706,20 @@
     bottom: -1px; right: -1px;
     border-width: 0 1px 1px 0;
   }
+  /* ART-5: the "systems coming online" unlock-moment sweep - applied to
+     each ability button in DOM order with a staggered animation-delay
+     (see playSystemsOnlineTransition), so the whole ability bar lights
+     up left-to-right in sequence rather than all at once. Self-removing
+     (an 'animationend' listener strips the class) so it never lingers
+     as dead state on the button. */
+  @keyframes systemsOnlineSweep {
+    0% { filter: brightness(1); box-shadow: none; }
+    35% { filter: brightness(1.8); box-shadow: 0 0 14px 2px currentColor; }
+    100% { filter: brightness(1); box-shadow: none; }
+  }
+  .launchBtn.poweringUp, .upgradeBtn.poweringUp {
+    animation: systemsOnlineSweep 0.5s ease-out;
+  }
   .btnLabel {
     display: block;
     font-family: "Courier New", ui-monospace, monospace;
@@ -950,7 +986,7 @@
   <button id="pauseBtn">PAUSE</button>
   <button id="muteBtn">MUTE</button>
   <div id="pausedBanner" class="hidden">PAUSED</div>
-  <div id="openingLockedBanner" class="hidden">RECON REQUIRED — LOCATE A HIDDEN NODE TO BEGIN THE ASSAULT (send a DRONE or RECON PLANE)</div>
+  <div id="openingLockedBanner" class="hidden">RECON REQUIRED — LOCATE A HIDDEN NODE TO BEGIN THE ASSAULT (send a DRONE or RECON PLANE)<div class="scanBar"></div></div>
   <div id="storageWarning" class="hidden">⚠ PROGRESS NOT SAVING — storage unavailable</div>
   <div id="opsCenterPanel" class="hidden">
     <div class="opsHeader">
@@ -2061,15 +2097,35 @@
   // discovery; the other 2 undiscovered nodes stay individually
   // non-attackable same as always (SEEK AND DESTROY's existing gating).
   let openingLocked = true;
+  // ART-5: the "systems coming online" transition when the opening
+  // lock lifts - a brief full-viewport color flash (unlockFlashTimer,
+  // decayed in update(dt), drawn screen-space in draw()) plus a real
+  // camera jolt (reuses LRNA-086's existing triggerCamShake, no new
+  // shake mechanism needed) and a staggered glow sweeping left-to-right
+  // across the ability bar buttons in DOM order, selling "HUD elements
+  // lighting up in sequence" rather than one floating text line alone.
+  const UNLOCK_FLASH_DURATION = 0.5;
+  let unlockFlashTimer = 0;
   function updateOpeningLockUi() {
     const el = document.getElementById('openingLockedBanner');
     if (el) el.classList.toggle('hidden', !openingLocked);
+  }
+  function playSystemsOnlineTransition() {
+    unlockFlashTimer = UNLOCK_FLASH_DURATION;
+    triggerCamShake(5, 0.35);
+    const btns = document.querySelectorAll('.launchBtn, .upgradeBtn');
+    btns.forEach((btn, i) => {
+      btn.style.animationDelay = (i * 45) + 'ms';
+      btn.classList.add('poweringUp');
+      btn.addEventListener('animationend', () => btn.classList.remove('poweringUp'), { once: true });
+    });
   }
   function checkOpeningUnlock() {
     if (openingLocked && seekDestroyNodes.some(n => n.discovered)) {
       openingLocked = false;
       spawnFloatText(nodeA.x, nodeA.y - 190, 'RECON COMPLETE — ATTACK SYSTEMS ONLINE', '#7bffa0');
       updateOpeningLockUi();
+      playSystemsOnlineTransition();
     }
   }
   let bestWave = 1;
@@ -4644,6 +4700,7 @@
       camShakeTimer = Math.max(0, camShakeTimer - dt);
       if (camShakeTimer <= 0) camShakeMag = 0;
     }
+    if (unlockFlashTimer > 0) unlockFlashTimer = Math.max(0, unlockFlashTimer - dt); // ART-5
 
     // no passive healing on the Strike Platform anymore, per direct
     // request - damage taken is now permanent for the rest of the run
@@ -5456,21 +5513,65 @@
   // stays fully invisible per drawAntiPlaneNode below, same hidden-until-
   // discovered rule as LRNA-039/LRNA-117). Disappears once its node is
   // found, since the real node marker takes over from there.
+  // ART-5: reticle-corner-bracket + traveling sensor-sweep treatment,
+  // replacing the plain dashed rectangle - reads as "an active scan
+  // target," not just an outlined area, while still only ever drawing
+  // from the zone's own bounds (zoneStart/zoneEnd, already generic -
+  // see LRNA-080's own test for that). No new signal derived from the
+  // hidden node's real position inside the zone - same hard constraint
+  // as LRNA-039/LRNA-112/LRNA-117.
   function drawReconZone(sd) {
     if (sd.discovered) return;
     const sx0 = sd.zoneStart - camX, sx1 = sd.zoneEnd - camX;
     if (sx1 < -20 || sx0 > vw() + 20) return;
     const top = vh() / 2 - 220, bottom = vh() / 2 + 220;
+    const w = sx1 - sx0, bracket = Math.min(18, w / 4);
     ctx.save();
-    ctx.strokeStyle = '#9fffcf55';
+    ctx.strokeStyle = '#9fffcf88';
     ctx.lineWidth = 1.5;
-    ctx.setLineDash([6, 6]);
-    ctx.strokeRect(sx0, top, sx1 - sx0, bottom - top);
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#9fffcf88';
+    // 4 corner reticle brackets instead of a full rectangle outline.
+    const corners = [
+      [sx0, top, 1, 1], [sx1, top, -1, 1],
+      [sx0, bottom, 1, -1], [sx1, bottom, -1, -1],
+    ];
+    for (const [cx, cy, dx, dy] of corners) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + bracket * dy);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx + bracket * dx, cy);
+      ctx.stroke();
+    }
+    // faint boundary lines so the zone's extent still reads at a glance
+    // between the corner brackets.
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.moveTo(sx0, top); ctx.lineTo(sx0, bottom);
+    ctx.moveTo(sx1, top); ctx.lineTo(sx1, bottom);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // traveling sweep line, bouncing back and forth across the zone -
+    // purely decorative (wall-clock phase), sells "actively scanning."
+    const period = 2600;
+    const t = (performance.now() % period) / period;
+    const sweepFrac = t < 0.5 ? t * 2 : 2 - t * 2; // 0 -> 1 -> 0
+    const sweepX = sx0 + sweepFrac * w;
+    const grad = ctx.createLinearGradient(sweepX - 24, 0, sweepX + 24, 0);
+    grad.addColorStop(0, 'rgba(159,255,207,0)');
+    grad.addColorStop(0.5, 'rgba(159,255,207,0.5)');
+    grad.addColorStop(1, 'rgba(159,255,207,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(Math.max(sx0, sweepX - 24), top, Math.min(48, sx1 - Math.max(sx0, sweepX - 24)), bottom - top);
+    ctx.strokeStyle = '#9fffcfcc';
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(performance.now() / 200);
+    ctx.beginPath();
+    ctx.moveTo(sweepX, top); ctx.lineTo(sweepX, bottom);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#9fffcfcc';
     ctx.font = '9px "Courier New", ui-monospace, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('RECON ZONE — UNSCANNED', (sx0 + sx1) / 2, top - 6);
+    ctx.fillText('RECON ZONE — UNSCANNED', (sx0 + sx1) / 2, top - 8);
     ctx.restore();
   }
 
@@ -6197,6 +6298,18 @@
       ctx.globalAlpha = 1;
     }
     ctx.restore();
+
+    // ART-5: the opening-unlock screen flash, drawn in screen space
+    // (outside the ctx.save()/ctx.scale(ZOOM) camera block above) so it
+    // covers the true viewport regardless of zoom/shake - a full-canvas
+    // fill decaying from unlockFlashTimer, the "systems coming online"
+    // beat's visual centerpiece alongside the camera jolt and the
+    // staggered button glow triggered alongside it.
+    if (unlockFlashTimer > 0) {
+      const t = unlockFlashTimer / UNLOCK_FLASH_DURATION;
+      ctx.fillStyle = `rgba(123,255,160,${t * 0.3})`;
+      ctx.fillRect(0, 0, W, H);
+    }
   }
 
   function drawMinimap() {

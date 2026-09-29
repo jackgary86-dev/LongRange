@@ -204,9 +204,46 @@ to whoever picks these up.
   zoom, hover states visibly brighten. Pure rendering/CSS change -
   regression suite (45 tests) passes unmodified, stable across 8
   consecutive runs, zero console errors.
-- **ART-5** — Recon-gated opening phase visuals: zone markers, lock
-  banner, unlock moment (jackgary86-dev/LongRange#58). Follow-up from
-  LRNA-080's placeholder `drawReconZone()`/`#openingLockedBanner`.
+- **ART-5** — DONE (2026-09-29) — Recon-gated opening phase visuals:
+  zone markers, lock banner, unlock moment (jackgary86-dev/LongRange#58).
+  Follow-up from LRNA-080's placeholder `drawReconZone()`/
+  `#openingLockedBanner`. All 3 elements restyled without touching the
+  two signals that actually drive them (`openingLocked` and each node's
+  `discovered` flag) - purely presentational, confirmed against the
+  ticket's own named regression tests before and after.
+  - **Zone markers** (`drawReconZone`): the dashed rectangle became a
+    4-corner HUD reticle (matching ART-4's button corner-bracket
+    language) plus a traveling sensor-sweep line that bounces back and
+    forth across the zone width (wall-clock phase, purely decorative).
+    Still derives everything from the zone's own `zoneStart`/`zoneEnd`
+    bounds only - no new positional signal added, so the hidden node's
+    exact position/kind inside the zone stays unrevealed until real
+    discovery, same hard rule as LRNA-039/LRNA-112/LRNA-117.
+  - **Lock banner** (`#openingLockedBanner`): dropped the flat bordered-
+    box look for the same scanline-texture-under-solid-backdrop
+    treatment ART-4 gave the status panels, 2-corner brackets instead of
+    a full border, and a thin animated scan-bar under the text. Only
+    markup change was one nested `<div class="scanBar">` inside the
+    existing banner element - the element's own id/class/hidden-toggle
+    behavior the tests check is untouched.
+  - **Unlock moment**: `checkOpeningUnlock()` now calls a new
+    `playSystemsOnlineTransition()` alongside the existing
+    `spawnFloatText` line - a brief full-viewport color flash
+    (`unlockFlashTimer`, decayed in `update(dt)`, drawn screen-space in
+    `draw()` outside the camera transform so zoom/shake don't affect it),
+    a real camera jolt (reused LRNA-086's existing `triggerCamShake`, no
+    new shake mechanism needed, tuned slightly gentler than the impact-
+    shake preset), and a staggered `poweringUp` glow sweeping left-to-
+    right across the ability bar buttons in DOM order (`animation-delay`
+    set per button in JS, self-removing via an `animationend` listener
+    so it never lingers as dead state). Together this sells "systems
+    coming online" as a real beat instead of one floating text line.
+  Verified with instrumented screenshots: the reticle/sweep marker at a
+  zone edge (corner bracket + boundary line visible), the lock banner in
+  its normal state, and the unlock transition firing (visible full-
+  screen flash tint, Wave 1 strikes beginning immediately after). Pure
+  rendering/CSS/timer-state change - regression suite (45 tests) passes
+  unmodified, stable across 8 consecutive runs, zero console errors.
 - **ART-6** — Base loadout node visuals: multi-target volley
   (jackgary86-dev/LongRange#59). Follow-up from LRNA-049's Base node
   shipping with the same placeholder dot rendering as the other loadout
