@@ -154,7 +154,56 @@ to whoever picks these up.
   Verified with before/after screenshots at the start of a run and
   panned to mid-map. Pure rendering change - regression suite (45 tests)
   passes unmodified, stable across repeated runs, zero console errors.
-- **ART-4** — Redesign HUD buttons and UI chrome (jackgary86-dev/LongRange#57)
+- **ART-4** — DONE (2026-09-29) — Redesign HUD buttons and UI chrome
+  (jackgary86-dev/LongRange#57). Note: the issue's own "still open" list
+  referenced LRNA-121/122 as related open items - both were already
+  resolved earlier this session (LRNA-122 closed as a stale duplicate,
+  LRNA-121 shipped), so this pass treated the issue as scoped purely to
+  its own ask: buttons and panel chrome. Explicit call on the "your call"
+  question the issue raised: kept the existing military-ops-terminal
+  aesthetic rather than a full visual departure - it's consistent with
+  the Canvas2D redesigns ART-1/2/3 just shipped, and a different UI
+  language for the DOM chrome would clash with the battlefield rendering
+  underneath it. Zero element IDs/classes/`data-*` attributes touched -
+  pure CSS, so all existing JS wiring (`btn.style.setProperty('--btncolor', ...)`,
+  event listeners, `.hidden` toggles) is untouched.
+  - **`.launchBtn`** (ATTACK/COUNTER/INTEL ability buttons): flat
+    background replaced with a subtle top-lit gradient; added an inset
+    glow using each button's own `--btncolor` custom property (already
+    set per-button in JS for the border/text color) via `box-shadow`,
+    which - unlike `rgba()` - can consume a hex-string CSS variable
+    directly. Hover state brightens the glow (inset + a small outer
+    bloom); disabled clears it entirely so spent/unavailable abilities
+    read as inert, not just dimmed text.
+  - **Corner-bracket accent**: a new shared `::before`/`::after` rule
+    applied to `.launchBtn, .upgradeBtn, #pauseBtn, #muteBtn` together -
+    small `currentColor` L-shaped brackets at the top-left/bottom-right
+    corners, a common HUD-panel motif, added with zero DOM changes since
+    pseudo-elements don't need new markup or classes.
+  - **`.upgradeBtn`**: gained `position: relative` (required for the new
+    corner brackets to anchor - it had no positioning context before;
+    verified `.launchBtn` already had one from a pre-existing rule, and
+    `#pauseBtn`/`#muteBtn` already use `position: absolute` for their own
+    screen placement, so neither needed the same change), a warm
+    amber-tinted gradient background, and a matching hover glow.
+  - **`#pauseBtn`/`#muteBtn`**: flat backgrounds replaced with the same
+    top-lit gradient treatment, hover states gained a `var(--green)` glow
+    to match the rest of the HUD's accent color.
+  - **Panel chrome** (`#opsCenterPanel`, `#counterPlanesWindow`,
+    `#missionMapWindow`): layered a faint repeating-gradient scanline
+    texture under each panel's existing solid backdrop (a CSS effect, not
+    an image asset - keeps the "zero external image assets" constraint
+    intact), added an outer glow (`box-shadow`) to the two bordered
+    panels, and gave `.opsHeader` a bottom border plus a text-shadow glow
+    on its `h3` so every panel/window header reads with the same accent
+    treatment. `#missionMapWindow` is full-screen (`inset: 0`) so it got
+    the scanline texture only, no border glow - there's no edge to glow.
+  Verified with screenshots of default/hover states for launch buttons
+  and pause/mute, plus all three panels open (ops center, counter attack
+  planes, mission map) - corner brackets and glow read clearly at normal
+  zoom, hover states visibly brighten. Pure rendering/CSS change -
+  regression suite (45 tests) passes unmodified, stable across 8
+  consecutive runs, zero console errors.
 - **ART-5** — Recon-gated opening phase visuals: zone markers, lock
   banner, unlock moment (jackgary86-dev/LongRange#58). Follow-up from
   LRNA-080's placeholder `drawReconZone()`/`#openingLockedBanner`.
