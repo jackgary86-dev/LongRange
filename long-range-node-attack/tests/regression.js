@@ -1506,6 +1506,57 @@ test('LRNA-158: STATS button opens a pure reference window - GAME MODE/RUN STATS
   });
 });
 
+test('LRNA-156: opening STATS pauses the battle and closing it resumes', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#statsBtn');
+    const open = await page.evaluate(async () => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.clearMissiles();
+      const m = T.launchEnemyStrike(T.nodeO, T.nodeA);
+      const x0 = m.x;
+      await new Promise((r) => setTimeout(r, 300)); // several real frames of the main loop
+      return {
+        paused: T.paused,
+        moved: m.x !== x0,
+        banner: !document.getElementById('pausedBanner').classList.contains('hidden'),
+        pauseLabel: document.getElementById('pauseBtn').textContent,
+      };
+    });
+    await page.click('#missionMapClose');
+    const closed = await page.evaluate(() => ({
+      paused: window.__TEST__.paused,
+      banner: !document.getElementById('pausedBanner').classList.contains('hidden'),
+    }));
+    assert(open.paused, 'the battle should be paused while STATS is open');
+    assert(!open.moved, 'an inbound strike should not move while STATS is open');
+    assert(open.banner && open.pauseLabel === 'RESUME', `the normal PAUSED banner and RESUME label should show: ${JSON.stringify(open)}`);
+    assert(!closed.paused && !closed.banner, 'closing STATS should resume the battle');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-156: STATS only undoes its own pause - a manual pause or manual resume is left alone', async () => {
+  await withGame(async (page, errors) => {
+    // Already paused by the player before opening: stays paused after closing.
+    await page.click('#pauseBtn');
+    await page.click('#statsBtn');
+    await page.click('#missionMapClose');
+    const prePaused = await page.evaluate(() => window.__TEST__.paused);
+    await page.click('#pauseBtn'); // back to running
+    // Resumed by hand while STATS is up: closing doesn't change it.
+    await page.click('#statsBtn');
+    await page.evaluate(() => document.getElementById('pauseBtn').click());
+    const resumedWhileOpen = await page.evaluate(() => window.__TEST__.paused);
+    await page.click('#missionMapClose');
+    const afterClose = await page.evaluate(() => window.__TEST__.paused);
+    assert(prePaused, 'a pause the player made before opening STATS should survive closing it');
+    assert(!resumedWhileOpen, 'sanity check - RESUME should work while STATS is open');
+    assert(!afterClose, 'closing STATS after a manual resume should leave the battle running');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon lists', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {
@@ -1542,8 +1593,9 @@ test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-de
         missionMapReconBtnGone: !document.getElementById('missionMapReconBtn'), // LRNA-158: the bottom bar's own DRONE button already covers this
         upgradeListGone: !document.getElementById('upgradeList'), // LRNA-159: Reactor Upgrades removed entirely
         counterPlanesWindowGone: !document.getElementById('counterPlanesWindow'), // LRNA-160: Counter Attack Planes fires directly now
-        allInsideStats: ['siegeToggleBtn', 'statsList', 'targetList'].every(inside),
-        allVisible: ['siegeToggleBtn', 'statsList', 'targetList'].every(visible),
+        siegeToggleBtnGone: !document.getElementById('siegeToggleBtn'), // LRNA-157: START SIEGE removed
+        allInsideStats: ['modeStatus', 'statsList', 'targetList'].every(inside),
+        allVisible: ['modeStatus', 'statsList', 'targetList'].every(visible),
       };
     });
     assert(result.opsCenterPanelGone, '#opsCenterPanel should no longer exist in the DOM');
@@ -1552,13 +1604,14 @@ test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-de
     assert(result.missionMapReconBtnGone, 'the merged-window RECON DRONE button should no longer exist - the bottom bar DRONE button already covers it');
     assert(result.upgradeListGone, '#upgradeList should no longer exist - LRNA-159 removed Reactor Upgrades entirely');
     assert(result.counterPlanesWindowGone, '#counterPlanesWindow should no longer exist - LRNA-160 made Counter Attack Planes fire directly');
+    assert(result.siegeToggleBtnGone, 'the START SIEGE button should no longer exist - LRNA-157 removed it');
     assert(result.allInsideStats, 'GAME MODE/RUN STATS/TARGETS should all now live inside #missionMapWindow');
     assert(result.allVisible, 'the STATS sections should actually render visible once open, not just exist hidden in the DOM');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
 
-test('LRNA-158: the bottom bar DRONE button fires a recon drone regardless of whether STATS is open', async () => {
+test('LRNA-158/156: the bottom bar DRONE button fires with STATS closed, and is held while STATS pauses the battle', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(async () => {
       const T = window.__TEST__;
@@ -1572,10 +1625,15 @@ test('LRNA-158: the bottom bar DRONE button fires a recon drone regardless of wh
       await wait(360); // attemptFire's fire-rate cooldown is keyed on real wall-clock time
       document.querySelector('.launchBtn[data-type="drone"]').click();
       const dronesAfterOpen = T.missiles.filter((m) => m.typeKey === 'drone').length;
-      return { dronesBefore, dronesAfterClosed, dronesAfterOpen };
+      T.closeMissionMap();
+      await wait(360);
+      document.querySelector('.launchBtn[data-type="drone"]').click();
+      const dronesAfterClose = T.missiles.filter((m) => m.typeKey === 'drone').length;
+      return { dronesBefore, dronesAfterClosed, dronesAfterOpen, dronesAfterClose };
     });
     assertEqual(result.dronesAfterClosed - result.dronesBefore, 1, 'DRONE should fire with STATS closed');
-    assertEqual(result.dronesAfterOpen, 1, 'DRONE should fire exactly the same with STATS open - firing abilities never depended on this window');
+    assertEqual(result.dronesAfterOpen, 0, 'DRONE should not fire while STATS has the battle paused (LRNA-156)');
+    assertEqual(result.dronesAfterClose, 1, 'DRONE should fire again once STATS is closed');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });

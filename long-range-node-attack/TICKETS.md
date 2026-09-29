@@ -473,7 +473,7 @@ them up in order, or together if convenient.
   deleted) so the reversal itself stays on the record, same as how
   earlier stale/superseded tickets in this file were handled rather than
   silently removed.
-- **LRNA-156** — Pause the live battle while Counter Center is open.
+- **LRNA-156** — DONE (2026-09-29) — Pause the live battle while Counter Center is open.
   Call `setPaused(true)` on open and restore the prior state on close
   (don't force-unpause if the player had already manually paused before
   opening it - track whatever `paused` was on open, restore that exact
@@ -490,7 +490,17 @@ them up in order, or together if convenient.
   status and RUN STATS/REACTOR UPGRADES in the STATS window an
   acceptable tradeoff, now that countering itself stays live on Main
   View regardless of whether STATS is open).
-- **LRNA-157** — Move the START SIEGE button out of GAME MODE. Direct,
+  - **Resolution (2026-09-29)**: confirmed directly: pause while open.
+    `openMissionMap()` calls `setPaused(true)` when the battle is running
+    and not already paused, and remembers that STATS did it
+    (`statsPausedGame`). `closeMissionMap()` resumes only a pause STATS
+    started itself, and only if the game is still paused. A pause the
+    player made before opening is kept, and a manual RESUME while STATS
+    is up is left alone. It reuses the normal PAUSED banner and RESUME
+    label. Because every fire function already refuses while paused
+    (LRNA-119), the bottom-bar buttons are held while STATS is open;
+    the LRNA-158 DRONE test was updated to expect that. 2 new tests.
+- **LRNA-157** — DONE (2026-09-29, removed rather than moved) — Move the START SIEGE button out of GAME MODE. Direct,
   separate request from the same session, right after LRNA-154 through
   LRNA-156 were filed - a distinct ask from "your call" latitude given
   where in `#opsCenterPanel`'s GAME MODE section `#siegeToggleBtn` (with
@@ -505,6 +515,13 @@ them up in order, or together if convenient.
   filed - GAME MODE arguably belongs in STATS as naturally as RUN STATS
   does now. Still worth confirming with the person asking rather than
   assuming either way before implementing.
+  - **Resolution (2026-09-29)**: asked directly, the answer was "remove
+    it", not move it. `#siegeToggleBtn` and its click handler are gone.
+    GAME MODE keeps its `#modeStatus` line (mode + difficulty). That
+    button was the only way to start a siege, so Siege Mode itself
+    (`startSiege`/`endSiege`, `#siegeTimer`, `#siegeResult`) can no
+    longer be reached in play. The code is left in place in case siege
+    comes back under a different entry point; delete it if it doesn't.
 - **LRNA-158** — DONE (2026-09-29) — Revised architecture, filed live while LRNA-155 was
   still being scoped (superseding it before any code touched it): one
   screen, not two. Two direct requests, back to back, the second

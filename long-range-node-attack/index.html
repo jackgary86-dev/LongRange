@@ -1131,7 +1131,6 @@
     <div class="opsSection" id="counterCenterModeSection">
       <h3>GAME MODE</h3>
       <div id="modeStatus">SANDBOX — free play, no timer</div>
-      <button id="siegeToggleBtn" class="upgradeBtn">START SIEGE (5:00)</button>
     </div>
 
     <div class="opsSection attackPillar" id="counterCenterTargetsSection">
@@ -1449,15 +1448,23 @@
   const missionMapMarkersEl = document.getElementById('missionMapMarkers');
   const missionMapThreatMarkerEl = document.getElementById('missionMapThreatMarker');
 
+  // LRNA-156: STATS pauses the battle while it's open. Only a pause STATS
+  // itself started is undone on close - if the player had already paused,
+  // or resumed by hand while the window was up, closing leaves that alone.
+  let statsPausedGame = false;
   function openMissionMap() {
     missionMapOpen = true;
     missionMapWindowEl.classList.remove('hidden');
     statsBtn.classList.add('hidden');
+    statsPausedGame = running && !paused;
+    if (statsPausedGame) setPaused(true);
   }
   function closeMissionMap() {
     missionMapOpen = false;
     missionMapWindowEl.classList.add('hidden');
     statsBtn.classList.remove('hidden');
+    if (statsPausedGame && paused) setPaused(false);
+    statsPausedGame = false;
   }
   // The zone strip: real world-x positions (the same nodeA.x..nodeO.x
   // span the battlefield canvas itself uses) mapped to a 0-100% track.
@@ -1496,24 +1503,11 @@
   // can't be attacked until something new calls fireAttackDrone().
 
   const modeStatusEl = document.getElementById('modeStatus');
-  const siegeToggleBtn = document.getElementById('siegeToggleBtn');
   const siegeTimerEl = document.getElementById('siegeTimer');
   const siegeResultEl = document.getElementById('siegeResult');
   const siegeResultTitleEl = document.getElementById('siegeResultTitle');
   const siegeResultBodyEl = document.getElementById('siegeResultBody');
   const siegeResultCloseBtn = document.getElementById('siegeResultClose');
-  siegeToggleBtn.addEventListener('click', () => {
-    if (!running || paused) return; // LRNA-119
-    if (siegeActive) {
-      // abort: quietly drop back to sandbox with the board as-is, no
-      // failure banner - that's reserved for actually running out the clock
-      siegeActive = false;
-      siegeTimerEl.classList.add('hidden');
-      updateModeStatus();
-    } else {
-      startSiege();
-    }
-  });
   siegeResultCloseBtn.addEventListener('click', () => siegeResultEl.classList.add('hidden'));
 
   // ---- Waves of Battle run-end screen (LRNA-072, issue #430) ----
@@ -2957,7 +2951,6 @@
       ? 'SIEGE ACTIVE — destroy Node Omega before time runs out'
       : 'SANDBOX — free play, no timer';
     modeStatusEl.textContent = `${modeLine} · ${DIFFICULTIES[difficulty].label} DIFFICULTY`;
-    siegeToggleBtn.textContent = siegeActive ? 'ABORT SIEGE' : `START SIEGE (${formatETA(SIEGE_DURATION)})`;
   }
 
   function startSiege() {
