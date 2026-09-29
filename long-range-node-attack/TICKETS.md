@@ -766,6 +766,64 @@ them up in order, or together if convenient.
     than still present; new test confirms a click on COUNTER ATTACK
     PLANES spends tokens and launches the intercept immediately, with
     no popup. 49/49.
+- **LRNA-161** — DONE (2026-09-29) — Counter Lane: a dot lane in the
+  Counter Operations bar, directly under the zone strip. Direct request,
+  made on the Alert repo's copy of this game (its LRNA-101) with a
+  marked-up screenshot: "Make this another Visual Lane to intercept
+  Missile and Planes just like the Lane Directly below me with the dots
+  on it" (pointing at `#minimap`), then moved here with the rest of that
+  night's work.
+  - `#counterLaneCanvas`, drawn each frame by `drawCounterLane()` in
+    `#minimap`'s dot style but showing only: inbound enemy strikes, the
+    counters currently aimed at them (matched by `seekTargetId`, so it
+    covers the player's and the automated defenses' intercepts but not
+    Omega shooting down the player's own warheads), and discovered
+    AntiPlane nodes.
+  - Positions use `missionMapPct()` (Strike Platform = 0%, Omega =
+    100%), not `x / MAP_W`, and the row copies the zone strip's 70px end
+    columns, so each dot sits directly under its point on the zone strip.
+  - Decisions made without asking, per "answer the open questions
+    yourself" on the Alert version: outgoing intercepts shown, AntiPlane
+    nodes shown, read-only (no click-to-fire - with two class-specific
+    Counter buttons, what a click should do is its own design question).
+  - Test: the lane spans exactly the zone strip's track, draws an opaque
+    dot at an inbound strike's position, and draws nothing where there's
+    no contact. 50/50.
+- **LRNA-162** — OPEN, needs a decision — Strip the Counter Operations bar
+  down to lanes only. Direct request on the Alert repo's copy right after
+  its Counter Lane shipped: "Remove the intelligence and recon stuff on
+  the center of the screen. Just shown the two mini lanes and one main
+  lane in the center. The action buttons at the bottom. Leave the top
+  the same." Mapped onto this repo that means: keep the zone strip and
+  Counter Lane (the two mini lanes) above `#minimap` (the main lane),
+  and remove `#counterOpsBarRecon` - the SEEK AND DESTROY status line
+  and list, and the discovered-AntiPlane list.
+  - **Why it isn't built yet**: those two lists hold the *only* buttons
+    in the game that send an Attack Drone at a discovered SEEK AND
+    DESTROY or AntiPlane node (`fireAttackDrone()` has no other caller).
+    Removing them as asked would leave hidden nodes discoverable but
+    impossible to attack. The same removal shipped on the Alert copy and
+    had this same effect there, which was only partly flagged at the
+    time. Options:
+    1. Remove the lists anyway and accept that hidden nodes can't be
+       attacked for now.
+    2. Make discovered-node dots on the lanes clickable to send an
+       Attack Drone (keeps the center lanes-only).
+    3. Add an ATTACK DRONE button to the bottom bar's INTEL group that
+       targets the nearest discovered node.
+  - Would also fix most of LRNA-158's mobile problem: the recon lists are
+    what push the bar above the top HUD on a 375px phone.
+- **LRNA-163** — OPEN — START MISSION can't be reached on a short phone
+  screen. Found while screenshotting LRNA-158 at 375x700: the start
+  screen `#overlay` is `display: flex; justify-content: center;
+  overflow-y: auto`, and its content (1179px) is taller than the
+  screen, so the centered overflow spills off the *top* where it can't
+  be scrolled to - START MISSION sits at y=-104 with no way to reach it.
+  Predates tonight's work (the CSS is unchanged since at least `8b3fd2e`).
+  Likely a one-line fix (`justify-content: safe center`, or `margin:
+  auto` on the content instead of flex centering), but not yet verified
+  on a real phone. Related, also pre-existing: at 375px wide the bottom
+  bar alone is ~600px tall, leaving almost no battlefield visible.
 
 ---
 

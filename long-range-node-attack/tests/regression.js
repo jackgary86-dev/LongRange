@@ -1236,6 +1236,50 @@ test('LRNA-160: COUNTER ATTACK PLANES fires directly from the bottom bar - no po
   });
 });
 
+test('LRNA-161: the Counter Lane lines up with the zone strip and dots each inbound strike at its position', async () => {
+  await withGame(async (page, errors) => {
+    await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.forceOpeningUnlock();
+      T.freezeWaves();
+      T.clearMissiles();
+      T.neutralizeAutoDefense();
+      T.disableOmegaCounters();
+      T.launchEnemyStrike(T.nodeO, T.nodeA);
+    });
+    await page.waitForTimeout(150); // let the rAF loop draw a few frames
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      const c = document.getElementById('counterLaneCanvas');
+      const track = document.getElementById('missionMapStripTrack').getBoundingClientRect();
+      const lane = c.getBoundingClientRect();
+      const ctx = c.getContext('2d');
+      const y = Math.floor(c.height / 2);
+      const maxAlphaAround = (px) => {
+        let best = 0;
+        for (let x = Math.max(0, px - 5); x <= Math.min(c.width - 1, px + 5); x++) best = Math.max(best, ctx.getImageData(x, y, 1, 1).data[3]);
+        return best;
+      };
+      const strike = T.missiles.find((m) => m.typeKey === 'enemyStrike');
+      const pct = (strike.x - T.nodeA.x) / (T.nodeO.x - T.nodeA.x);
+      const strikePx = Math.round(pct * c.width);
+      const emptyPx = Math.round((pct > 0.5 ? 0.25 : 0.75) * c.width);
+      return {
+        size: [c.width, c.height],
+        leftDiff: Math.abs(lane.left - track.left),
+        widthDiff: Math.abs(lane.width - track.width),
+        atStrike: maxAlphaAround(strikePx),
+        atEmpty: maxAlphaAround(emptyPx),
+      };
+    });
+    assert(r.size[0] > 0 && r.size[1] > 0, `the lane canvas should have a real drawing size: ${r.size}`);
+    assert(r.leftDiff <= 1 && r.widthDiff <= 1, `the lane should span exactly the zone strip's track (left off by ${r.leftDiff}px, width off by ${r.widthDiff}px)`);
+    assert(r.atStrike > 200, `an opaque dot should be drawn at the inbound strike's position (alpha ${r.atStrike})`);
+    assert(r.atEmpty < 128, `nothing but the faint center line should be drawn where there's no contact (alpha ${r.atEmpty})`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 test('LRNA-158: STATS button opens a pure reference window - GAME MODE/RUN STATS/TARGETS only, no COUNTER or RECON content', async () => {
   // Supersedes the old LRNA-084/154 versions of this test: #opsCenterBtn
   // is #statsBtn now, and the window it opens dropped COUNTER/RECON

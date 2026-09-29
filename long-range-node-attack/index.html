@@ -605,6 +605,17 @@
   }
   #missionMapStrip .missionMapStripEnd:first-child { color: var(--green); }
   #missionMapStrip .missionMapStripEnd:last-child { color: var(--amber); }
+  /* LRNA-161: same 70px end columns and gap as #missionMapStrip, so the
+     canvas spans exactly the zone strip's track width. */
+  #counterLaneRow { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+  .counterLaneEnd {
+    font-size: 8px; letter-spacing: 1px; opacity: 0.7; width: 70px; flex-shrink: 0;
+    text-align: center; line-height: 1.3;
+  }
+  #counterLaneCanvas {
+    display: block; flex: 1; min-width: 0; height: 18px;
+    border: 1px solid #345; background: rgba(3,12,7,0.6);
+  }
   #missionMapStripTrack {
     position: relative; flex: 1; height: 26px;
     background:
@@ -1143,6 +1154,16 @@
       </div>
       <div class="missionMapStripEnd">NODE<br>OMEGA</div>
     </div>
+    <!-- LRNA-161: dot lane for interception, drawn like #minimap but
+         only inbound strikes, the intercepts aimed at them, and
+         discovered AntiPlane nodes. Same end columns and the same
+         Strike-Platform-to-Omega mapping as the zone strip above, so the
+         two lanes line up. -->
+    <div id="counterLaneRow">
+      <div class="counterLaneEnd">COUNTER<br>LANE</div>
+      <canvas id="counterLaneCanvas"></canvas>
+      <div class="counterLaneEnd"></div>
+    </div>
     <div id="counterOpsBarRecon">
       <span id="missionMapReconStatus">0/3 located · 0/3 neutralized</span>
       <div id="missionMapReconList"></div>
@@ -1303,6 +1324,8 @@
   const ctx = canvas.getContext('2d');
   const minimap = document.getElementById('minimap');
   const mctx = minimap.getContext('2d');
+  const counterLaneCanvas = document.getElementById('counterLaneCanvas'); // LRNA-161
+  const clctx = counterLaneCanvas.getContext('2d');
   const bottomBarEl = document.getElementById('bottomBar');
   const counterOpsBarEl = document.getElementById('counterOpsBar'); // LRNA-158
   const overlay = document.getElementById('overlay');
@@ -1564,6 +1587,10 @@
     MH = minimap.height = 32;
     bottomBarPx = bottomBarEl.offsetHeight;
     counterOpsBarEl.style.bottom = bottomBarPx + 'px'; // LRNA-158: sits directly above the bottom bar, whatever its real height is
+    // LRNA-161: the lane sits inside the padded, flex-sized bar, so its
+    // pixel size comes from the laid-out element, not window.innerWidth.
+    counterLaneCanvas.width = counterLaneCanvas.clientWidth;
+    counterLaneCanvas.height = counterLaneCanvas.clientHeight;
     layout();
   }
 
@@ -4092,6 +4119,7 @@
     if (running && !paused) update(dt);
     draw();
     drawMinimap();
+    drawCounterLane();
     requestAnimationFrame(loop);
   }
 
@@ -6353,6 +6381,36 @@
     mctx.strokeStyle = 'rgba(143,107,255,0.9)';
     mctx.lineWidth = 1;
     mctx.strokeRect(camX * scale, 1, Math.max(2, vw() * scale), MH - 2);
+  }
+
+  // LRNA-161: drawMinimap()'s dot style, scoped to what matters for
+  // intercepting: inbound enemy strikes, the counters aimed at them, and
+  // discovered AntiPlane nodes. Uses missionMapPct() rather than
+  // x / MAP_W so each dot sits under the matching point of the zone strip.
+  function drawCounterLane() {
+    const w = counterLaneCanvas.width, h = counterLaneCanvas.height;
+    if (!w || !h) return;
+    clctx.clearRect(0, 0, w, h);
+    clctx.strokeStyle = 'rgba(143,107,255,0.25)';
+    clctx.beginPath(); clctx.moveTo(0, h / 2); clctx.lineTo(w, h / 2); clctx.stroke();
+    clctx.fillStyle = 'rgba(53,230,255,0.5)';
+    clctx.fillRect(0, 3, 3, h - 6);
+    clctx.fillStyle = 'rgba(255,46,166,0.5)';
+    clctx.fillRect(w - 3, 3, 3, h - 6);
+    const px = (x) => missionMapPct(x) / 100 * w;
+    const dot = (x, color) => { clctx.fillStyle = color; clctx.fillRect(Math.round(px(x)) - 1, h / 2 - 1, 3, 3); };
+    for (const ap of antiPlaneNodes) {
+      if (ap.discovered) dot(ap.x, ap.destroyed ? 'rgba(110,110,110,0.5)' : '#ff5a36');
+    }
+    const inboundIds = new Set();
+    for (const m of missiles) {
+      if (m.typeKey !== 'enemyStrike') continue;
+      inboundIds.add(m.id);
+      dot(m.x, m.color);
+    }
+    for (const m of missiles) {
+      if (m.typeKey === 'counter' && inboundIds.has(m.seekTargetId)) dot(m.x, m.color);
+    }
   }
 
   let dragging = false, dragStartX = 0, camStartX = 0;
