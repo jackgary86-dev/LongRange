@@ -10,7 +10,7 @@ Last brought up to date 2026-09-30 (game at LRNA-170).
 | Game source (one file, no build step) | `long-range-node-attack/index.html` on `jackgary86-dev/LongRange` `main` |
 | Regression tests (Playwright) | `long-range-node-attack/tests/`, run by `.github/workflows/test.yml` on every push |
 | Tickets and design history (LRNA-001 to LRNA-170, ART-1 to ART-8) | `long-range-node-attack/TICKETS.md` |
-| NixonExpress hosting | `long-range-node-attack/deploy/` (service file and install script) |
+| Standalone installer (game packed inside, no server or download needed) | `long-range-node-attack/installer/longrange-installer.py`, rebuilt by `tools/build-installer.py` |
 | Demo page build | `long-range-node-attack/tools/build-demo.sh` |
 | Game Portal deploy copy | `jackgary86-dev/Alert`, branch `claude/practical-keller-49onif`: `games/long-range-node-attack/index.html` (byte-identical copy of LongRange `main`) and `portal-game.json` (port 2001, demo link) |
 | Other pages on that Alert branch | `games/counter-grid/` (Counter Grid: Versus, portal :2010), `games/index.html` (demo landing page), `games/serve.py` |
@@ -41,39 +41,53 @@ npm test                           # 64 tests as of LRNA-170
 Tests drive the game through `window.__TEST__`, which only exists with
 `?test=1` in the URL (or `localStorage.lrna_test_mode = '1'`).
 
-## Hosting on NixonExpress (192.168.1.89:2001)
+## Standalone installer
 
-This is the live home since Connor's server (192.168.1.36) went down on
-2026-09-29. It's a plain `python3 -m http.server` serving the single file,
-run by systemd so it restarts after a crash or reboot. The LongRange repo is
-public, so no GitHub token is needed.
+`installer/longrange-installer.py` is one file with the whole game packed
+inside it (about 130 KB). It needs only Python 3.8 or newer; nothing is
+downloaded and no server has to be up. Copy it to any computer (USB stick,
+email, or download it from GitHub) and run it:
 
-First install, as `nixon` (not root):
+| Command | What it does |
+|---------|--------------|
+| `python3 longrange-installer.py` | Installs the game for this user, adds a shortcut and opens it. Plays offline in the browser. |
+| `python3 longrange-installer.py --serve` | Hosts it on port 2001 for every device on the network, until Ctrl+C. Prints the addresses to open. |
+| `python3 longrange-installer.py --service` | Linux with systemd: hosts it on every boot (asks for sudo). Run it again with a newer installer to update. |
+| `python3 longrange-installer.py --uninstall` | Removes the install folder, the shortcuts and the service. |
+| `python3 longrange-installer.py --extract game.html` | Just writes the game file. |
+| `python3 longrange-installer.py --info` | Shows which game version is packed and where it installs. |
+
+Options: `--port N`, `--dir FOLDER`, `--no-open`. On Windows run it with
+`py` or `python` (Python from python.org, with "Add to PATH" ticked).
+
+Where it installs, and the shortcut it makes:
+- Windows: `%LOCALAPPDATA%\LongRangeNodeAttack`, a `Long Range Node Attack.url` on the Desktop
+- macOS: `~/Library/Application Support/LongRangeNodeAttack`, a `.webloc` on the Desktop
+- Linux: `~/.local/share/longrange-node-attack`, an applications-menu entry (and a Desktop launcher if there's a Desktop folder)
+
+It also keeps a copy of itself in the install folder, so `--serve`,
+`--service` and `--uninstall` keep working after the downloaded copy is
+deleted. `--service` writes `/etc/systemd/system/longrange.service`, the
+same service name the earlier NixonExpress setup used, so it replaces that
+setup cleanly. Check it with `systemctl status longrange`.
+
+Download the latest installer on any machine with internet:
 ```sh
-python3 -c "import urllib.request as u; u.urlretrieve('https://raw.githubusercontent.com/jackgary86-dev/LongRange/main/long-range-node-attack/deploy/install-nixonexpress.sh', 'install-longrange.sh')"
-bash install-longrange.sh
+python3 -c "import urllib.request as u; u.urlretrieve('https://raw.githubusercontent.com/jackgary86-dev/LongRange/main/long-range-node-attack/installer/longrange-installer.py', 'longrange-installer.py')"
 ```
-It downloads the game to `~/longrange/index.html`, refuses if something else
-already holds port 2001, installs `/etc/systemd/system/longrange.service`,
-starts it, and prints `active` and `HTTP 200`.
 
-Update to the latest `main` (players just reload; nothing restarts):
-```sh
-bash install-longrange.sh --update
-```
-Pin a version instead of `main` with `REF=<commit or tag>`, for example
-`REF=8ec41ea bash install-longrange.sh --update` (the known-good game from
-2026-09-30).
+**Keeping it current:** after any change to `index.html`, run
+`python3 tools/build-installer.py` and commit the installer with it. CI runs
+`tools/build-installer.py --check` (fails if the installer carries an older
+game) and `tests/test_installer.py` (install, shortcuts on all three systems,
+serving, uninstall).
 
-Other settings: `PORT` (default 2001) and `DIR` (default `~/longrange`).
-
-Useful commands: `systemctl status longrange`, `journalctl -u longrange -f`,
-`sudo systemctl restart longrange`. To remove it:
-`sudo systemctl disable --now longrange && sudo rm /etc/systemd/system/longrange.service`.
-
-Firewall: NixonExpress's ufw already allows `2000:2005/tcp` from
-`192.168.1.0/24`, which covers 2001. Don't also run the full Game Portal
-(`portal.py`) on NixonExpress, because it wants port 2001 too.
+Firewall: to reach `--serve` or `--service` from other devices, the port has
+to be open, for example on Linux with ufw:
+`sudo ufw allow from 192.168.1.0/24 to any port 2001 proto tcp`. On Windows,
+allow Python when Windows Defender Firewall asks. Don't run it on the same
+machine as the full Game Portal (`portal.py`), which wants port 2001 too, or
+pick another `--port`.
 
 ## Deploying through the Game Portal (Connor's server, 192.168.1.36)
 
@@ -136,8 +150,8 @@ full before an update from a new conversation.
    game from 2026-09-30 (LRNA-170, 64 tests passing), and `a6e1864` adds
    this guide and the hosting files. `npm ci && npm test` inside
    `long-range-node-attack`.
-2. Host it: the NixonExpress install above (any Linux box with Python 3 and
-   systemd works; set `DIR` and `PORT`).
+2. Play or host it: the standalone installer above, on any computer with
+   Python 3. It doesn't need GitHub or either server.
 3. Game Portal listing: Alert `claude/practical-keller-49onif` holds the
    deploy copy and `portal-game.json`; if that branch were lost, recreate it
    with those two files and rerun the portal rebuild.
@@ -154,5 +168,6 @@ full before an update from a new conversation.
   each game starts at 500/500/500 tokens with 20/s passive income and hits
   refunding a quarter of their damage; opening STATS pauses the battle;
   Siege Mode is gone; discovered hidden nodes are attacked from TARGETS.
-- Connor's server (192.168.1.36) is down. The game is hosted on
-  NixonExpress :2001.
+- Connor's server (192.168.1.36) is down, and the NixonExpress hosting was
+  down on 2026-09-30, so the game now ships as the standalone installer,
+  which doesn't depend on either server.

@@ -1006,6 +1006,30 @@ them up in order, or together if convenient.
     `192.168.1.89:2001` with no path line; at
     `http://gameserver.lan:8080/long-range-node-attack/index.html` it shows
     that host and `/long-range-node-attack/`. 64/64.
+- **LRNA-171** — DONE (2026-09-30) — Standalone installer. Request: "Server
+  is down - Move this to a stand alone installer." Hosting had depended on
+  a server downloading the game from GitHub (NixonExpress :2001, set up
+  2026-09-29), and that server was down.
+  - `installer/longrange-installer.py`: one Python 3.8+ stdlib file with the
+    game packed inside (gzip+base64, sha256-checked, about 130 KB). Default:
+    install for this user with a shortcut (Windows `.url`, macOS `.webloc`,
+    Linux menu entry plus Desktop launcher) and open it, playable offline.
+    `--serve` hosts it for the network on :2001; `--service` sets up a
+    systemd service (same `longrange` unit name as the old setup, so it
+    replaces it); `--uninstall`, `--extract`, `--info`. It keeps a copy of
+    itself in the install folder so the service and uninstall don't depend
+    on the downloaded file.
+  - `tools/build-installer.py` repacks it from `index.html` (deterministic);
+    `--check` runs in CI so the installer can't fall behind the game.
+  - `tests/test_installer.py` (CI): extract round-trip, Linux install and
+    shortcuts, the installed copy running after the download is deleted,
+    `--serve` over real HTTP, a clear message on a busy port, uninstall, and
+    simulated Windows/macOS install paths and shortcuts. Also checked by
+    hand: the installed game plays in Chromium from its file address with no
+    errors. `--service` itself needs systemd, which the test machine
+    doesn't have, so only its refusal path is tested.
+  - The download-from-GitHub setup (`deploy/`) is removed; OPERATIONS.md
+    describes the installer instead.
 - **LRNA-164** — DONE (2026-09-29) — Player planes no longer fly back
   from Omega. Report: "It looks like things are bouncing off the enemy
   base and coming back at me." Instrumenting 80s of play with every
