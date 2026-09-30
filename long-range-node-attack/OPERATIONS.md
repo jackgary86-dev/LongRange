@@ -62,7 +62,8 @@ Update to the latest `main` (players just reload; nothing restarts):
 bash install-longrange.sh --update
 ```
 Pin a version instead of `main` with `REF=<commit or tag>`, for example
-`REF=backup-2026-09-30 bash install-longrange.sh --update`.
+`REF=8ec41ea bash install-longrange.sh --update` (the known-good game from
+2026-09-30).
 
 Other settings: `PORT` (default 2001) and `DIR` (default `~/longrange`).
 
@@ -131,8 +132,10 @@ full before an update from a new conversation.
 
 ## Remaking everything from scratch
 
-1. Clone `jackgary86-dev/LongRange`. The tag `backup-2026-09-30` marks this
-   known-good state. `npm ci && npm test` inside `long-range-node-attack`.
+1. Clone `jackgary86-dev/LongRange`. Commit `8ec41ea` is the known-good
+   game from 2026-09-30 (LRNA-170, 64 tests passing), and `a6e1864` adds
+   this guide and the hosting files. `npm ci && npm test` inside
+   `long-range-node-attack`.
 2. Host it: the NixonExpress install above (any Linux box with Python 3 and
    systemd works; set `DIR` and `PORT`).
 3. Game Portal listing: Alert `claude/practical-keller-49onif` holds the
