@@ -392,7 +392,7 @@ LRNA-172 is the foundation the rest build on: missions (LRNA-174) are
 built out of its objective chain, and unlocks (LRNA-175) are earned in
 missions.
 
-- **LRNA-172** — OPEN — Make recon matter: a clear find → clear the
+- **LRNA-172** — DONE (2026-10-03) — Make recon matter: a clear find → clear the
   defenses → hit the base chain. Today recon only lifts the opening lock;
   what it finds (2 AntiPlane "radar" defenses, 3 SEEK AND DESTROY nodes)
   doesn't change what the player does next, and targets are picked from a
@@ -414,10 +414,43 @@ missions.
   - Open questions: shield vs. damage reduction on Omega; whether the
     chain restarts when Omega rebuilds (each rebuild re-arms new forward
     defenses, which would also help "repetitive"); how many of each node.
-- **LRNA-173** — OPEN — First game: show what to do next. The objective
+  - **Resolution (2026-10-03)**, decided directly: damage reduction, and
+    fresh defenses every rebuild. Built:
+    - Forward defenses = the 2 AntiPlane nodes, renamed RADAR DEFENSE
+      01/02 with 300 hp so missiles and planes can kill them (the unused
+      Attack Drone keeps its one-hit kill), plus the 3 SEEK AND DESTROY
+      nodes. While any stands, Omega takes 25% damage
+      (`OMEGA_GUARDED_DMG_FACTOR`); a pulsing shield ring, "[GUARDED]" on
+      its label and "GUARDED · TAKES 25% DAMAGE (N FORWARD DEFENSES UP)"
+      in its HUD panel say so.
+    - Discovered radar defenses join TARGETS like the other nodes
+      (LRNA-167), and **tapping** Omega, a field target or a found node on
+      the battlefield targets it (missile taps still follow the missile).
+    - Each Omega rebuild hides a new set of all five, so every round
+      starts with recon again.
+    - Phones: the Radar Lane's contact list starts collapsed (tap RADAR
+      LANE to open it); it sat over the middle of the battlefield where
+      the nodes are tapped.
+    - Not built: "undiscovered defenses hurt" (extra Omega strike damage
+      while attack nodes stand). The radar defenses already intercept
+      FAST/MEDIUM shots in their lane, and the 25% guard makes finding them
+      matter; revisit after playtesting.
+    - Tests: guard math (8 vs 30 health from a 1000-damage hit) and HUD
+      line; a found radar defense targeted from TARGETS and destroyed by a
+      LONG RANGE; tap-to-target on desktop and on a phone with the list
+      collapsed; the objective line through all 3 steps; a rebuild
+      re-arming 5 hidden defenses. LRNA-137's EMP test now clears the
+      defenses first (it measures full damage). 70/70.
+- **LRNA-173** — DONE (2026-10-03, with LRNA-172) — First game: show what to do next. The objective
   tracker from LRNA-172 plus a pulse on the one button that does the next
   step (DRONE/RECON PLANE during recon, then the target and a weapon).
   Answers "what to do first"; no separate tutorial screen.
+  - Built: an objective line under the wave counter, "STEP 1/3 · FIND THE
+    FORWARD DEFENSES 2/5 · 2 FOUND — TAP ONE TO TARGET IT", then "STEP 2/3
+    · DESTROY THE FORWARD DEFENSES (N LEFT)", then "STEP 3/3 · ATTACK NODE
+    OMEGA — FULL DAMAGE" (shorter on phones). DRONE and RECON PLANE glow
+    while there's something left to find (steady glow with reduced
+    motion).
 - **LRNA-174** — OPEN — Missions with goals (build first, after LRNA-172).
   A mission list beside the endless mode: each mission a fixed layout,
   objective (e.g. "destroy both radar defenses in 3 minutes", "survive 8

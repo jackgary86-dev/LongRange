@@ -644,6 +644,7 @@ test('LRNA-137: EMP deals real damage on top of its jam effect', async () => {
       const T = window.__TEST__;
       T.tokens.attack = 99999;
       T.disableOmegaCounters();
+      T.clearForwardDefenses(); // LRNA-172: measure Omega's full (unguarded) damage
       const before = T.omegaHealth;
       const m = T.launchAttack(T.nodeA, T.nodeO, 'emp');
       m.defended = true;
@@ -1683,6 +1684,151 @@ test('LRNA-170: the HUD and ENTRANCE box show the address the game was opened fr
     assert(inFolder.pathShown, 'the path line should show when the game is in a folder');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
+});
+
+test('LRNA-172: Omega takes a quarter of the damage while any forward defense stands', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      const nodes = [...T.antiPlaneNodes, ...T.seekDestroyNodes];
+      const hit = () => { const b = T.omegaHealth; T.forceOmegaDamage(1000); return b - T.omegaHealth; };
+      const guardedAll = hit();
+      nodes.slice(0, -1).forEach((n) => { n.destroyed = true; });
+      const guardedOne = hit();
+      T.updateObjectiveHud();
+      const guardText = document.getElementById('omegaGuardStatus').textContent;
+      nodes[nodes.length - 1].destroyed = true;
+      const open = hit();
+      T.updateObjectiveHud();
+      return { count: nodes.length, guardedAll, guardedOne, open, guardText,
+        guardHidden: document.getElementById('omegaGuardStatus').classList.contains('hidden'),
+        radarHealth: T.antiPlaneNodes.map((n) => n.maxHealth) };
+    });
+    assertEqual(r.count, 5, 'two radar defenses and three SEEK AND DESTROY nodes guard Omega');
+    assertEqual(r.guardedAll, 8, '1000 damage is 30 health unguarded, a quarter of that (7.5, rounds to 8) while guarded');
+    assertEqual(r.guardedOne, 8, 'still guarded with one forward defense left');
+    assertEqual(r.open, 30, 'full damage once all of them are down');
+    assert(/25% DAMAGE \(1 FORWARD DEFENSE UP\)/.test(r.guardText), `HUD names the guard: ${r.guardText}`);
+    assert(r.guardHidden, 'the guard line disappears once Omega is open');
+    assertEqual(JSON.stringify(r.radarHealth), '[300,300]', 'radar defenses have 300 hp each');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-172: a discovered radar defense is a target, and a missile can destroy it', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      const radar = T.antiPlaneNodes[0];
+      radar.discovered = true;
+      T.forceOpeningUnlock();
+      T.freezeWaves(); T.clearMissiles(); T.neutralizeAutoDefense(); T.disableOmegaCounters();
+      T.setEmpGlobalJamTimer(1e6); // its own lane intercept would otherwise fire at the shot
+      T.tickUpdate(0.1);
+      const listed = Array.from(document.querySelectorAll('#targetList .target-row')).map((x) => x.dataset.target);
+      document.querySelector(`#targetList .target-row[data-target="${radar.id}"]`).click();
+      T.tokens.attack = 99999;
+      T.attemptFire('large');
+      const shot = T.missiles.find((m) => m.originId === 'A');
+      const real = Math.random; Math.random = () => 0.01;
+      for (let i = 0; i < 700 && T.missiles.includes(shot); i++) T.tickUpdate(0.05);
+      Math.random = real;
+      return { listed, dest: shot.destId, destroyed: radar.destroyed, name: radar.name, after: T.selectedTargetId };
+    });
+    assert(r.listed.includes('ap0'), `the found radar defense is in TARGETS: ${r.listed}`);
+    assert(!r.listed.includes('ap1'), 'the hidden one is not');
+    assertEqual(r.dest, 'ap0', 'the shot is aimed at it');
+    assert(r.destroyed, 'a 1000-damage LONG RANGE hit destroys the 300 hp radar defense');
+    assertEqual(r.name, 'RADAR DEFENSE 01', 'named as a radar defense');
+    assertEqual(r.after, 'O', 'the target falls back to Omega afterwards');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-172: tapping a discovered node on the battlefield targets it', async () => {
+  await withGame(async (page, errors) => {
+    const pos = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      const node = T.seekDestroyNodes[0];
+      node.discovered = true;
+      T.setCamX(node.x - 600);
+      const rect = document.getElementById('game').getBoundingClientRect();
+      return { x: rect.left + (node.x - T.camX) * T.ZOOM, y: rect.top + node.y * T.ZOOM, id: node.id, name: node.name };
+    });
+    await page.mouse.click(pos.x, pos.y);
+    const r = await page.evaluate(() => ({ sel: window.__TEST__.selectedTargetId, label: document.getElementById('targetLabel').textContent }));
+    assertEqual(r.sel, pos.id, 'the tapped node becomes the target');
+    assertEqual(r.label, `TARGET: ${pos.name}`, 'the launch bar names it');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-172/173: the objective line walks find -> destroy -> attack Omega, and recon buttons pulse while finding', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      const read = () => { T.updateObjectiveHud(); return document.getElementById('objectiveHud').textContent; };
+      const pulsing = () => !!document.querySelector('.launchBtn[data-type="drone"].nextStep');
+      const nodes = [...T.antiPlaneNodes, ...T.seekDestroyNodes];
+      nodes.forEach((n) => { n.discovered = false; });
+      const step1 = read(); const pulse1 = pulsing();
+      nodes.forEach((n) => { n.discovered = true; });
+      const step2 = read(); const pulse2 = pulsing();
+      nodes.forEach((n) => { n.destroyed = true; });
+      const step3 = read();
+      return { step1, pulse1, step2, pulse2, step3 };
+    });
+    assert(r.step1.startsWith('STEP 1/3 · FIND THE FORWARD DEFENSES 0/5'), r.step1);
+    assert(r.pulse1, 'DRONE pulses while there is something to find');
+    assert(r.step2.startsWith('STEP 2/3 · DESTROY THE FORWARD DEFENSES (5 LEFT)'), r.step2);
+    assert(!r.pulse2, 'the recon pulse stops once everything is found');
+    assertEqual(r.step3, 'STEP 3/3 · ATTACK NODE OMEGA — FULL DAMAGE', 'step 3');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-172: each Omega rebuild hides a fresh set of forward defenses', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.clearForwardDefenses();
+      const before = T.forwardDefensesStanding;
+      let rebuilt = false;
+      for (let i = 0; i < 50 && !rebuilt; i++) rebuilt = T.forceOmegaDamage(100000);
+      const nodes = [...T.antiPlaneNodes, ...T.seekDestroyNodes];
+      return { before, rebuilt, after: T.forwardDefensesStanding, hidden: nodes.filter((n) => !n.discovered).length,
+        sel: T.selectedTargetId };
+    });
+    assertEqual(r.before, 0, 'all cleared before the kill');
+    assert(r.rebuilt, 'Omega was destroyed and rebuilt');
+    assertEqual(r.after, 5, 'five new forward defenses stand after the rebuild');
+    assert(r.hidden >= 3, `the new set starts hidden (radar defenses only show with a Satellite): ${r.hidden}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-172: on a phone the contact list starts collapsed and a tap on a found node still targets it', async () => {
+  await withGame(async (page, errors) => {
+    const pos = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      const node = T.antiPlaneNodes[0];
+      node.discovered = true;
+      T.setCamX(node.x - (window.innerWidth / T.ZOOM) / 2);
+      const rect = document.getElementById('game').getBoundingClientRect();
+      return { x: rect.left + (node.x - T.camX) * T.ZOOM, y: rect.top + node.y * T.ZOOM, id: node.id,
+        listShown: !!document.getElementById('contactList').offsetParent };
+    });
+    await page.mouse.click(pos.x, pos.y);
+    const sel = await page.evaluate(() => window.__TEST__.selectedTargetId);
+    await page.click('#contacts h3');
+    const opened = await page.evaluate(() => !!document.getElementById('contactList').offsetParent);
+    assert(!pos.listShown, 'the contact list starts collapsed on a phone');
+    assertEqual(sel, pos.id, 'tapping the radar defense targets it');
+    assert(opened, 'tapping RADAR LANE opens the list');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { viewport: { width: 390, height: 844 } });
 });
 
 test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon lists', async () => {

@@ -117,6 +117,15 @@
     letter-spacing: 1.5px;
   }
   #waveHud.break { color: #7bffa0; }
+  /* LRNA-172/173: the current step of find -> clear the forward defenses -> hit the base */
+  #objectiveHud { display: inline-block; margin-top: 2px; color: #9fffcf; font-size: 9.5px; letter-spacing: 1px; }
+  #objectiveHud.final { color: #ff5a36; }
+  #omegaGuardStatus { margin-top: 3px; font-size: 9.5px; letter-spacing: 1px; color: #35e6ff; }
+  #omegaGuardStatus.hidden { display: none; }
+  /* LRNA-173: the button that does the next step */
+  @keyframes nextStepGlow { 0%, 100% { box-shadow: inset 0 0 14px -8px var(--btncolor); } 50% { box-shadow: inset 0 0 16px -4px var(--btncolor), 0 0 14px 1px var(--btncolor); } }
+  .launchBtn.nextStep:not(:disabled) { animation: nextStepGlow 1.2s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .launchBtn.nextStep:not(:disabled) { animation: none; box-shadow: 0 0 10px 1px var(--btncolor); } }
   #waveHud.elite { color: #ff2ea6; animation: omegaJamPulse 0.9s infinite; }
 
   /* Radar Lane (LRNA-076, issue #433): absorbs the old ACTIVE CONTACTS
@@ -1024,6 +1033,14 @@
        phone every row up here costs battlefield. */
     #centerLabel .hudTitle { display: none; }
     #contacts { max-height: 22vh; }
+    /* LRNA-172: on a phone the contact list sat over the middle of the
+       battlefield, where the forward defenses are tapped. It starts
+       collapsed (the lane strip stays); tap RADAR LANE to open it. */
+    #contacts h3 { pointer-events: auto; cursor: pointer; }
+    #contacts h3::after { content: ' ▸'; }
+    #contacts.open h3::after { content: ' ▾'; }
+    #contacts:not(.open) #contactList { display: none; }
+    #contacts:not(.open) #radarLaneTrack { margin-bottom: 0; }
     #openingLockedBanner { font-size: 9px; padding: 6px 12px 8px; width: calc(100vw - 24px); }
 
     /* LRNA-168: compact ability bar. Each pillar becomes a 3-column grid
@@ -1068,11 +1085,12 @@
       <div class="barOuter"><div class="barInner" id="aBar" style="background:var(--green)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="aImpacts">0</span></div>
     </div>
-    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span id="hudHostLine"><span class="url" id="hudHost"></span><br></span></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span> <span class="tokenChip" style="color:#35e6ff">&#9679; <span id="tokenIntel">0</span></span></span><br><span id="waveHud">WAVE 1</span></div>
+    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span id="hudHostLine"><span class="url" id="hudHost"></span><br></span></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span> <span class="tokenChip" style="color:#35e6ff">&#9679; <span id="tokenIntel">0</span></span></span><br><span id="waveHud">WAVE 1</span><br><span id="objectiveHud"></span></div>
     <div class="panel right">
       <div>NODE OMEGA — <span id="oHealth">250</span>/250</div>
       <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="oImpacts">0</span></div>
+      <div id="omegaGuardStatus" class="hidden">GUARDED</div>
       <div id="pointDefenseJamStatus" class="hidden">POINT DEFENSE JAMMED 0:15</div>
       <div id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</div>
       <div id="omegaCounterStatus"></div>
@@ -1795,8 +1813,11 @@
       // Skip damage during rebuild invulnerability window (LRNA-125)
       if (omegaInvulnTimer > 0) return false;
       const wasAlive = omegaHealth > 0;
-      damageOmegaAt(x - dest.x, laneY, dmg); // cosmetic crumble only
-      omegaHealth = Math.max(0, omegaHealth - Math.max(1, Math.round(dmg * OMEGA_HEALTH_DMG_RATIO)));
+      // LRNA-172: while any forward defense stands, Omega only takes a
+      // quarter of the damage - clear them first, then hit the base.
+      const guard = forwardDefensesStanding() > 0 ? OMEGA_GUARDED_DMG_FACTOR : 1;
+      damageOmegaAt(x - dest.x, laneY, dmg * guard); // cosmetic crumble only
+      omegaHealth = Math.max(0, omegaHealth - Math.max(1, Math.round(dmg * guard * OMEGA_HEALTH_DMG_RATIO)));
       return wasAlive && omegaHealth <= 0;
     }
     const wasAlive = !dest.destroyed;
@@ -1804,7 +1825,7 @@
     if (dest.health <= 0) dest.destroyed = true;
     // LRNA-167: a hidden node killed by a missile or plane gets the same
     // ground-kill effect the Attack Drone kill always had.
-    if (wasAlive && dest.destroyed && dest.zoneStart != null) spawnGroundKillFx(dest.x, dest.y);
+    if (wasAlive && dest.destroyed && allHuntableNodes().includes(dest)) spawnGroundKillFx(dest.x, dest.y);
     return wasAlive && dest.destroyed;
   }
 
@@ -2303,6 +2324,13 @@
   const ANTIPLANE_ENGAGE_RANGE = 260;
   const ANTIPLANE_DISCOVERY_RANGE = 220;
   const ANTIPLANE_DISCOVERY_CHANCE_PER_SEC = 0.18;
+  // LRNA-172: the AntiPlane nodes are the "radar defenses" in front of
+  // the base. They take real hits now (missiles and planes, picked from
+  // TARGETS or by tapping them), not only the Attack Drone's single shot.
+  const ANTIPLANE_MAX_HEALTH = 300;
+  // LRNA-172: Omega's damage taken while any forward defense (radar
+  // defense or SEEK AND DESTROY node) still stands.
+  const OMEGA_GUARDED_DMG_FACTOR = 0.25;
   let antiPlaneNodes = [];
   function initAntiPlaneNodes() {
     const usedLanes = new Set();
@@ -2313,8 +2341,9 @@
       do { laneIndex = (Math.random() * ANTIPLANE_LANES) | 0; } while (usedLanes.has(laneIndex));
       usedLanes.add(laneIndex);
       antiPlaneNodes.push({
-        id: `ap${i}`, name: `ANTIPLANE-${String(i + 1).padStart(2, '0')}`,
+        id: `ap${i}`, name: `RADAR DEFENSE ${String(i + 1).padStart(2, '0')}`,
         laneIndex, discovered: hasSatellite(), destroyed: false,
+        health: ANTIPLANE_MAX_HEALTH, maxHealth: ANTIPLANE_MAX_HEALTH, impacts: 0, radar: true,
         x: start + Math.random() * (end - start),
         y: vh() / 2, yOffset: (Math.random() - 0.5) * NODE_SCATTER,
         color: '#ff5a36', hitChance: ANTIPLANE_HIT_CHANCE, faction: 'enemy',
@@ -2388,6 +2417,9 @@
   // so recon and Attack Drone targeting work across both without
   // duplicating either mechanic.
   function allHuntableNodes() { return [...antiPlaneNodes, ...seekDestroyNodes]; }
+  // LRNA-172: the forward defenses are exactly these nodes; Omega is
+  // guarded while any of them stands.
+  function forwardDefensesStanding() { return allHuntableNodes().filter(n => !n.destroyed).length; }
   function findHuntableNode(id) { return allHuntableNodes().find(n => n.id === id) || null; }
 
   // called from the DRONE's own per-frame update (updateDroneRecon's
@@ -2400,7 +2432,7 @@
       if (Math.abs(m.x - ap.x) > ANTIPLANE_DISCOVERY_RANGE) continue;
       if (Math.random() < ANTIPLANE_DISCOVERY_CHANCE_PER_SEC * dt) {
         ap.discovered = true;
-        spawnFloatText(ap.x, ap.y - 40, `${ap.kind ? 'HOSTILE' : 'ANTIPLANE'} DETECTED: ${ap.name}`, '#ff5a36');
+        spawnFloatText(ap.x, ap.y - 40, `DETECTED: ${ap.name}`, '#ff5a36');
         spawnBurst(ap.x, ap.y, '#ff5a36', 20);
         // Economy rework (direct request): discovery no longer earns
         // coins - the only reward left is the flat passive rate plus
@@ -2609,6 +2641,56 @@
     }
     updateWaveHud();
   }
+  // ---- LRNA-172/173: objective line and Omega's guard. Step 1: find the
+  // forward defenses (recon). Step 2: destroy the ones still standing.
+  // Step 3: Omega takes full damage. Rebuilds start again at step 1.
+  let lastObjectiveText = '';
+  function objectiveState() {
+    const nodes = allHuntableNodes();
+    const standing = nodes.filter(n => !n.destroyed);
+    const hidden = standing.filter(n => !n.discovered).length;
+    const ready = standing.length - hidden;
+    const step = standing.length === 0 ? 3 : hidden > 0 ? 1 : 2;
+    return { total: nodes.length, standing: standing.length, hidden, ready, found: nodes.length - hidden, step };
+  }
+  function updateObjectiveHud() {
+    const el = document.getElementById('objectiveHud');
+    if (!el) return;
+    const o = objectiveState();
+    const sel = getTarget(selectedTargetId);
+    const aimed = sel && allHuntableNodes().includes(sel);
+    let text;
+    if (isMobileViewport()) {
+      // phones: same steps, a third of the width
+      text = o.step === 1 ? `1/3 FIND DEFENSES ${o.found}/${o.total}${o.ready && !aimed ? ' · TAP ONE' : ''}`
+        : o.step === 2 ? `2/3 DESTROY DEFENSES · ${o.standing} LEFT${aimed ? '' : ' · TAP ONE'}`
+        : '3/3 ATTACK NODE OMEGA';
+    } else if (o.step === 1) {
+      text = `STEP 1/3 · FIND THE FORWARD DEFENSES ${o.found}/${o.total}` +
+        (o.ready ? ` · ${o.ready} FOUND${aimed ? '' : ' — TAP ONE TO TARGET IT'}` : ' — SEND A DRONE OR RECON PLANE');
+    } else if (o.step === 2) {
+      text = `STEP 2/3 · DESTROY THE FORWARD DEFENSES (${o.standing} LEFT)${aimed ? '' : ' — TAP ONE TO TARGET IT'}`;
+    } else {
+      text = 'STEP 3/3 · ATTACK NODE OMEGA — FULL DAMAGE';
+    }
+    if (text !== lastObjectiveText) {
+      el.textContent = text;
+      el.classList.toggle('final', o.step === 3);
+      lastObjectiveText = text;
+    }
+    const guardEl = document.getElementById('omegaGuardStatus');
+    if (guardEl) {
+      guardEl.classList.toggle('hidden', o.standing === 0);
+      const pct = Math.round(OMEGA_GUARDED_DMG_FACTOR * 100);
+      guardEl.textContent = isMobileViewport() ? `GUARDED ${pct}% · ${o.standing} UP`
+        : `GUARDED · TAKES ${pct}% DAMAGE (${o.standing} FORWARD DEFENSE${o.standing === 1 ? '' : 'S'} UP)`;
+    }
+    // LRNA-173: pulse the recon buttons while there's something left to find.
+    for (const btn of document.querySelectorAll('.launchBtn[data-type="drone"], .planeBtn[data-plane="reconPlane"]')) {
+      btn.classList.toggle('nextStep', running && o.step === 1);
+    }
+  }
+
   function updateWaveHud() {
     if (!waveHudEl) return;
     if (waveState === 'break') {
@@ -2667,6 +2749,13 @@
     buildOmegaBase();
     nodeO.hitChance = Math.min(OMEGA_HIT_CHANCE_CAP, (nodeO.hitChance || COUNTER.hitChance * DIFFICULTIES[difficulty].interceptMult) + 0.05);
     omegaInvulnTimer = OMEGA_REBUILD_INVULN; // Add invulnerability window (LRNA-125)
+    // LRNA-172: every rebuild hides a fresh set of forward defenses, so
+    // each round starts with recon again and Omega is guarded again.
+    initAntiPlaneNodes();
+    initSeekDestroyNodes();
+    if (selectedTargetId !== 'O' && !getTarget(selectedTargetId)) { selectedTargetId = 'O'; updateTargetLabel(); }
+    spawnFloatText(nodeO.x, nodeO.y - 200, 'NEW FORWARD DEFENSES HIDDEN — RECON AGAIN', '#9fffcf');
+    updateObjectiveHud();
   }
   function updateWaveDirector(dt) {
     if (openingLocked) return; // LRNA-080: no Wave 1 until initial recon
@@ -2706,7 +2795,8 @@
     // LRNA-167: a SEEK AND DESTROY node becomes a normal target once
     // recon has found it - missiles and attack planes can be aimed at it
     // from TARGETS like any field target. Never before discovery.
-    return fieldTargets.find(t => t.id === id) || seekDestroyNodes.find(n => n.id === id && n.discovered) || null;
+    // LRNA-172: radar defenses too, under the same rule.
+    return fieldTargets.find(t => t.id === id) || allHuntableNodes().find(n => n.id === id && n.discovered) || null;
   }
 
   function getDefender(id) {
@@ -3035,6 +3125,8 @@
     updateTargetLabel();
     updateModeStatus();
     updateOpeningLockUi(); // LRNA-080
+    lastObjectiveText = '';
+    updateObjectiveHud(); // LRNA-172/173
   }
 
   function updateHud() {
@@ -4170,6 +4262,7 @@
 
     updateWaveDirector(dt);
     updateWaveHud();
+    updateObjectiveHud(); // LRNA-172/173
     updateIncomingAlert();
     updateOmegaCounters(dt);
     updateOmegaCountersHud();
@@ -4333,7 +4426,7 @@
             sfxIntercept();
             spawnBurst(ap.x, ap.y, '#ff5a36', 30);
             spawnScorch(ap.x, 30, 'rgba(255,90,54,0.35)');
-            if (ap.maxHealth != null) {
+            if (ap.maxHealth != null && !ap.radar) { // radar defenses keep LRNA-039's one-hit drone kill
               // SEEK AND DESTROY node (LRNA-063): real health pool, may
               // take several hits rather than a single-shot destroy.
               ap.health = Math.max(0, ap.health - ATTACK_DRONE_DAMAGE);
@@ -4743,7 +4836,7 @@
       if (t.destroyed) continue;
       rows.push({ id: t.id, name: t.name, color: t.color, hp: `${Math.ceil(t.health)}/${t.maxHealth}`, dist: t.x - nodeA.x });
     }
-    for (const n of seekDestroyNodes) { // LRNA-167
+    for (const n of allHuntableNodes()) { // LRNA-167, LRNA-172
       if (!n.discovered || n.destroyed) continue;
       rows.push({ id: n.id, name: n.name, color: n.color, hp: `${Math.ceil(n.health)}/${n.maxHealth}`, dist: n.x - nodeA.x });
     }
@@ -5255,13 +5348,26 @@
     // new counters-only jam, distinct from the point-defense jam above -
     // both can be up at once and both should read clearly.
     if (alive && omegaCountersJamTimer > 0) drawJamIndicator(sx, nodeO.y, halfDraw + 18, '#ff2ea6');
+    // LRNA-172: a shield ring while the forward defenses stand.
+    const guarded = alive && forwardDefensesStanding() > 0;
+    if (guarded) {
+      ctx.save();
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 420);
+      ctx.strokeStyle = '#35e6ff';
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.25 + pulse * 0.25;
+      ctx.beginPath();
+      ctx.arc(sx, nodeO.y, halfDraw + 30, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     ctx.fillStyle = alive ? nodeO.color : '#a55';
     ctx.font = '12px "Courier New", ui-monospace, monospace';
     ctx.textAlign = 'center';
     const jamLabel = empGlobalJamTimer > 0 && omegaCountersJamTimer > 0 ? ' [JAMMED / COUNTERS JAMMED]'
       : empGlobalJamTimer > 0 ? ' [JAMMED]'
       : omegaCountersJamTimer > 0 ? ' [COUNTERS JAMMED]' : '';
-    ctx.fillText(alive ? `${nodeO.name}${jamLabel}` : nodeO.name, sx, nodeO.y + halfDraw + 16);
+    ctx.fillText(alive ? `${nodeO.name}${guarded ? ' [GUARDED]' : ''}${jamLabel}` : nodeO.name, sx, nodeO.y + halfDraw + 16);
   }
 
   const FIELD_MARKER_OFFSET = 26;
@@ -6485,13 +6591,41 @@
     }
     camX = Math.max(camMin(), Math.min(camMax(), camStartX - (e.clientX - dragStartX) / ZOOM));
   });
+  // LRNA-172: tapping a target on the battlefield picks it - Omega, a
+  // field target, or a discovered forward defense - no trip into STATS.
+  function hitTestTarget(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const wx = (clientX - rect.left) / ZOOM + camX;
+    const wy = (clientY - rect.top) / ZOOM;
+    let best = null, bestDist = Infinity;
+    const consider = (t, radius) => {
+      const d = Math.hypot(t.x - wx, t.y - wy);
+      if (d < radius && d < bestDist) { best = t; bestDist = d; }
+    };
+    for (const n of allHuntableNodes()) if (n.discovered && !n.destroyed) consider(n, 45);
+    for (const t of fieldTargets) if (!t.destroyed) consider(t, 35);
+    if (omegaHealth > 0) consider(nodeO, OMEGA_RES * OMEGA_PX_SCALE / 2);
+    return best;
+  }
+  function selectTarget(t) {
+    if (!t || t.id === selectedTargetId) return;
+    selectedTargetId = t.id;
+    sfxUi();
+    spawnFloatText(t.x, t.y - 60, `TARGET: ${t.name}`, '#ffe066');
+    renderTargetList();
+    updateTargetLabel();
+    updateObjectiveHud();
+  }
+  function handleBattlefieldTap(clientX, clientY, missileRadius) {
+    const hit = hitTestMissile(clientX, clientY, missileRadius);
+    if (hit) { followId = hit.id; return; }
+    followId = null;
+    selectTarget(hitTestTarget(clientX, clientY));
+  }
   window.addEventListener('mouseup', (e) => {
     if (!dragging) return;
     dragging = false; canvas.classList.remove('dragging');
-    if (!dragConfirmed) {
-      const hit = hitTestMissile(e.clientX, e.clientY);
-      followId = hit ? hit.id : null;
-    }
+    if (!dragConfirmed) handleBattlefieldTap(e.clientX, e.clientY);
   });
 
   canvas.addEventListener('touchstart', (e) => {
@@ -6514,8 +6648,7 @@
     dragging = false;
     if (!dragConfirmed && e.changedTouches && e.changedTouches.length) {
       const t = e.changedTouches[0];
-      const hit = hitTestMissile(t.clientX, t.clientY, MISSILE_HIT_RADIUS * 1.4);
-      followId = hit ? hit.id : null;
+      handleBattlefieldTap(t.clientX, t.clientY, MISSILE_HIT_RADIUS * 1.4);
     }
   });
 
@@ -6653,6 +6786,11 @@
     trackRadarContact(row.dataset.contact, row.dataset.kind);
   });
   const radarLaneTrackEl = document.getElementById('radarLaneTrack');
+  // LRNA-172: phones open and close the contact list from its header.
+  document.querySelector('#contacts h3').addEventListener('click', () => {
+    document.getElementById('contacts').classList.toggle('open');
+    layoutTopStack();
+  });
   radarLaneTrackEl.addEventListener('click', (e) => {
     if (!running) return;
     const dot = e.target.closest('.laneDot');
@@ -6801,6 +6939,14 @@
       fireCounterAttackPlanes: () => fireCounterAttackPlanes(),
       attemptFire: (typeKey) => attemptFire(typeKey),
       get waveState() { return waveState; },
+      // LRNA-172/173
+      get forwardDefensesStanding() { return forwardDefensesStanding(); },
+      get selectedTargetId() { return selectedTargetId; },
+      get camX() { return camX; },
+      setCamX(v) { followId = null; camX = v; },
+      get ZOOM() { return ZOOM; },
+      clearForwardDefenses() { for (const n of allHuntableNodes()) { n.discovered = true; n.destroyed = true; } updateObjectiveHud(); },
+      updateObjectiveHud: () => updateObjectiveHud(),
 
       // -- deterministic scenario control --
       freezeWaves() { waveState = 'break'; waveBreakTimer = 1e9; },
