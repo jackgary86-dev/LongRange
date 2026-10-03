@@ -421,6 +421,12 @@ scope except where they open a menu.
   lines, and the actions that make sense (RETRY, NEXT MISSION, MENU)
   instead of only RETURN TO START.
 
+Decided directly (2026-10-03): a **tactical / military** look for the
+menus (muted greys and amber, thin lines, map-grid texture, like a
+command console) rather than the current neon, and the start screen's
+main buttons are **PLAY + MISSIONS**, with Setup and How to play as small
+links.
+
 Order: ART-9 first (everything uses it), then ART-10 + ART-11 together
 (they split one screen), then ART-12, ART-14, ART-15, ART-13. Each keeps
 the regression suite green and gets a desktop and phone screenshot check.
