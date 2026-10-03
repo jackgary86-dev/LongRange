@@ -42,6 +42,14 @@ npm test                           # 73 tests as of ART epic 3
 Tests drive the game through `window.__TEST__`, which only exists with
 `?test=1` in the URL (or `localStorage.lrna_test_mode = '1'`).
 
+Balance simulation (bot vs Omega's AI, headless, fast-forwarded):
+```sh
+node tools/simulate.js 6 15 results.json   # games per setup, minutes per game
+SIM_DIFFICULTIES=normal SIM_STRATEGIES=omega,missile-first SIM_SKILLS=sharp \
+  SIM_GAME=/path/to/modified/index.html node tools/simulate.js 8 15 whatif.json
+```
+180 games take about 2 minutes. See "Simulation findings" in TICKETS.md.
+
 ## Standalone installer
 
 `installer/longrange-installer.py` is one file with the whole game packed

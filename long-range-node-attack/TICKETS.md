@@ -902,6 +902,71 @@ directly: the other installations stay **as scenery**, and the picker is
   3 missile nodes, 7:00). Tests: the target-list test replaced by a
   three-button test, mission tests moved to the new missions. 77/77.
 
+## Simulation findings and proposed balance tickets (2026-10-03)
+
+Request: "simulate playing each other to better understand how to improve
+the game." `tools/simulate.js` drives the real game headless and
+fast-forwarded: a scripted player (5 strategies: straight at Omega, FAST
+spam, radar nodes first, missile nodes first, all nodes first; 2 skill
+levels for using the Emergency Counter) against Omega's built-in AI, on
+all 3 difficulties, 15 game minutes per game. 180 games on the current
+build, plus what-if builds with single changes (24 games each, normal)
+and two combined packages (96 games each).
+
+What the current build does (median survival / Omega kills per game):
+
+| | Omega first | Radar first | Missile first | All nodes first |
+|-|-|-|-|-|
+| Easy | 7:00, 0.1 | 7:00, 0.1 | 10:10, 0.2 | 10:00, 0.6 |
+| Normal | 3:45, 0 | 3:15, 0 | 7:00, 0 | 6:15, 0 |
+| Hard | 2:25, 0 | 2:45, 0 | 3:15, 0 | 3:00, 0 |
+
+1. **Omega is never destroyed on Normal or Hard** (0 kills in 120 games);
+   on Easy 0.2 per game. The objective line says DESTROY NODE OMEGA, but
+   a bot firing every token it has can't.
+2. **The player is broke 83% of the time** (under 100 ATTACK). Income
+   (20/s) is the bottleneck: a LONG RANGE every 25s, ~9 hits to kill
+   Omega. Doubling income alone: under 100 only 14% of the time, Omega
+   killed 2-3 times per game on Normal, first kill at ~2-3 min.
+3. **The platform dies after ~6 hits.** Enemy strikes deal 20-65 vs 250
+   HP; once the 10 Emergency Counters are spent (always, within minutes)
+   the waves grind it down. Survival barely changes with more income -
+   offense and defense are separate problems.
+4. **Missile nodes first is the best plan everywhere** (+50-90% survival);
+   **radar first is no better than ignoring the nodes.** Omega's radar
+   only cuts its intercepts, and it has spent its 10 counters early
+   anyway, so blinding it buys little.
+5. **Your own nodes never fall** (0 losses in 180 games, ~0.5 even at 80
+   HP). Omega's strikes at them (25%) are spread randomly over 5 nodes
+   at 20-65 damage against 400 HP.
+6. FAST spam is the worst plan (it's the least damage per token after
+   Omega's defenses).
+
+What-ifs on Normal (one change each, median survival / Omega kills):
+income 40/s 3:58-6:46 / 1.4-3.1; Omega takes 2x damage 3:26-4:28 / ~0;
+20 counters 4:27-8:03 / ~0.1; smaller waves 3:39-6:17 / ~0. Combined
+package B1 (income 35, 15 counters, enemy damage x0.6): Normal 5:13-8:54,
+1.9-4.0 kills, first kill ~3-4 min; Easy missile-first survives the full
+15 min in 7 of 8 games; Hard 3:35-5:37, ~1 kill.
+
+Proposed tickets (not started - for the owner to pick):
+
+- **LRNA-184** — PROPOSED — Economy: ATTACK income 20/s -> 35/s (B1).
+  The single biggest lever: Omega becomes killable on Normal.
+- **LRNA-185** — PROPOSED — Defense: enemy strike damage x0.6 (12/24/40)
+  and 15 Emergency Counters per side (B1). Normal games last ~5-9 min
+  instead of ~3-7.
+- **LRNA-186** — PROPOSED — Make radar nodes worth killing: e.g. each
+  Omega radar lost also costs it 3 Emergency Counters, or blinds its
+  wave aiming (its strikes scatter wider and miss more).
+- **LRNA-187** — PROPOSED — Make your nodes matter: Omega focuses one of
+  your nodes at a time, and your nodes drop to ~120 HP, so losing them is
+  a real event you have to defend against.
+- **LRNA-188** — PROPOSED — Re-run `tools/simulate.js` after each balance
+  change and record the table here; targets to aim for: Normal first
+  Omega kill at 2-4 min, median survival 6-10 min, node strategies
+  clearly better than ignoring the nodes.
+
 ## OPEN — Counter Center Restructuring
 
 Direct request from a live design-review session (2026-09-29), working from
