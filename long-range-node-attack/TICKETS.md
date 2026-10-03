@@ -588,6 +588,57 @@ missions.
   (smoke, fire, exposed core as health drops), and a clear "what hit what"
   (interceptor trails that end in a visible kill).
 
+## OPEN — LRNA-180: remove recon, straight to the fight (2026-10-03)
+
+Request: "remove everything related to RECON - remove the Drone the recon
+plane - the whole opening recon phase - just start the game and let us
+attack each other."
+
+- **LRNA-180** — OPEN — Remove recon. The game starts with both sides
+  able to fire at once: the Strike Platform attacks Node Omega, Omega
+  attacks back in waves, nothing to find first.
+
+  Remove:
+  - **The opening lock** (`openingLocked`, the RECON REQUIRED banner and
+    its scan bar, `forceOpeningUnlock`, the "systems coming online"
+    unlock sweep tied to it). Attacks are live from the first second.
+  - **DRONE and RECON PLANE** (`TYPES.drone`, `PLANE_TYPES.reconPlane`,
+    the Attack Drone, their buttons, keys, name pools, flight and
+    callout code). Key 7 goes away or moves to the next button.
+  - **The INTEL currency.** Its only spenders are the two recon tools, so
+    the bar keeps ATTACK and COUNTER; the INTEL group, its token counter,
+    income and refunds go.
+  - **Hidden nodes and discovery** (`seekDestroyNodes`, `discovered`,
+    zones on the strip, discovery callouts, the Radar Lane's discovery
+    rows).
+  - **Satellite** loadout node: its only effect is revealing the map.
+    Saved loadouts that contain it fall back to the default slot.
+
+  Decide while doing it (proposals in brackets):
+  - Forward defenses (the 2 radar defenses and Omega's 25% guard,
+    LRNA-172): [remove them too, so it's Strike Platform against Omega
+    with nothing in between].
+  - The objective line (FIND / DESTROY / ATTACK, LRNA-173): [replace
+    with one line, "DESTROY NODE OMEGA · WAVE n"].
+  - Missions built on recon: FIRST CONTACT (find 3 defenses), BLIND THE
+    RADAR and BREAK THE LINE (forward defenses) [replace with 3 combat
+    missions: e.g. destroy Omega once within a time limit, survive N
+    waves with only missiles, win without losing more than half the
+    Strike Platform's hull]. HOLD THE LINE's `skipRecon` flag goes.
+    Saved stars for removed missions are dropped.
+  - The Radar Lane panel [keep it as the incoming-threat lane only].
+
+  Update: HOW TO PLAY (the three steps become "attack Omega, counter what
+  it sends"), the Setup slot options, the STATS window, the tests that
+  cover recon, discovery, the opening lock and the forward defenses
+  (rewrite or delete with the feature, never skip), and OPERATIONS.md's
+  state notes.
+
+  Done when: pressing PLAY puts you in a live exchange of fire at once;
+  no DRONE, RECON PLANE, INTEL, hidden node, discovery or RECON REQUIRED
+  text is left in the game; the 6 missions all play without recon; the
+  suite is green; installer, Alert copy, demo and Pages are updated.
+
 ## OPEN — Counter Center Restructuring
 
 Direct request from a live design-review session (2026-09-29), working from
