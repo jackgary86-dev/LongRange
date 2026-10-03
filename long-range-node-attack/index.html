@@ -932,7 +932,7 @@
       <div class="barOuter"><div class="barInner" id="aBar" style="background:var(--green)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="aImpacts">0</span></div>
     </div>
-    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span id="hudHostLine"><span class="url" id="hudHost"></span><br></span></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span></span><br><span id="waveHud">WAVE 1</span><br><span id="objectiveHud"></span></div>
+    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span id="hudHostLine"><span class="url" id="hudHost"></span><br></span></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span></span><br><span id="waveHud">WAVE 1</span><br><span id="objectiveHud"></span></div>
     <div class="panel right">
       <div>NODE OMEGA — <span id="oHealth">250</span>/250</div>
       <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
@@ -995,7 +995,7 @@
        targets, reactor upgrades) into this screen alongside its existing
        COUNTER/RECON content - one place for everything that isn't
        attacking, not two. #opsCenterBtn and the bottom bar's
-       #counterMissileBtn both open this same window. -->
+       former #counterMissileBtn both opened this same window. -->
   <!-- LRNA-158: no more COUNTER or RECON content here - COUNTER MISSILE/
        COUNTER ATTACK PLANES fire directly from the bottom bar now, and
        the zone strip + RECON status/lists live on the always-visible
@@ -1087,33 +1087,18 @@
           <div class="abilityGroupSub">PLANES</div>
           <div class="abilityGroupButtons" id="planeButtons-attack"></div>
         </div>
+        <!-- LRNA-181: one counter - EMERGENCY COUNTER, 10 per game -->
         <div class="abilityGroup" data-pillar="counter">
-          <div class="abilityGroupHeader">COUNTER <span class="abilityGroupCount">&#9679; <span id="groupTokenCounter">0</span></span></div>
+          <div class="abilityGroupHeader">COUNTER</div>
           <div class="abilityGroupButtons">
-            <button class="launchBtn" id="counterMissileBtn" style="--btncolor:#c6e8ff" disabled>
-              <span class="btnKey">4</span>
-              <span class="ammoLeft" id="counterMissileAmmo">10 LEFT</span>
-              <span class="btnLabel">COUNTER MISSILE</span>
-              <span class="btnEta" id="counterMissileEta">1 target &middot; 75% kill</span>
-              <span class="btnDmg">&#9679; 500 COUNTER</span>
-            </button>
-            <button class="launchBtn" id="counterPlanesBtn" style="--btncolor:#8fd8ff" disabled>
-              <span class="btnKey">5</span>
-              <span class="ammoLeft" id="counterPlanesAmmo">10 LEFT</span>
-              <span class="btnLabel" id="counterPlanesLabel">COUNTER ATTACK PLANES</span>
-              <span class="btnEta" id="counterPlanesEta">2 planes &middot; 75% kill</span>
-              <span class="btnDmg" id="counterPlanesCost">&#9679; 1000 COUNTER</span>
-            </button>
             <button id="emergencyBtn" disabled>
-              <span class="btnKey">6</span>
-              <span class="ammoLeft" id="emergencyAmmo">5 LEFT</span>
+              <span class="btnKey">4</span>
+              <span class="ammoLeft" id="emergencyAmmo">10 LEFT</span>
               <span class="btnLabel">EMERGENCY COUNTER</span>
               <span class="btnEta" id="emergencyStatus">no threat in window</span>
-              <span class="btnDmg">&#9679; 150 COUNTER</span>
+              <span class="btnDmg">LAST 5s &middot; 75% KILL</span>
             </button>
           </div>
-          <div class="abilityGroupSub">PLANES</div>
-          <div class="abilityGroupButtons" id="planeButtons-counter"></div>
         </div>
       </div>
     </div>
@@ -1179,15 +1164,15 @@
       <div class="mPanel">
         <ol class="howSteps">
           <li><span><strong>ATTACK</strong> Node Omega from the first second. Missiles and strike planes cost ATTACK; tap any enemy on the battlefield, or pick one in STATS, to aim at it.</span></li>
-          <li><span><strong>DEFEND</strong> against what Omega sends back in waves. COUNTER MISSILE takes missiles, COUNTER ATTACK PLANES take planes, EMERGENCY COUNTER is a last-second shot. You get 10, 10 and 5 per game; so does Omega.</span></li>
+          <li><span><strong>DEFEND</strong> against what Omega sends back in waves. Your ground defenses fire on their own; EMERGENCY COUNTER is yours to fire at any threat in its last 5 seconds. You get 10 per game, and so does Omega.</span></li>
           <li><span><strong>BREAK</strong> Omega. It rebuilds stronger each time it falls; the run ends when your Strike Platform does.</span></li>
         </ol>
       </div>
       <div class="mPanel">
-        <p class="howText"><strong>CURRENCY</strong> &mdash; <span style="color:#ff5a36">ATTACK</span> pays for warheads and strike planes, <span style="color:#ffe066">COUNTER</span> for counters. Both trickle in; hits pay back part of their cost.</p>
+        <p class="howText"><strong>CURRENCY</strong> &mdash; <span style="color:#ff5a36">ATTACK</span> pays for warheads and strike planes. It trickles in, and hits pay back part of their cost.</p>
       </div>
       <div class="mPanel">
-        <p class="howText"><strong>CONTROLS</strong> &mdash; drag or arrow keys to look around, tap a missile to follow it, keys 1-6 fire the abilities, R restarts.</p>
+        <p class="howText"><strong>CONTROLS</strong> &mdash; drag or arrow keys to look around, tap a missile to follow it, keys 1-3 fire missiles, 4 fires the Emergency Counter, R restarts.</p>
       </div>
     </section>
   </div>
@@ -1251,28 +1236,7 @@
     updateEmergencyBtn();
   });
 
-  const counterPlanesBtnEl = document.getElementById('counterPlanesBtn');
-  const counterPlanesLabelEl = document.getElementById('counterPlanesLabel');
-  const counterPlanesEtaEl = document.getElementById('counterPlanesEta');
-  const counterPlanesCostEl = document.getElementById('counterPlanesCost');
-  // LRNA-160: fires directly, same as Counter Missile (LRNA-158) - the
-  // scramble-and-confirm popup is gone.
-  counterPlanesBtnEl.addEventListener('click', () => {
-    if (!running) return;
-    fireCounterAttackPlanes();
-  });
-
-  const counterMissileBtnEl = document.getElementById('counterMissileBtn');
-  const counterMissileEtaEl = document.getElementById('counterMissileEta');
-  const counterMissileAmmoEl = document.getElementById('counterMissileAmmo');
-  const counterPlanesAmmoEl = document.getElementById('counterPlanesAmmo');
   const emergencyAmmoEl = document.getElementById('emergencyAmmo');
-  // LRNA-158: fires directly now instead of opening a window - "bring
-  // all the buttons to the main screen," same as every other ability.
-  counterMissileBtnEl.addEventListener('click', () => {
-    if (!running) return;
-    fireCounterMissile();
-  });
 
   // LRNA-121: below this width, the ability-bar buttons are narrow enough
   // that the full desktop label/stat text wraps across 2-3 lines and reads
@@ -2635,17 +2599,16 @@
   const camMax = () => Math.max(0, MAP_W - vw());
 
   // ---- TOKEN ECONOMY (LRNA-073, issue #429): replaces the single
-  // `coins` balance with pillars - Attack (red) and Counter (yellow) -
-  // each spent on its own family of abilities. LRNA-180 dropped the third,
-  // Intel, along with the recon tools that were its only use.
+  // `coins` balance with pillars. LRNA-180 dropped Intel with the recon
+  // tools, and LRNA-181 dropped Counter: Emergency Counter is limited by
+  // its 10 shots alone, so Attack (red) is the one currency left.
   // ABILITY_PILLARS below is the single source of truth for which pillar
   // a launch-bar warhead spends. Earning is now flat (TOKEN_PASSIVE_RATE)
   // plus DMG_TO_COIN_RATIO on a landed Attack-pillar hit - see those
   // constants below for the full economy.
-  const TOKEN_KEYS = ['attack', 'counter'];
+  const TOKEN_KEYS = ['attack'];
   const TOKEN_META = {
     attack:  { label: 'ATTACK',  color: '#ff5a36' },
-    counter: { label: 'COUNTER', color: '#ffe066' },
   };
   const ABILITY_PILLARS = {
     fast: 'attack', medium: 'attack', large: 'attack', cluster: 'attack', emp: 'attack',
@@ -2691,20 +2654,19 @@
   const TOKENS_KEY = 'lrna_tokens_v2';
   const LEGACY_COIN_KEY = 'lrna_coins_v1';
   function splitEvenly(total) {
-    const share = Math.floor(total / 2);
-    return { attack: share, counter: total - share };
+    return { attack: total };
   }
   // LRNA-166: every game now starts from this purse - tokens no longer
   // carry over from one game to the next (reset() below). "There is too
   // much currency in rotation each game - lower this."
-  const STARTING_TOKENS = { attack: 500, counter: 500 };
-  let tokens = { attack: 0, counter: 0 };
+  const STARTING_TOKENS = { attack: 500 };
+  let tokens = { attack: 0 };
   let tokenSaveTimer = 1;
   (function loadTokens() {
     try {
       const saved = JSON.parse(localStorage.getItem(TOKENS_KEY));
       if (saved && TOKEN_KEYS.every(k => typeof saved[k] === 'number')) {
-        tokens = { attack: Math.max(0, saved.attack), counter: Math.max(0, saved.counter) };
+        tokens = { attack: Math.max(0, saved.attack) };
         return;
       }
     } catch (e) { /* fall through */ }
@@ -2766,13 +2728,11 @@
 
   const tokenDisplayEls = {
     attack: document.getElementById('tokenAttack'),
-    counter: document.getElementById('tokenCounter'),
   };
   // LRNA-074/#431: each ability group header shows that pillar's own
   // token count too, alongside the top-center HUD chips.
   const groupTokenDisplayEls = {
     attack: document.getElementById('groupTokenAttack'),
-    counter: document.getElementById('groupTokenCounter'),
   };
   const tokenHudEl = document.getElementById('tokenHud');
   let tokenPulseTimeout = null;
@@ -2849,8 +2809,6 @@
     shotsRemaining = TURN_SIZE;
     turnCooldown = 0;
     omegaRebuildCount = 0;
-    omegaCounterMissileTimer = 0;
-    omegaCounterPlanesTimer = 0;
     omegaCountersJamTimer = 0;
     omegaEmergencyCooldown = 0;
     resetCounterAmmo();
@@ -2892,8 +2850,6 @@
     document.getElementById('oBar').style.width = Math.max(0, omegaHealth / PLAYER_MAX_HEALTH * 100) + '%';
     updateTurnHud();
     renderStats();
-    updateCounterPlanesBtn();
-    updateCounterMissileBtn();
   }
 
   const statsListEl = document.getElementById('statsList');
@@ -3061,26 +3017,19 @@
     return 'DEFENSE GRID';
   }
 
-  // ---- Emergency Counter: a manual, player-triggered backup intercept the
-  // Strike Platform itself can fire at an inbound enemy strike, stacking on
-  // top of (not replacing) the automatic AM-battery shot above. Only
-  // MEDIUM/LARGE enemy strikes are trackable - FAST ones move too quick for
-  // the system to lock onto - and each individual threat can only be
-  // manually re-engaged twice before it's considered spent.
+  // ---- Emergency Counter: the player's one counter (LRNA-181), fired by
+  // hand at an inbound threat in its last EMERGENCY_WINDOW seconds,
+  // stacking on top of the automatic ground defenses. Any size and class
+  // of threat (LRNA-181 dropped the FAST exclusion); each threat can be
+  // engaged twice at most. 10 per game, no currency cost.
   const EMERGENCY_MAX_PER_TARGET = 2;
-  const EMERGENCY_HIT_CHANCE = 0.55;
+  const EMERGENCY_HIT_CHANCE = 0.75; // LRNA-181: the old Counter Missile's 75%, now that it's the only counter
   const EMERGENCY_COOLDOWN = 1.2;
-  // was free (cooldown-gated only) before LRNA-073/#429, which explicitly
-  // lists Emergency Counter alongside Counter Missile/Counter Attack
-  // Planes as Counter-pillar spends - kept cheap since it's still meant
-  // as the fast reflex option, not a planned purchase.
-  const EMERGENCY_COUNTER_COST = 150;
-  // LRNA-165: counters are a limited stock per game, the same for the
-  // player and Omega - "only 10 counter missiles 10 counter planes and 5
-  // emergency counters", and "the AI also only has" the same. Counter
-  // planes count planes, not button presses (a 2-plane launch uses 2).
-  // Refilled only when a new game starts (resetCounterAmmo in init).
-  const COUNTER_AMMO = { missile: 10, planes: 10, emergency: 5 };
+  // LRNA-165/181: counters are a limited stock per game, the same for the
+  // player and Omega - "only have one counter button called EMERGENCY
+  // COUNTER - you have 10 chances to intercept missiles." Refilled only
+  // when a new game starts (resetCounterAmmo in reset).
+  const COUNTER_AMMO = { emergency: 10 };
   let counterAmmo = { ...COUNTER_AMMO };
   let omegaCounterAmmo = { ...COUNTER_AMMO };
   function resetCounterAmmo() {
@@ -3089,7 +3038,7 @@
     updateCounterAmmoBadges();
   }
   function updateCounterAmmoBadges() {
-    for (const [key, el] of [['missile', counterMissileAmmoEl], ['planes', counterPlanesAmmoEl], ['emergency', emergencyAmmoEl]]) {
+    for (const [key, el] of [['emergency', emergencyAmmoEl]]) {
       if (!el) continue;
       el.textContent = counterAmmo[key] > 0 ? `${counterAmmo[key]} LEFT` : 'NONE LEFT';
       el.classList.toggle('empty', counterAmmo[key] <= 0);
@@ -3104,7 +3053,7 @@
   function findEmergencyTarget() {
     let best = null, bestRemaining = Infinity;
     for (const m of missiles) {
-      if (m.typeKey !== 'enemyStrike' || m.sizeKey === 'fast') continue;
+      if (m.typeKey !== 'enemyStrike') continue;
       if ((m.emergencyUsed || 0) >= EMERGENCY_MAX_PER_TARGET) continue;
       // LRNA-127: only exclude a target while *Emergency Counter's own*
       // shot at it is still in flight - the always-on auto-defenses (AM
@@ -3123,14 +3072,13 @@
 
   function fireEmergencyCounter() {
     if (paused) return false; // LRNA-119
-    if (emergencyCooldown > 0 || tokens.counter < EMERGENCY_COUNTER_COST) return false;
+    if (emergencyCooldown > 0) return false;
     if (counterAmmo.emergency <= 0) return false; // LRNA-165
     const target = findEmergencyTarget();
     if (!target) return false;
     target.emergencyUsed = (target.emergencyUsed || 0) + 1;
     counterAmmo.emergency -= 1;
     updateCounterAmmoBadges();
-    spendTokens('counter', EMERGENCY_COUNTER_COST, nodeA.x, nodeA.y - 60);
     fireCounter({ id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#fff2b0', hitChance: EMERGENCY_HIT_CHANCE }, target.id, 'emergency');
     emergencyCooldown = EMERGENCY_COOLDOWN;
     return true;
@@ -3139,7 +3087,7 @@
   function updateEmergencyBtn() {
     if (!emergencyBtnEl) return;
     const target = findEmergencyTarget();
-    const ready = !!target && emergencyCooldown <= 0 && tokens.counter >= EMERGENCY_COUNTER_COST && counterAmmo.emergency > 0;
+    const ready = !!target && emergencyCooldown <= 0 && counterAmmo.emergency > 0;
     emergencyBtnEl.disabled = !ready;
     emergencyBtnEl.classList.toggle('ready', ready);
     // LRNA-149: cost used to only appear embedded in this dynamic string,
@@ -3165,124 +3113,26 @@
     }
   }
 
-  // ---- Counter Attack Planes: a purchasable launch-bar ability (unlike
-  // the free, cooldown-gated Emergency Counter above) that sends 2 planes
-  // after inbound enemy strikes, each with a flat 75% kill chance. No size
-  // restriction (unlike Emergency Counter's MEDIUM/LARGE-only gate) - any
-  // inbound enemyStrike is a valid target.
-  const COUNTER_PLANES_COST = 1000;
-  const COUNTER_PLANES_HIT_CHANCE = 0.75;
+  // inbound enemy threats, soonest to impact first
   function findInboundEnemyMissiles() {
     return missiles
       .filter(m => m.typeKey === 'enemyStrike')
       .sort((a, b) => (a.totalSeconds - a.age) - (b.totalSeconds - b.age));
   }
-  // LRNA-158: COUNTER MISSILE and COUNTER ATTACK PLANES each only engage
-  // their own matching weaponClass now - direct request ("only missiles
-  // can counter missiles and only planes can counter planes"), scoped to
-  // just these 2 player-fired abilities per the same confirmation -
-  // automated defenses (AM batteries, loadout nodes) are untouched,
-  // keeping LRNA-051's "engage both classes the same way" behavior.
-  function findInboundEnemyMissilesOfClass(weaponClass) {
-    return findInboundEnemyMissiles().filter(m => m.weaponClass === weaponClass);
-  }
-  // each plane can only kill one missile, so a single live threat only
-  // gets one plane (at half price) rather than wastefully sending both
-  // after the same target.
-  function counterPlanesPlan() {
-    const targets = findInboundEnemyMissilesOfClass('plane');
-    const planeCount = Math.min(2, targets.length, counterAmmo.planes); // LRNA-165: never more than are left
-    const cost = planeCount === 1 ? COUNTER_PLANES_COST / 2 : COUNTER_PLANES_COST;
-    return { targets, planeCount, cost };
-  }
-  function fireCounterAttackPlanes() {
-    if (paused) return; // LRNA-119
-    const { targets, planeCount, cost } = counterPlanesPlan();
-    if (planeCount === 0 || tokens.counter < cost) return;
-    spendTokens('counter', cost, nodeA.x, nodeA.y - 90);
-    counterAmmo.planes -= planeCount;
-    updateCounterAmmoBadges();
-    const origin = { id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#8fd8ff', hitChance: COUNTER_PLANES_HIT_CHANCE };
-    for (let i = 0; i < planeCount; i++) fireCounter(origin, targets[i].id, 'counterplanes');
-  }
-  function updateCounterPlanesBtn() {
-    if (!counterPlanesBtnEl) return;
-    const { planeCount, cost } = counterPlanesPlan();
-    counterPlanesBtnEl.disabled = planeCount === 0 || tokens.counter < cost;
-    if (isMobileViewport()) {
-      counterPlanesLabelEl.textContent = 'ATTACK PLANES'; // "COUNTER" is already the group header
-      counterPlanesEtaEl.textContent = planeCount === 1 ? '1x · 75%' : '2x · 75%';
-    } else {
-      counterPlanesLabelEl.textContent = 'COUNTER ATTACK PLANES';
-      counterPlanesEtaEl.textContent = planeCount === 1 ? '1 plane · 75% kill' : '2 planes · 75% kill';
-    }
-    counterPlanesCostEl.textContent = `● ${cost} COUNTER`;
-  }
-
-  // ---- Counter Missile: a cheaper, single-target sibling of Counter
-  // Attack Planes - one shot at the single soonest-to-impact inbound
-  // enemy strike, same 75% hit chance, no size gate, for half the plane
-  // ability's per-target price.
-  const COUNTER_MISSILE_COST = 500;
-  const COUNTER_MISSILE_HIT_CHANCE = 0.75;
-  function fireCounterMissile() {
-    if (paused) return; // LRNA-119
-    if (tokens.counter < COUNTER_MISSILE_COST) return;
-    if (counterAmmo.missile <= 0) return; // LRNA-165
-    const target = findInboundEnemyMissilesOfClass('missile')[0];
-    if (!target) return;
-    spendTokens('counter', COUNTER_MISSILE_COST, nodeA.x, nodeA.y - 90);
-    counterAmmo.missile -= 1;
-    updateCounterAmmoBadges();
-    fireCounter({ id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#c6e8ff', hitChance: COUNTER_MISSILE_HIT_CHANCE }, target.id, 'countermissile');
-  }
-  function updateCounterMissileBtn() {
-    if (!counterMissileBtnEl) return;
-    const target = findInboundEnemyMissilesOfClass('missile')[0];
-    counterMissileBtnEl.disabled = !target || tokens.counter < COUNTER_MISSILE_COST || counterAmmo.missile <= 0;
-    counterMissileEtaEl.textContent = isMobileViewport() ? '1x · 75%' : '1 target · 75% kill';
-  }
-
-  // ---- OMEGA COUNTERS (LRNA-075, issue #432, finishes LRNA-044): Omega
-  // gets its own Counter Missile + Counter Attack Planes, mirroring the
-  // player's exactly - same hit chances, no size gate (neither player
-  // ability has one; that's Emergency Counter's exclusion, not these
-  // two's). Free (no token cost - Omega doesn't spend from the player's
-  // economy), gated instead by its own cooldowns, defined here beside
-  // the player's constants above so they're easy to tune together.
-  // "Fires ~1-2s after a player warhead enters range": tracked per-
-  // missile via m.omegaReactionDelay, checked against the missile's own
-  // age - the same "let it fly a beat before defenses react" shape the
-  // AM batteries already use (m.age > 1.1 there).
-  const OMEGA_COUNTER_MISSILE_HIT_CHANCE = COUNTER_MISSILE_HIT_CHANCE;
-  const OMEGA_COUNTER_PLANES_HIT_CHANCE = COUNTER_PLANES_HIT_CHANCE;
-  const OMEGA_COUNTER_REACTION_MIN = 1, OMEGA_COUNTER_REACTION_MAX = 2;
-  const OMEGA_COUNTER_MISSILE_COOLDOWN = 6;
-  const OMEGA_COUNTER_PLANES_COOLDOWN = 10;
+  // ---- OMEGA COUNTERS: since LRNA-181 Omega mirrors the player's one
+  // counter - an Emergency Counter, 10 per game, at a player warhead or
+  // plane in its last EMERGENCY_WINDOW seconds. A landed hit that jams
+  // Omega's counters (omegaCountersJamTimer) stops it for a while.
   const OMEGA_COUNTERS_JAM_DURATION = 15;
-  // LRNA-102: with no cap, a 6s cooldown gives Omega ~4 shots at a LARGE
-  // (30s flight) and ~3 at a CLUSTER (24s) before it ever arrives - at 75%
-  // hit chance that's ~98%/~93% cumulative, making the game's two highest-
-  // damage, highest-cost warheads nearly unreachable against an active
-  // Omega, while FAST/MEDIUM (fewer shots fit in their shorter flights)
-  // stay comparatively easy. Capping attempts per target, matching the
-  // same convention Emergency Counter already uses, keeps a slower/pricier
-  // warhead from being punished for spending more time in Omega's range.
-  const OMEGA_COUNTER_MAX_PER_TARGET = 2;
-  let omegaCounterMissileTimer = 0;
-  let omegaCounterPlanesTimer = 0;
   let omegaCountersJamTimer = 0;
-  // LRNA-165: Omega's own Emergency Counter, mirroring the player's - a
-  // last-moment shot at a player warhead within EMERGENCY_WINDOW of
-  // impact, same hit chance, cooldown and per-target cap, and the same
-  // FAST exclusion (too quick to lock). Limited like the others by
-  // omegaCounterAmmo.emergency. Tracked apart from omegaCounterUsed so it
-  // is a genuine last resort on top of Counter Missile/Planes.
+  // LRNA-165/181: Omega's Emergency Counter, mirroring the player's - same
+  // window, hit chance, cooldown and per-target cap, any player warhead or
+  // plane (no FAST exclusion since LRNA-181).
   let omegaEmergencyCooldown = 0;
   function findOmegaEmergencyTarget() {
     let best = null, bestRemaining = Infinity;
     for (const m of missiles) {
-      if (m.originId !== 'A' || m.typeKey === 'counter' || m.typeKey === 'fast') continue;
+      if (m.originId !== 'A' || m.typeKey === 'counter') continue;
       if ((m.omegaEmergencyUsed || 0) >= EMERGENCY_MAX_PER_TARGET) continue;
       if (missiles.some(c => c.typeKey === 'counter' && c.source === 'omegaEmergency' && c.seekTargetId === m.id)) continue;
       const remaining = m.totalSeconds - m.age;
@@ -3292,92 +3142,30 @@
     return best;
   }
 
-  function fireOmegaCounter(hitChance, targetId) {
-    const target = missiles.find(m => m.id === targetId);
-    if (target) target.omegaCounterUsed = (target.omegaCounterUsed || 0) + 1;
-    fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#ff2ea6', hitChance }, targetId, 'omega');
-  }
 
-  // player-launched, still airborne warheads Omega hasn't already sent a
-  // counter after, past their own randomized reaction delay - sorted
-  // soonest-to-impact first, same priority the player's own Counter
-  // Missile/Planes use via findInboundEnemyMissiles. `includePlanes`
-  // (LRNA-078/#435) mirrors #427's missile-vs-plane node filters: Omega's
-  // Counter Missile is missiles-only, Counter Planes takes both - same
-  // split GML/MGAA already have.
-  function omegaCounterCandidates(includePlanes) {
-    const candidates = [];
-    for (const m of missiles) {
-      if (m.typeKey === 'counter' || m.originId !== 'A') continue;
-      if (m.typeKey === 'plane' && !includePlanes) continue;
-      if ((m.omegaCounterUsed || 0) >= OMEGA_COUNTER_MAX_PER_TARGET) continue;
-      if (m.omegaReactionDelay == null) {
-        m.omegaReactionDelay = OMEGA_COUNTER_REACTION_MIN + Math.random() * (OMEGA_COUNTER_REACTION_MAX - OMEGA_COUNTER_REACTION_MIN);
-      }
-      if (m.age < m.omegaReactionDelay) continue;
-      if (missiles.some(c => c.typeKey === 'counter' && c.originId === 'O' && c.seekTargetId === m.id)) continue;
-      candidates.push(m);
-    }
-    candidates.sort((a, b) => (a.totalSeconds - a.age) - (b.totalSeconds - b.age));
-    return candidates;
-  }
 
   function updateOmegaCounters(dt) {
     if (omegaHealth <= 0) return;
-    // cooldowns keep ticking down even while jammed (systems recharging,
-    // just unable to fire) so a counter can fire again promptly once the
-    // jam lifts, rather than needing a full extra cooldown on top of it.
-    omegaCounterMissileTimer -= dt;
-    omegaCounterPlanesTimer -= dt;
+    // the cooldown keeps ticking while jammed, so Omega can fire again
+    // promptly once the jam lifts
     omegaEmergencyCooldown = Math.max(0, omegaEmergencyCooldown - dt);
     if (omegaCountersJamTimer > 0) { omegaCountersJamTimer = Math.max(0, omegaCountersJamTimer - dt); return; }
-
-    if (omegaCounterMissileTimer <= 0 && omegaCounterAmmo.missile > 0) {
-      const candidates = omegaCounterCandidates(false); // missiles only, no planes
-      if (candidates.length) {
-        fireOmegaCounter(OMEGA_COUNTER_MISSILE_HIT_CHANCE, candidates[0].id);
-        omegaCounterAmmo.missile -= 1;
-        omegaCounterMissileTimer = OMEGA_COUNTER_MISSILE_COOLDOWN;
-      } else {
-        omegaCounterMissileTimer = 0.3;
-      }
+    if (omegaEmergencyCooldown > 0 || omegaCounterAmmo.emergency <= 0) return;
+    const target = findOmegaEmergencyTarget();
+    if (!target) return;
+    target.omegaEmergencyUsed = (target.omegaEmergencyUsed || 0) + 1;
+    omegaEmergencyCooldown = EMERGENCY_COOLDOWN;
+    // Strike Fighter dodges Omega's first shot at it each flight - the
+    // shot never goes out, so it isn't spent.
+    if (target.planeKind === 'strikeFighter' && (target.dodgesLeft || 0) > 0) {
+      target.dodgesLeft -= 1;
+      spawnFloatText(target.x, vh() / 2 + target.laneY - 30, 'DODGED', '#35e6ff');
+      return;
     }
-    if (omegaCounterPlanesTimer <= 0 && omegaCounterAmmo.planes > 0) {
-      // re-fetch: the Counter Missile check just above may have already
-      // claimed the top candidate this same tick
-      const candidates = omegaCounterCandidates(true); // missiles + planes
-      if (candidates.length) {
-        const n = Math.min(2, candidates.length, omegaCounterAmmo.planes);
-        for (let i = 0; i < n; i++) {
-          const target = candidates[i];
-          // Strike Fighter dodges Omega's first shot at it each flight -
-          // the shot never even goes out, rather than firing-and-missing.
-          if (target.planeKind === 'strikeFighter' && (target.dodgesLeft || 0) > 0) {
-            target.dodgesLeft -= 1;
-            spawnFloatText(target.x, vh() / 2 + target.laneY - 30, 'DODGED', '#35e6ff');
-            continue;
-          }
-          // Heavy Bomber is explicitly easy to shoot down.
-          const hitChance = target.planeKind === 'heavyBomber'
-            ? Math.min(0.95, OMEGA_COUNTER_PLANES_HIT_CHANCE + 0.15)
-            : OMEGA_COUNTER_PLANES_HIT_CHANCE;
-          fireOmegaCounter(hitChance, target.id);
-          omegaCounterAmmo.planes -= 1; // a dodged shot never went out, so it isn't spent
-        }
-        omegaCounterPlanesTimer = OMEGA_COUNTER_PLANES_COOLDOWN;
-      } else {
-        omegaCounterPlanesTimer = 0.3;
-      }
-    }
-    if (omegaEmergencyCooldown <= 0 && omegaCounterAmmo.emergency > 0) {
-      const target = findOmegaEmergencyTarget();
-      if (target) {
-        target.omegaEmergencyUsed = (target.omegaEmergencyUsed || 0) + 1;
-        omegaCounterAmmo.emergency -= 1;
-        fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#ff8fd0', hitChance: EMERGENCY_HIT_CHANCE }, target.id, 'omegaEmergency');
-        omegaEmergencyCooldown = EMERGENCY_COOLDOWN;
-      }
-    }
+    // Heavy Bomber is explicitly easy to shoot down.
+    const hitChance = target.planeKind === 'heavyBomber' ? Math.min(0.95, EMERGENCY_HIT_CHANCE + 0.15) : EMERGENCY_HIT_CHANCE;
+    omegaCounterAmmo.emergency -= 1;
+    fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#ff8fd0', hitChance }, target.id, 'omegaEmergency');
   }
 
   function updateOmegaCountersHud() {
@@ -3417,11 +3205,7 @@
         if (jammed) return `${tag} ${left}`;
         return timer <= 0 ? `<span class="ready">${tag} ${left} READY</span>` : `${tag} ${left} ${formatETA(timer)}`;
       };
-      statusEl.innerHTML = [
-        entry('CM', omegaCounterAmmo.missile, omegaCounterMissileTimer),
-        entry('CP', omegaCounterAmmo.planes, omegaCounterPlanesTimer),
-        entry('EC', omegaCounterAmmo.emergency, omegaEmergencyCooldown),
-      ].join(' &middot; ');
+      statusEl.innerHTML = entry('EC', omegaCounterAmmo.emergency, omegaEmergencyCooldown); // LRNA-181: its one counter
     }
   }
 
@@ -4240,7 +4024,6 @@
     renderMissionMapStrip();
 
     tokens.attack += TOKEN_PASSIVE_RATE * dt;
-    tokens.counter += TOKEN_PASSIVE_RATE * dt;
     lifetimeTokensTotal += TOKEN_PASSIVE_RATE * TOKEN_KEYS.length * dt;
     updateTokenHud(false);
     tokenSaveTimer -= dt;
@@ -6065,14 +5848,14 @@
     followId = incomingAlertTargetId;
   });
 
-  // ---- keyboard shortcuts (LRNA-074/#431): 1-6 map to the 6 ability-bar
-  // buttons in reading order (ATTACK group, then COUNTER).
+  // ---- keyboard shortcuts (LRNA-074/#431): 1-3 fire the missiles and 4
+  // the Emergency Counter (LRNA-181).
   // CLUSTER/EMP removed for now (direct request), so ATTACK only
   // contributes FAST/MEDIUM/LARGE here.
-  const SHORTCUT_KEYS = ['1', '2', '3', '4', '5', '6'];
+  const SHORTCUT_KEYS = ['1', '2', '3', '4'];
   const shortcutButtons = [
     ...launchButtons.filter(b => ['fast', 'medium', 'large'].includes(b.dataset.type)),
-    counterMissileBtnEl, counterPlanesBtnEl, emergencyBtnEl,
+    emergencyBtnEl,
   ];
   window.addEventListener('keydown', (e) => {
     if (!running) return;
@@ -6150,18 +5933,16 @@
       setFollowId(id) { followId = id; },
       updateTurnHud: () => updateTurnHud(),
       updatePlaneButtons: () => updatePlaneButtons(),
-      omegaCounterCandidates: (includePlanes) => omegaCounterCandidates(includePlanes),
+      findOmegaEmergencyTarget: () => findOmegaEmergencyTarget(), // LRNA-181
       get storageWriteFailed() { return storageWriteFailed; },
       get CONTACTS_RENDER_INTERVAL() { return CONTACTS_RENDER_INTERVAL; },
       trySaveStorage: (key, value) => trySaveStorage(key, value),
       get TYPES() { return TYPES; },
-      fireCounterMissile: () => fireCounterMissile(),
       get counterAmmo() { return counterAmmo; },
       get TOKEN_PASSIVE_RATE() { return TOKEN_PASSIVE_RATE; },
       get DMG_TO_COIN_RATIO() { return DMG_TO_COIN_RATIO; },
       get omegaCounterAmmo() { return omegaCounterAmmo; },
       get COUNTER_AMMO() { return COUNTER_AMMO; },
-      fireCounterAttackPlanes: () => fireCounterAttackPlanes(),
       attemptFire: (typeKey) => attemptFire(typeKey),
       get waveState() { return waveState; },
       // LRNA-172/173
@@ -6183,16 +5964,12 @@
       clearParticles() { particles = []; },
       neutralizeAutoDefense() { amNodes.length = 0; loadoutNodes.length = 0; },
       removeMissile(id) { missiles = missiles.filter(m => m.id !== id); },
-      setOmegaCounterMissileTimer(v) { omegaCounterMissileTimer = v; },
-      setOmegaCounterPlanesTimer(v) { omegaCounterPlanesTimer = v; },
       setOmegaEmergencyCooldown(v) { omegaEmergencyCooldown = v; },
       setEmergencyCooldown(v) { emergencyCooldown = v; },
       setEmpGlobalJamTimer(v) { empGlobalJamTimer = v; },
       setOmegaCountersJamTimer(v) { omegaCountersJamTimer = v; },
-      // Counter Planes' candidate list (omegaCounterCandidates(true)) also
-      // includes plain missiles, not just planes - tests isolating one
-      // specific defender need to silence both of Omega's abilities.
-      disableOmegaCounters() { omegaCounterMissileTimer = 1e6; omegaCounterPlanesTimer = 1e6; omegaEmergencyCooldown = 1e6; },
+      // tests isolating one specific defender silence Omega's counter
+      disableOmegaCounters() { omegaEmergencyCooldown = 1e6; },
 
       // -- direct access to game functions, for precise scenario setup --
       launchAttack: (origin, dest, typeKey, overrides) => launchAttack(origin, dest, typeKey, overrides),
@@ -6208,7 +5985,7 @@
       fireEmergencyCounter: () => fireEmergencyCounter(),
       findEmergencyTarget: () => findEmergencyTarget(),
       fireOmegaCounterAt(targetId, hitChance) {
-        fireOmegaCounter(hitChance != null ? hitChance : OMEGA_COUNTER_MISSILE_HIT_CHANCE, targetId);
+        fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#ff2ea6', hitChance: hitChance != null ? hitChance : EMERGENCY_HIT_CHANCE }, targetId, 'omegaEmergency');
         return missiles.filter(m => m.typeKey === 'counter' && m.seekTargetId === targetId).pop() || null;
       },
       forceOmegaDamage(dmg) {
@@ -6224,8 +6001,6 @@
       tickOmegaCounters: (dt) => updateOmegaCounters(dt),
       updateOmegaCountersHud: () => updateOmegaCountersHud(),
       updateEmergencyBtn: () => updateEmergencyBtn(),
-      updateCounterMissileBtn: () => updateCounterMissileBtn(),
-      updateCounterPlanesBtn: () => updateCounterPlanesBtn(),
     };
   }
 })();

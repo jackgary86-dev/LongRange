@@ -662,6 +662,29 @@ attack each other."
     once with nothing recon left, the Satellite loadout fallback, the
     new missions). 69/69.
 
+## DONE — LRNA-181: one counter, EMERGENCY COUNTER, 10 per game (2026-10-03)
+
+Request: "Only have one counter button called EMERGENCY COUNTER - you
+have 10 chances to intercept missiles." Asked directly; the owner's
+answers: it stops **any inbound threat**, only in the **last 5 seconds**
+(today's window), the **COUNTER currency is removed**, and **Omega gets
+the same** 10.
+
+- **LRNA-181** — DONE — COUNTER MISSILE and COUNTER ATTACK PLANES are
+  gone for both sides, with their buttons, costs, ammo and Omega's
+  versions (its separate cooldowns and candidate rules). EMERGENCY
+  COUNTER: 10 per game, any size and class of threat (the FAST exclusion
+  is gone), last 5 seconds, 2 tries per threat, no cost, 75% kill (was
+  55%; it now does the job three buttons used to). Omega mirrors it: 10,
+  same window and odds; Strike Fighter's dodge and Heavy Bomber's
+  weakness now apply to it. A landed EMP still jams Omega's counter.
+  ATTACK is the only currency; keys are 1-3 for missiles and 4 for the
+  Emergency Counter. NO SAFETY NET now means no counters at all.
+  Tests: the counter tests rewritten for one counter (10 per side, any
+  size, cap of 2 per threat, refills, HUD readout), the two Counter
+  Missile / Counter Planes button tests removed, one new LRNA-181 test.
+  68/68.
+
 ## OPEN — ART epic 3: in-game GUI redesign (2026-10-03)
 
 Request: "completely redesign the GUI of the game to work better and play
