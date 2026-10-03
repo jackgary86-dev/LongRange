@@ -25,7 +25,6 @@ test('LRNA-123: planes complete their flight and land (no NaN-velocity stuck pla
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
       T.tokens.attack = 99999;
-      T.forceOpeningUnlock(); // LRNA-080: a fresh game starts recon-locked, attack planes can't fire yet
       T.firePlane('strikeFighter'); // 10s one-way flight (no return leg since LRNA-164)
       return { firedCount: T.missiles.filter(m => m.typeKey === 'plane').length };
     });
@@ -46,26 +45,6 @@ test('LRNA-123: planes complete their flight and land (no NaN-velocity stuck pla
     assertEqual(after.planesRemaining, 0, 'plane should have been removed once its flight finished');
     assertEqual(after.stuckWithBadVelocity, 0, 'no plane should have NaN/invalid velocity');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  }, { skipStart: true });
-});
-
-test('LRNA-124: Satellite can only be selected in one loadout slot at a time', async () => {
-  await withGame(async (page) => {
-    // the loadout selects live on the pre-start SETUP screen (ART-11)
-    await page.click('#menuHome [data-goto="setup"]');
-    await page.selectOption('.loadoutSelect[data-slot="0"]', 'satellite');
-    let dialogMessage = null;
-    page.once('dialog', async (d) => { dialogMessage = d.message(); await d.accept(); });
-    await page.selectOption('.loadoutSelect[data-slot="1"]', 'satellite');
-    await page.waitForTimeout(50);
-
-    const slot1Value = await page.$eval('.loadoutSelect[data-slot="1"]', (el) => el.value);
-    assert(slot1Value !== 'satellite', 'slot 1 should not have accepted a duplicate Satellite selection');
-    assert(dialogMessage && /already selected|only be selected once/i.test(dialogMessage),
-      'an explanatory alert should have fired: ' + dialogMessage);
-
-    const loadout = await page.evaluate(() => JSON.parse(localStorage.getItem('lrna_loadout_v1') || '[]'));
-    assertEqual(loadout.filter((k) => k === 'satellite').length, 1, 'persisted loadout should have exactly one satellite');
   }, { skipStart: true });
 });
 
@@ -309,7 +288,6 @@ test('LRNA-134: Ground Units chip stacking shows a persistent hit counter', asyn
       // includes plain missiles, not just planes) can both independently
       // target this missile - silence both.
       T.disableOmegaCounters();
-      T.antiPlaneNodes.length = 0; // hidden lane defenses engage FAST/MEDIUM regardless of discovery - keep them out of this test
       const m = T.launchAttack(T.nodeA, T.nodeO, 'fast');
       m.defended = true; // also skip the older, separate generic getDefender('O') auto-defend loop
       m.x = m.targetX - 500;
@@ -452,34 +430,8 @@ test('LRNA-110: intercepting defenders resolve to a readable name', async () => 
   }); // NOT skipStart: loadoutNodes/amNodes are only populated once the game actually starts
 });
 
-test('LRNA-117: Recon Plane button disables once every hidden node is already found', async () => {
-  await withGame(async (page, errors) => {
-    const before = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.tokens.intel = 99999;
-      T.tickUpdate(0.05); // let updatePlaneButtons see the token top-up
-      const btn = document.querySelector('[data-plane="reconPlane"]');
-      return { disabled: btn.disabled, eta: btn.querySelector('.btnEta').textContent };
-    });
-    assert(!before.disabled, 'Recon Plane should be launchable while hidden nodes remain');
-    assert(before.eta !== 'ALL LOCATED', 'button should still show its normal ETA before everything is found');
-
-    const after = await page.evaluate(() => {
-      const T = window.__TEST__;
-      for (const n of [...T.antiPlaneNodes, ...T.seekDestroyNodes]) n.discovered = true;
-      T.tickUpdate(0.05);
-      const btn = document.querySelector('[data-plane="reconPlane"]');
-      return { disabled: btn.disabled, eta: btn.querySelector('.btnEta').textContent };
-    });
-    assert(after.disabled, 'Recon Plane should disable once nothing is left to discover');
-    assertEqual(after.eta, 'ALL LOCATED', 'button should tell the player why it is disabled');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  }); // NOT skipStart: antiPlaneNodes/seekDestroyNodes are only populated once the game actually starts
-});
-
 test('LRNA-119/ART-14: the in-game menu pause freezes real-time simulation and blocks actions', async () => {
   await withGame(async (page, errors) => {
-    await page.evaluate(() => window.__TEST__.forceOpeningUnlock()); // LRNA-080: this test fires attack-pillar weapons directly
     // sanity: passive token income should accrue in real time before pausing
     const t0 = await page.evaluate(() => window.__TEST__.tokens.attack);
     await page.waitForTimeout(700);
@@ -647,7 +599,6 @@ test('LRNA-137: EMP deals real damage on top of its jam effect', async () => {
       const T = window.__TEST__;
       T.tokens.attack = 99999;
       T.disableOmegaCounters();
-      T.clearForwardDefenses(); // LRNA-172: measure Omega's full (unguarded) damage
       const before = T.omegaHealth;
       const m = T.launchAttack(T.nodeA, T.nodeO, 'emp');
       m.defended = true;
@@ -680,7 +631,6 @@ test('LRNA-138: fresh players start with 500 of each token, not 1000', async () 
     // so allow a little headroom above the exact starting value.
     assert(tokens.attack >= 500 && tokens.attack < 550, `starting attack tokens should be ~500: got ${tokens.attack}`);
     assert(tokens.counter >= 500 && tokens.counter < 550, `starting counter tokens should be ~500: got ${tokens.counter}`);
-    assert(tokens.intel >= 500 && tokens.intel < 550, `starting intel tokens should be ~500: got ${tokens.intel}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
@@ -728,7 +678,6 @@ test('LRNA-164: planes vanish at the target and rearm - nothing flies back', asy
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
       T.tokens.attack = 99999;
-      T.forceOpeningUnlock(); // LRNA-080: a fresh game starts recon-locked, attack planes can't fire yet
       T.disableOmegaCounters(); // keep Omega from shooting it down mid-flight
       const plane = T.firePlane('strikeFighter');
       const startX = plane.x;
@@ -787,7 +736,6 @@ test('LRNA-165: the player gets 10 counter missiles, 10 counter planes and 5 eme
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
-      T.forceOpeningUnlock();
       T.freezeWaves();
       T.clearMissiles();
       T.neutralizeAutoDefense();
@@ -842,7 +790,6 @@ test('LRNA-165: Omega gets the same 10/10/5, including a new Emergency Counter',
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
-      T.forceOpeningUnlock();
       T.freezeWaves();
       T.clearMissiles();
       T.tokens.attack = 999999;
@@ -916,10 +863,10 @@ test('LRNA-165: a new game refills both sides\' counters', async () => {
 test('LRNA-166: tokens reset each game instead of carrying over', async () => {
   await withGame(async (page, errors) => {
     // a big balance left over from an earlier game, then a real START
-    await page.evaluate(() => { const T = window.__TEST__; T.tokens.attack = 50000; T.tokens.counter = 40000; T.tokens.intel = 30000; });
+    await page.evaluate(() => { const T = window.__TEST__; T.tokens.attack = 50000; T.tokens.counter = 40000; });
     await page.click('#startGameBtn');
     const t = await page.evaluate(() => ({ ...window.__TEST__.tokens }));
-    for (const k of ['attack', 'counter', 'intel']) {
+    for (const k of ['attack', 'counter']) {
       assert(t[k] >= 500 && t[k] < 520, `${k} should restart at 500, not carry over: got ${t[k]}`);
     }
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
@@ -930,7 +877,6 @@ test('LRNA-166: passive income is 20/s and a hit pays back a quarter of its dama
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
-      T.forceOpeningUnlock();
       T.freezeWaves();
       T.clearMissiles();
       T.disableOmegaCounters();
@@ -1198,145 +1144,6 @@ test('LRNA-126-adjacent: a missile that tunnels past its 14-unit hit radius in o
   });
 });
 
-test('LRNA-080: fresh game starts recon-locked - no Wave 1, no attacking, intel tools still work', async () => {
-  await withGame(async (page, errors) => {
-    const initial = await page.evaluate(() => {
-      const T = window.__TEST__;
-      return {
-        locked: T.openingLocked,
-        bannerHidden: document.getElementById('openingLockedBanner').classList.contains('hidden'),
-      };
-    });
-    assert(initial.locked, 'a fresh game should start with the opening locked');
-    assert(!initial.bannerHidden, 'the recon-required banner should be visible');
-
-    const noWaveYet = await page.evaluate(() => {
-      const T = window.__TEST__;
-      for (let i = 0; i < 400; i++) T.tickUpdate(0.05); // 20 simulated seconds - plenty for Wave 1 to have started strikes normally
-      return T.missiles.filter(m => m.typeKey === 'enemyStrike').length;
-    });
-    assertEqual(noWaveYet, 0, 'Wave 1 should not launch any strikes while the opening is locked, no matter how long real/simulated time passes');
-
-    const attackBlocked = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.tokens.attack = 99999;
-      T.attemptFire('fast');
-      T.firePlane('strikeFighter');
-      return {
-        fastCount: T.missiles.filter(m => m.typeKey === 'fast').length,
-        planeCount: T.missiles.filter(m => m.typeKey === 'plane').length,
-      };
-    });
-    assertEqual(attackBlocked.fastCount, 0, 'attack-pillar attemptFire should refuse to launch while locked');
-    assertEqual(attackBlocked.planeCount, 0, 'attack-pillar firePlane should refuse to launch while locked');
-
-    const intelStillWorks = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.tokens.intel = 99999;
-      T.attemptFire('drone');
-      return T.missiles.filter(m => m.typeKey === 'drone').length;
-    });
-    assertEqual(intelStillWorks, 1, 'intel-pillar attemptFire (recon drone) should still work while locked - it\'s the way OUT of the lock');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-080: discovering a hidden node unlocks the opening and Wave 1 begins', async () => {
-  await withGame(async (page, errors) => {
-    const result = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.tokens.attack = 99999;
-      // exercise the real unlock condition (a discovered node) rather than
-      // just flipping the lock flag directly - every real discovery path
-      // (drone tick, recon plane) calls this same function.
-      T.seekDestroyNodes[0].discovered = true;
-      T.checkOpeningUnlock();
-      const beforeAttack = T.missiles.filter(m => m.typeKey === 'fast').length;
-      T.attemptFire('fast');
-      const afterAttack = T.missiles.filter(m => m.typeKey === 'fast').length;
-      for (let i = 0; i < 400; i++) T.tickUpdate(0.05);
-      return {
-        locked: T.openingLocked,
-        bannerHidden: document.getElementById('openingLockedBanner').classList.contains('hidden'),
-        beforeAttack, afterAttack,
-        // LRNA-080/flake fix: checking live missile count at the end of a
-        // fixed window is a race against the default loadout's own
-        // defenses - they can (and, ~30% of the time in practice, do)
-        // destroy all of Wave 1's few early strikes well before the
-        // window ends, with Wave 2's 10s break not yet over either,
-        // leaving a real but momentary 0 with nothing wrong. Checking
-        // the wave director's own launch counter instead is immune to
-        // that timing - it only asks "did a strike ever launch."
-        waveStrikesLaunched: T.waveStrikesLaunched,
-      };
-    });
-    assert(!result.locked, 'opening should no longer be locked');
-    assert(result.bannerHidden, 'recon-required banner should hide once unlocked');
-    assertEqual(result.afterAttack - result.beforeAttack, 1, 'attack-pillar attemptFire should work once unlocked');
-    assert(result.waveStrikesLaunched > 0, 'Wave 1 should actually start producing strikes once unlocked');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-080: Satellite no longer auto-reveals SEEK AND DESTROY nodes (still reveals AntiPlane)', async () => {
-  await withGame(async (page, errors) => {
-    await page.click('#menuHome [data-goto="setup"]');
-    await page.selectOption('.loadoutSelect[data-slot="0"]', 'satellite');
-    await page.click('#menuSetup .mBtn[data-goto="home"]');
-    await page.click('#startGameBtn');
-    await page.waitForTimeout(200);
-    const result = await page.evaluate(() => {
-      const T = window.__TEST__;
-      return {
-        seekDestroyDiscovered: T.seekDestroyNodes.map(n => n.discovered),
-        antiPlaneDiscovered: T.antiPlaneNodes.map(n => n.discovered),
-        locked: T.openingLocked,
-      };
-    });
-    assert(result.seekDestroyDiscovered.every(d => d === false), `Satellite should not reveal SEEK AND DESTROY nodes: ${result.seekDestroyDiscovered}`);
-    assert(result.antiPlaneDiscovered.every(d => d === true), `Satellite should still reveal AntiPlane nodes as before: ${result.antiPlaneDiscovered}`);
-    assert(result.locked, 'the opening should still be locked even with Satellite equipped - no bypass');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  }, { skipStart: true });
-});
-
-test('LRNA-080: recon Drone is no longer exempt from Omega\'s Counter Planes candidates', async () => {
-  await withGame(async (page, errors) => {
-    const result = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.tokens.intel = 99999;
-      T.forceOpeningUnlock();
-      T.disableOmegaCounters(); // don't let it actually get shot down while we age it past the reaction delay below
-      T.attemptFire('drone');
-      const drone = T.missiles.filter(m => m.typeKey === 'drone').pop();
-      drone.defended = true; // skip the generic getDefender() auto-defend loop - a separate mechanism from Omega's own counters
-      // Omega's candidates require a short reaction delay (1-2s) to have
-      // elapsed since the missile appeared - age it past that first.
-      // omegaCounterCandidates() itself doesn't consult the cooldown
-      // timers disableOmegaCounters() freezes, so this is still a real
-      // check of candidacy, just without Omega actually firing on it.
-      for (let i = 0; i < 60; i++) T.tickUpdate(0.05); // 3s
-      const candidates = T.omegaCounterCandidates(true);
-      return { droneExists: !!drone, isCandidate: candidates.some(c => c.typeKey === 'drone') };
-    });
-    assert(result.droneExists, 'sanity check - a drone missile should exist');
-    assert(result.isCandidate, 'drone should now be a valid Omega Counter Planes candidate, not exempt');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-080: SEEK AND DESTROY nodes carry a recon zone boundary for the pre-discovery map marker', async () => {
-  await withGame(async (page, errors) => {
-    const zones = await page.evaluate(() => window.__TEST__.seekDestroyNodes.map(n => ({ zoneStart: n.zoneStart, zoneEnd: n.zoneEnd, x: n.x })));
-    for (const z of zones) {
-      assert(typeof z.zoneStart === 'number' && typeof z.zoneEnd === 'number', `node should carry zone bounds: ${JSON.stringify(z)}`);
-      assert(z.zoneEnd > z.zoneStart, `zone should be a real, non-empty range: ${JSON.stringify(z)}`);
-      assert(z.x >= z.zoneStart && z.x <= z.zoneEnd, `node's own position should fall inside its own zone: ${JSON.stringify(z)}`);
-    }
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
 test('LRNA-049: Base loadout node fires a volley at every inbound threat at once, not just one', async () => {
   await withGame(async (page, errors) => {
     await page.click('#menuHome [data-goto="setup"]');
@@ -1346,7 +1153,6 @@ test('LRNA-049: Base loadout node fires a volley at every inbound threat at once
     await page.waitForTimeout(200);
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
-      T.forceOpeningUnlock();
       T.freezeWaves();
       T.clearMissiles();
       const base = T.loadoutNodes.find(n => n.def.key === 'base');
@@ -1392,7 +1198,6 @@ test('LRNA-158: COUNTER MISSILE fires directly from the bottom bar - no window, 
   await withGame(async (page, errors) => {
     await page.evaluate(() => {
       const T = window.__TEST__;
-      T.forceOpeningUnlock();
       T.freezeWaves();
       T.clearMissiles();
       T.neutralizeAutoDefense(); // the live game loop keeps running between page.evaluate calls - without this, real AM batteries/loadout nodes can intercept this test's own manually-launched strike before its own click gets to it
@@ -1421,7 +1226,6 @@ test('LRNA-160: COUNTER ATTACK PLANES fires directly from the bottom bar - no po
   await withGame(async (page, errors) => {
     await page.evaluate(() => {
       const T = window.__TEST__;
-      T.forceOpeningUnlock();
       T.freezeWaves();
       T.clearMissiles();
       T.neutralizeAutoDefense();
@@ -1452,7 +1256,6 @@ test('LRNA-161: the Counter Lane lines up with the zone strip and dots each inbo
   await withGame(async (page, errors) => {
     await page.evaluate(() => {
       const T = window.__TEST__;
-      T.forceOpeningUnlock();
       T.freezeWaves();
       T.clearMissiles();
       T.neutralizeAutoDefense();
@@ -1555,58 +1358,6 @@ test('LRNA-156/ART-14: Esc closes STATS and resumes; a pause made outside STATS 
   });
 });
 
-test('LRNA-167: a discovered hidden node joins TARGETS and a missile aimed at it can destroy it', async () => {
-  await withGame(async (page, errors) => {
-    const listIds = () => page.evaluate(() => Array.from(document.querySelectorAll('#targetList .target-row')).map((r) => r.dataset.target));
-    await menuClick(page, 'statsBtn');
-    const beforeDiscovery = await listIds();
-    await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.seekDestroyNodes.find((n) => n.kind === 'attack').discovered = true;
-      T.forceOpeningUnlock();
-      T.tickUpdate(0.1); // refresh the list
-    });
-    const afterDiscovery = await listIds();
-    await page.click('#targetList .target-row[data-target="sd-attack"]');
-    const label = await page.evaluate(() => document.getElementById('targetLabel').textContent);
-    await page.click('#missionMapClose');
-
-    const r = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.freezeWaves();
-      T.clearMissiles();
-      T.neutralizeAutoDefense();
-      T.disableOmegaCounters();
-      T.setEmpGlobalJamTimer(1e6); // AntiPlane nodes can't shoot it down
-      T.tokens.attack = 99999;
-      T.attemptFire('large');
-      const shot = T.missiles.find((m) => m.originId === 'A');
-      const node = T.seekDestroyNodes.find((n) => n.kind === 'attack');
-      window.__origRandom = Math.random;
-      Math.random = () => 0.01; // the shot lands
-      for (let i = 0; i < 700 && T.missiles.includes(shot); i++) T.tickUpdate(0.05);
-      Math.random = window.__origRandom;
-      T.tickUpdate(0.1);
-      return {
-        destId: shot && shot.destId,
-        destroyed: node.destroyed,
-        health: node.health,
-        stillListed: Array.from(document.querySelectorAll('#targetList .target-row')).some((row) => row.dataset.target === 'sd-attack'),
-        label: document.getElementById('targetLabel').textContent,
-      };
-    });
-    assert(!beforeDiscovery.some((id) => id.startsWith('sd-')), `undiscovered hidden nodes must not be targetable: ${beforeDiscovery}`);
-    assert(afterDiscovery.includes('sd-attack'), `the discovered ATTACK NODE should be listed in TARGETS: ${afterDiscovery}`);
-    assert(!afterDiscovery.includes('sd-counter') && !afterDiscovery.includes('sd-base'), 'the other two, still hidden, should stay off the list');
-    assertEqual(label, 'TARGET: ATTACK NODE', 'picking it should make it the current target');
-    assertEqual(r.destId, 'sd-attack', 'the LONG RANGE shot should be aimed at the hidden node');
-    assert(r.destroyed && r.health === 0, `a 1000-damage hit should destroy the 500 hp node: ${JSON.stringify(r)}`);
-    assert(!r.stillListed, 'a destroyed node should drop off TARGETS');
-    assertEqual(r.label, 'TARGET: NODE OMEGA', 'the target should fall back to Omega once it is destroyed');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
 test('LRNA-168: on a phone the ability bar is a compact 3-column grid and leaves room for the battlefield', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {
@@ -1677,135 +1428,12 @@ test('LRNA-170: the HUD shows the address the game was opened from', async () =>
   }, { skipStart: true });
 });
 
-test('LRNA-172: Omega takes a quarter of the damage while any forward defense stands', async () => {
-  await withGame(async (page, errors) => {
-    const r = await page.evaluate(() => {
-      const T = window.__TEST__;
-      const nodes = [...T.antiPlaneNodes, ...T.seekDestroyNodes];
-      const hit = () => { const b = T.omegaHealth; T.forceOmegaDamage(1000); return b - T.omegaHealth; };
-      const guardedAll = hit();
-      nodes.slice(0, -1).forEach((n) => { n.destroyed = true; });
-      const guardedOne = hit();
-      T.updateObjectiveHud();
-      const guardText = document.getElementById('omegaGuardStatus').textContent;
-      nodes[nodes.length - 1].destroyed = true;
-      const open = hit();
-      T.updateObjectiveHud();
-      return { count: nodes.length, guardedAll, guardedOne, open, guardText,
-        guardHidden: document.getElementById('omegaGuardStatus').classList.contains('hidden'),
-        radarHealth: T.antiPlaneNodes.map((n) => n.maxHealth) };
-    });
-    assertEqual(r.count, 5, 'two radar defenses and three SEEK AND DESTROY nodes guard Omega');
-    assertEqual(r.guardedAll, 8, '1000 damage is 30 health unguarded, a quarter of that (7.5, rounds to 8) while guarded');
-    assertEqual(r.guardedOne, 8, 'still guarded with one forward defense left');
-    assertEqual(r.open, 30, 'full damage once all of them are down');
-    assert(/25% DAMAGE \(1 FORWARD DEFENSE UP\)/.test(r.guardText), `HUD names the guard: ${r.guardText}`);
-    assert(r.guardHidden, 'the guard line disappears once Omega is open');
-    assertEqual(JSON.stringify(r.radarHealth), '[300,300]', 'radar defenses have 300 hp each');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-172: a discovered radar defense is a target, and a missile can destroy it', async () => {
-  await withGame(async (page, errors) => {
-    const r = await page.evaluate(() => {
-      const T = window.__TEST__;
-      const radar = T.antiPlaneNodes[0];
-      radar.discovered = true;
-      T.forceOpeningUnlock();
-      T.freezeWaves(); T.clearMissiles(); T.neutralizeAutoDefense(); T.disableOmegaCounters();
-      T.setEmpGlobalJamTimer(1e6); // its own lane intercept would otherwise fire at the shot
-      T.tickUpdate(0.1);
-      const listed = Array.from(document.querySelectorAll('#targetList .target-row')).map((x) => x.dataset.target);
-      document.querySelector(`#targetList .target-row[data-target="${radar.id}"]`).click();
-      T.tokens.attack = 99999;
-      T.attemptFire('large');
-      const shot = T.missiles.find((m) => m.originId === 'A');
-      const real = Math.random; Math.random = () => 0.01;
-      for (let i = 0; i < 700 && T.missiles.includes(shot); i++) T.tickUpdate(0.05);
-      Math.random = real;
-      return { listed, dest: shot.destId, destroyed: radar.destroyed, name: radar.name, after: T.selectedTargetId };
-    });
-    assert(r.listed.includes('ap0'), `the found radar defense is in TARGETS: ${r.listed}`);
-    assert(!r.listed.includes('ap1'), 'the hidden one is not');
-    assertEqual(r.dest, 'ap0', 'the shot is aimed at it');
-    assert(r.destroyed, 'a 1000-damage LONG RANGE hit destroys the 300 hp radar defense');
-    assertEqual(r.name, 'RADAR DEFENSE 01', 'named as a radar defense');
-    assertEqual(r.after, 'O', 'the target falls back to Omega afterwards');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-172: tapping a discovered node on the battlefield targets it', async () => {
+test('LRNA-172: on a phone the contact list starts collapsed and a tap on a field target still targets it', async () => {
   await withGame(async (page, errors) => {
     const pos = await page.evaluate(() => {
       const T = window.__TEST__;
       T.freezeWaves(); T.clearMissiles();
-      const node = T.seekDestroyNodes[0];
-      node.discovered = true;
-      T.setCamX(node.x - 600);
-      const rect = document.getElementById('game').getBoundingClientRect();
-      return { x: rect.left + (node.x - T.camX) * T.ZOOM, y: rect.top + node.y * T.ZOOM, id: node.id, name: node.name };
-    });
-    await page.mouse.click(pos.x, pos.y);
-    const r = await page.evaluate(() => ({ sel: window.__TEST__.selectedTargetId, label: document.getElementById('targetLabel').textContent }));
-    assertEqual(r.sel, pos.id, 'the tapped node becomes the target');
-    assertEqual(r.label, `TARGET: ${pos.name}`, 'the launch bar names it');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-172/173: the objective line walks find -> destroy -> attack Omega, and recon buttons pulse while finding', async () => {
-  await withGame(async (page, errors) => {
-    const r = await page.evaluate(() => {
-      const T = window.__TEST__;
-      const read = () => { T.updateObjectiveHud(); return document.getElementById('objectiveHud').textContent; };
-      const pulsing = () => !!document.querySelector('.launchBtn[data-type="drone"].nextStep');
-      const nodes = [...T.antiPlaneNodes, ...T.seekDestroyNodes];
-      nodes.forEach((n) => { n.discovered = false; });
-      const step1 = read(); const pulse1 = pulsing();
-      nodes.forEach((n) => { n.discovered = true; });
-      const step2 = read(); const pulse2 = pulsing();
-      nodes.forEach((n) => { n.destroyed = true; });
-      const step3 = read();
-      return { step1, pulse1, step2, pulse2, step3 };
-    });
-    assert(r.step1.startsWith('STEP 1/3 · FIND THE FORWARD DEFENSES 0/5'), r.step1);
-    assert(r.pulse1, 'DRONE pulses while there is something to find');
-    assert(r.step2.startsWith('STEP 2/3 · DESTROY THE FORWARD DEFENSES (5 LEFT)'), r.step2);
-    assert(!r.pulse2, 'the recon pulse stops once everything is found');
-    assertEqual(r.step3, 'STEP 3/3 · ATTACK NODE OMEGA — FULL DAMAGE', 'step 3');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-172: each Omega rebuild hides a fresh set of forward defenses', async () => {
-  await withGame(async (page, errors) => {
-    const r = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.clearForwardDefenses();
-      const before = T.forwardDefensesStanding;
-      let rebuilt = false;
-      for (let i = 0; i < 50 && !rebuilt; i++) rebuilt = T.forceOmegaDamage(100000);
-      const nodes = [...T.antiPlaneNodes, ...T.seekDestroyNodes];
-      return { before, rebuilt, after: T.forwardDefensesStanding, hidden: nodes.filter((n) => !n.discovered).length,
-        sel: T.selectedTargetId };
-    });
-    assertEqual(r.before, 0, 'all cleared before the kill');
-    assert(r.rebuilt, 'Omega was destroyed and rebuilt');
-    assertEqual(r.after, 5, 'five new forward defenses stand after the rebuild');
-    assert(r.hidden >= 3, `the new set starts hidden (radar defenses only show with a Satellite): ${r.hidden}`);
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-172: on a phone the contact list starts collapsed and a tap on a found node still targets it', async () => {
-  await withGame(async (page, errors) => {
-    const pos = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.freezeWaves(); T.clearMissiles();
-      const node = T.antiPlaneNodes[0];
-      node.discovered = true;
+      const node = T.fieldTargets.find((t) => !t.destroyed);
       T.setCamX(node.x - (window.innerWidth / T.ZOOM) / 2);
       const rect = document.getElementById('game').getBoundingClientRect();
       return { x: rect.left + (node.x - T.camX) * T.ZOOM, y: rect.top + node.y * T.ZOOM, id: node.id,
@@ -1816,19 +1444,18 @@ test('LRNA-172: on a phone the contact list starts collapsed and a tap on a foun
     await page.click('#contacts h3');
     const opened = await page.evaluate(() => !!document.getElementById('contactList').offsetParent);
     assert(!pos.listShown, 'the contact list starts collapsed on a phone');
-    assertEqual(sel, pos.id, 'tapping the radar defense targets it');
+    assertEqual(sel, pos.id, 'tapping the field target targets it');
     assert(opened, 'tapping RADAR LANE opens the list');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { viewport: { width: 390, height: 844 } });
 });
 
-test('LRNA-172: a tap on the RADAR LANE panel\'s empty space reaches a forward defense under it', async () => {
+test('LRNA-172: a tap on the RADAR LANE panel\'s empty space reaches a target under it', async () => {
   await withGame(async (page, errors) => {
     const pos = await page.evaluate(() => {
       const T = window.__TEST__;
       T.freezeWaves(); T.clearMissiles();
-      const node = T.antiPlaneNodes[0];
-      node.discovered = true;
+      const node = T.fieldTargets.find((t) => !t.destroyed);
       const panel = document.getElementById('contacts').getBoundingClientRect();
       const rect = document.getElementById('game').getBoundingClientRect();
       // put the node under the panel's bottom-left padding, clear of its header and lane dots
@@ -1841,54 +1468,21 @@ test('LRNA-172: a tap on the RADAR LANE panel\'s empty space reaches a forward d
     await page.mouse.click(pos.x, pos.y);
     const sel = await page.evaluate(() => window.__TEST__.selectedTargetId);
     assert(pos.onPanel, 'the tap point is on the panel');
-    assertEqual(sel, pos.id, 'the tap still targets the defense under the panel');
+    assertEqual(sel, pos.id, 'the tap still targets what is under the panel');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { viewport: { width: 390, height: 844 } });
 });
 
 test('LRNA-174: the start screen lists the missions with saved stars', async () => {
   await withGame(async (page, errors) => {
-    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'blind-the-radar': 2 })));
+    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'silence-the-launchers': 2 })));
     await page.reload();
     await page.waitForTimeout(300);
     const r = await page.evaluate(() => Array.from(document.querySelectorAll('#missionList .missionBtn')).map((b) => ({
       id: b.dataset.mission, stars: b.querySelector('.mStars').textContent })));
     assertEqual(r.length, 6, 'six missions listed');
-    assertEqual(r.find((m) => m.id === 'blind-the-radar').stars, '★★☆', 'saved stars shown');
-    assertEqual(r.find((m) => m.id === 'first-contact').stars, '☆☆☆', 'unplayed mission shows empty stars');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  }, { skipStart: true });
-});
-
-test('LRNA-174: BLIND THE RADAR completes when both radar defenses fall, with stars saved', async () => {
-  await withGame(async (page, errors) => {
-    await page.click('#missionsBtn');
-    await page.click('.missionBtn[data-mission="blind-the-radar"]');
-    await page.waitForTimeout(200);
-    const r = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.freezeWaves();
-      T.updateObjectiveHud();
-      const hudStart = document.getElementById('objectiveHud').textContent;
-      T.damageNode('ap0', 1000);
-      T.tickUpdate(0.05);
-      const mid = { active: !!T.activeMission, hud: document.getElementById('objectiveHud').textContent };
-      T.damageNode('ap1', 1000);
-      T.tickUpdate(0.05);
-      return { hudStart, mid, active: !!T.activeMission, running: T.running,
-        title: document.getElementById('waveResultTitle').textContent,
-        body: document.getElementById('waveResultBody').textContent,
-        saved: JSON.parse(localStorage.getItem('lrna_mission_stars_v1') || '{}') };
-    });
-    assert(r.hudStart.startsWith('MISSION · BLIND THE RADAR · RADAR DEFENSES 0/2'), r.hudStart);
-    assert(r.mid.active && r.mid.hud.includes('RADAR DEFENSES 1/2'), `one down, still running: ${JSON.stringify(r.mid)}`);
-    assert(!r.active && !r.running, 'the mission ends when the second one falls');
-    assertEqual(r.title, 'MISSION COMPLETE', 'result title');
-    assert(r.body.includes('★★★'), `a quick finish earns 3 stars: ${r.body}`);
-    assertEqual(r.saved['blind-the-radar'], 3, 'stars saved');
-    await page.click('#waveResultClose');
-    const listStars = await page.$eval('.missionBtn[data-mission="blind-the-radar"] .mStars', (e) => e.textContent);
-    assertEqual(listStars, '★★★', 'the list shows the new best');
+    assertEqual(r.find((m) => m.id === 'silence-the-launchers').stars, '★★☆', 'saved stars shown');
+    assertEqual(r.find((m) => m.id === 'first-strike').stars, '☆☆☆', 'unplayed mission shows empty stars');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
 });
@@ -1896,7 +1490,7 @@ test('LRNA-174: BLIND THE RADAR completes when both radar defenses fall, with st
 test('LRNA-174: running out of time fails the mission and saves nothing', async () => {
   await withGame(async (page, errors) => {
     await page.click('#missionsBtn');
-    await page.click('.missionBtn[data-mission="first-contact"]');
+    await page.click('.missionBtn[data-mission="first-strike"]');
     await page.waitForTimeout(200);
     const r = await page.evaluate(() => {
       const T = window.__TEST__;
@@ -1915,15 +1509,15 @@ test('LRNA-174: running out of time fails the mission and saves nothing', async 
   }, { skipStart: true });
 });
 
-test('LRNA-174: mission setups - HOLD THE LINE skips recon, NO SAFETY NET has no Emergency Counters; endless clears the mission', async () => {
+test('LRNA-174: mission setups - HOLD THE LINE, NO SAFETY NET has no Emergency Counters; endless clears the mission', async () => {
   await withGame(async (page, errors) => {
     await page.click('#missionsBtn');
     await page.click('.missionBtn[data-mission="hold-the-line"]');
     await page.waitForTimeout(200);
-    const hold = await page.evaluate(() => ({ locked: window.__TEST__.openingLocked }));
+    const hold = await page.evaluate(() => ({ mission: window.__TEST__.activeMission?.id }));
     await page.evaluate(() => { window.__TEST__.missionStats.time = 0; });
     await page.keyboard.press('r');  // restart keeps the mission and its setup
-    const afterR = await page.evaluate(() => ({ mission: window.__TEST__.activeMission?.id, locked: window.__TEST__.openingLocked }));
+    const afterR = await page.evaluate(() => ({ mission: window.__TEST__.activeMission?.id }));
     await page.evaluate(() => window.__TEST__.missionStats.wavesCleared = 5);
     await page.waitForTimeout(200);
     await page.click('#waveResultClose');
@@ -1939,13 +1533,12 @@ test('LRNA-174: mission setups - HOLD THE LINE skips recon, NO SAFETY NET has no
     await page.waitForTimeout(200);
     const endless = await page.evaluate(() => { window.__TEST__.updateObjectiveHud();
       return { mission: window.__TEST__.activeMission, hud: document.getElementById('objectiveHud').textContent }; });
-    assert(!hold.locked, 'HOLD THE LINE starts with attacks unlocked');
+    assertEqual(hold.mission, 'hold-the-line', 'HOLD THE LINE starts');
     assertEqual(afterR.mission, 'hold-the-line', 'R restarts the same mission');
-    assert(!afterR.locked, 'and re-applies its setup');
     assertEqual(net.emergency, 0, 'NO SAFETY NET starts with no Emergency Counters');
     assertEqual(net.badge, 'NONE LEFT', 'its badge says so');
     assertEqual(endless.mission, null, 'PLAY ENDLESS runs no mission');
-    assert(endless.hud.startsWith('STEP 1/3'), `endless shows the recon steps again: ${endless.hud}`);
+    assertEqual(endless.hud, 'DESTROY NODE OMEGA', `endless shows its one-line objective: ${endless.hud}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
 });
@@ -1954,8 +1547,6 @@ test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon l
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {
       const T = window.__TEST__;
-      for (const n of T.seekDestroyNodes) n.discovered = true; // discovery would have filled the old lists
-      for (const n of T.antiPlaneNodes) n.discovered = true;
       const bar = document.getElementById('counterOpsBar');
       return {
         children: Array.from(bar.children).map((el) => el.id),
@@ -1964,7 +1555,7 @@ test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon l
         attackDroneButtons: bar.querySelectorAll('[data-sd], [data-ap]').length,
       };
     });
-    await page.waitForTimeout(100); // a few frames of the render loop with every node discovered
+    await page.waitForTimeout(100); // a few frames of the render loop
     assertEqual(JSON.stringify(r.children), JSON.stringify(['missionMapStrip', 'counterLaneRow']), 'the bar should contain just the zone strip and the Counter Lane');
     assertEqual(r.goneIds.length, 0, `these recon elements should no longer exist: ${r.goneIds}`);
     assertEqual(r.attackDroneButtons, 0, 'no per-node Attack Drone buttons should render in the bar');
@@ -2004,40 +1595,12 @@ test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-de
   });
 });
 
-test('LRNA-158/156: the bottom bar DRONE button fires with STATS closed, and is held while STATS pauses the battle', async () => {
-  await withGame(async (page, errors) => {
-    const result = await page.evaluate(async () => {
-      const T = window.__TEST__;
-      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-      T.tokens.intel = 99999;
-      const dronesBefore = T.missiles.filter((m) => m.typeKey === 'drone').length;
-      document.querySelector('.launchBtn[data-type="drone"]').click();
-      const dronesAfterClosed = T.missiles.filter((m) => m.typeKey === 'drone').length;
-      T.clearMissiles();
-      T.openMissionMap();
-      await wait(360); // attemptFire's fire-rate cooldown is keyed on real wall-clock time
-      document.querySelector('.launchBtn[data-type="drone"]').click();
-      const dronesAfterOpen = T.missiles.filter((m) => m.typeKey === 'drone').length;
-      T.closeMissionMap();
-      await wait(360);
-      document.querySelector('.launchBtn[data-type="drone"]').click();
-      const dronesAfterClose = T.missiles.filter((m) => m.typeKey === 'drone').length;
-      return { dronesBefore, dronesAfterClosed, dronesAfterOpen, dronesAfterClose };
-    });
-    assertEqual(result.dronesAfterClosed - result.dronesBefore, 1, 'DRONE should fire with STATS closed');
-    assertEqual(result.dronesAfterOpen, 0, 'DRONE should not fire while STATS has the battle paused (LRNA-156)');
-    assertEqual(result.dronesAfterClose, 1, 'DRONE should fire again once STATS is closed');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
 test('LRNA-159: Reactor Upgrades removed entirely - no UI remnants, and every mechanic it used to boost is back to its plain base value', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(async () => {
       const T = window.__TEST__;
       const wait = (ms) => new Promise((r) => setTimeout(r, ms));
       T.tokens.attack = 99999;
-      T.forceOpeningUnlock();
       T.freezeWaves();
       T.clearMissiles();
 
@@ -2054,15 +1617,16 @@ test('LRNA-159: Reactor Upgrades removed entirely - no UI remnants, and every me
       T.attemptFire('fast');
       const activeAfterOneMore = T.missiles.filter(mm => mm.originId === 'A').length;
 
-      // no +1 Intel/sec from the old Reactor Boost upgrade
-      const intelBefore = T.tokens.intel;
+      // no +1/sec from the old Reactor Boost upgrade (it fed the Intel
+      // currency, gone since LRNA-180; Counter accrues at the same rate)
+      const tokenBefore = T.tokens.counter;
       T.tickUpdate(1);
-      const intelGain = T.tokens.intel - intelBefore;
+      const tokenGain = T.tokens.counter - tokenBefore;
 
       return {
         dmg: m.dmg,
         activeAtCap, activeAfterOneMore,
-        intelGain,
+        tokenGain,
         upgradeListGone: !document.getElementById('upgradeList'),
         dataUpgradeGone: !document.querySelector('[data-upgrade]'),
       };
@@ -2071,68 +1635,9 @@ test('LRNA-159: Reactor Upgrades removed entirely - no UI remnants, and every me
     assertEqual(result.activeAtCap, 3, 'active-shot cap should be the plain MAX_ACTIVE (3), no Expanded Ammo Bay bonus');
     assertEqual(result.activeAfterOneMore, 3, 'a 4th shot should still be refused at the plain cap');
     // LRNA-166 lowered TOKEN_PASSIVE_RATE from 100/s to 20/s
-    assert(Math.abs(result.intelGain - 20) < 1, `Intel should accrue at the plain TOKEN_PASSIVE_RATE (20/s), no Reactor Boost bonus: got ${result.intelGain}/s`);
+    assert(Math.abs(result.tokenGain - 20) < 1, `tokens should accrue at the plain TOKEN_PASSIVE_RATE (20/s), no Reactor Boost bonus: got ${result.tokenGain}/s`);
     assert(result.upgradeListGone, '#upgradeList should not exist anywhere in the DOM');
     assert(result.dataUpgradeGone, 'no [data-upgrade] button should exist anywhere in the DOM');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-084: the zone strip reflects each SEEK AND DESTROY zone\'s real bounds and updates on discovery', async () => {
-  await withGame(async (page, errors) => {
-    const before = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.openMissionMap();
-      const zoneEls = Array.from(document.getElementById('missionMapZones').children);
-      return {
-        count: zoneEls.length,
-        lefts: zoneEls.map(el => parseFloat(el.style.left)),
-        expectedLefts: T.seekDestroyNodes.map(n => T.missionMapPct(n.zoneStart)),
-        anyDiscoveredClass: zoneEls.some(el => el.classList.contains('discovered')),
-      };
-    });
-    assertEqual(before.count, 3, 'the strip should carry a band for each of the 3 SEEK AND DESTROY zones');
-    before.lefts.forEach((left, i) => {
-      assert(Math.abs(left - before.expectedLefts[i]) < 0.01,
-        `zone ${i} should be positioned at its own real zoneStart, mapped to the strip: got ${left}%, expected ${before.expectedLefts[i]}%`);
-    });
-    assert(!before.anyDiscoveredClass, 'no zone should read as discovered on a fresh game');
-
-    const after = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.seekDestroyNodes[0].discovered = true;
-      T.tickUpdate(0.016); // Mission Map re-renders itself every tick while open
-      const zoneEls = Array.from(document.getElementById('missionMapZones').children);
-      return { discoveredCount: zoneEls.filter(el => el.classList.contains('discovered')).length };
-    });
-    assertEqual(after.discoveredCount, 1, 'discovering a node should flip its own zone band to the discovered style');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
-test('LRNA-084: undiscovered AntiPlane nodes stay off the zone strip; discovered ones appear at their real position', async () => {
-  await withGame(async (page, errors) => {
-    const result = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.openMissionMap();
-      T.antiPlaneNodes[0].discovered = false;
-      T.tickUpdate(0.016);
-      const beforeCount = document.getElementById('missionMapMarkers').children.length;
-
-      T.antiPlaneNodes[0].discovered = true;
-      T.tickUpdate(0.016);
-      const markerEls = Array.from(document.getElementById('missionMapMarkers').children);
-      return {
-        beforeCount,
-        afterCount: markerEls.length,
-        left: markerEls[0] && parseFloat(markerEls[0].style.left),
-        expectedLeft: T.missionMapPct(T.antiPlaneNodes[0].x),
-      };
-    });
-    assertEqual(result.beforeCount, 0, 'an undiscovered AntiPlane node must not leak its position onto the strip');
-    assertEqual(result.afterCount, 1, 'a discovered AntiPlane node should get a marker');
-    assert(Math.abs(result.left - result.expectedLeft) < 0.01,
-      `the marker should sit at the node's own real x position: got ${result.left}%, expected ${result.expectedLeft}%`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
@@ -2190,7 +1695,6 @@ test('LRNA-086: firing a shot triggers boost-window camera shake', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
-      T.forceOpeningUnlock();
       T.tokens.attack = 99999;
       const before = { mag: T.camShakeMag, timer: T.camShakeTimer };
       T.attemptFire('fast');
@@ -2307,7 +1811,7 @@ test('ART-10..13: menu screens open from home, BACK and Esc return, and a finish
     const howto = await page.$eval('#menuHowto', (e) => e.innerText);
     await page.click('#menuHowto [data-goto="home"]');
     await page.click('#missionsBtn');
-    await page.click('.missionBtn[data-mission="first-contact"]');
+    await page.click('.missionBtn[data-mission="first-strike"]');
     await page.waitForTimeout(150);
     await page.evaluate(() => { const T = window.__TEST__; T.freezeWaves(); T.missionStats.time = 149.99; T.tickUpdate(0.05); });
     await page.click('#waveResultClose');
@@ -2318,7 +1822,7 @@ test('ART-10..13: menu screens open from home, BACK and Esc return, and a finish
     }
     assertEqual(seen.esc, 'home', 'Esc goes back home');
     assertEqual(seen.afterRun, 'home', 'closing a result shows the home screen');
-    for (const word of ['FIND', 'DESTROY', 'ATTACK', 'DEFEND', 'CURRENCY', 'CONTROLS']) assert(howto.includes(word), `how to play covers ${word}`);
+    for (const word of ['ATTACK', 'DEFEND', 'BREAK', 'CURRENCY', 'CONTROLS']) assert(howto.includes(word), `how to play covers ${word}`);
     assert(howto.length < 1400, `how to play stays short: ${howto.length} chars`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
@@ -2329,7 +1833,7 @@ test('ART-11: setup changes show on the home summary line, with each slot\'s rol
     const before = await page.$eval('#setupSummary', (e) => e.textContent);
     await page.click('#menuHome [data-goto="setup"]');
     await page.click('.difficultyBtn[data-difficulty="hard"]');
-    await page.selectOption('.loadoutSelect[data-slot="1"]', 'satellite');
+    await page.selectOption('.loadoutSelect[data-slot="1"]', 'base');
     const r = await page.evaluate(() => ({
       options: [...document.querySelectorAll('.loadoutSelect[data-slot="0"] option')].map((o) => o.textContent),
       role1: document.querySelector('.slotRole[data-role="1"]').textContent,
@@ -2340,7 +1844,7 @@ test('ART-11: setup changes show on the home summary line, with each slot\'s rol
     await page.waitForTimeout(300);
     const reloaded = await page.$eval('#setupSummary', (e) => e.textContent);
     assertEqual(before, 'NORMAL · GML / MG AA / CTR BTY', 'default summary');
-    assertEqual(after, 'HARD · GML / SAT / CTR BTY', 'summary follows the picks');
+    assertEqual(after, 'HARD · GML / BASE / CTR BTY', 'summary follows the picks');
     assertEqual(reloaded, after, 'and survives a reload');
     assert(r.options.every((t) => !t.includes('—')), `options are plain names now: ${r.options.join(', ')}`);
     assert(r.role1.length > 5, `the role line describes the pick: ${r.role1}`);
@@ -2350,7 +1854,7 @@ test('ART-11: setup changes show on the home summary line, with each slot\'s rol
 
 test('ART-12: home shows the mission stars total', async () => {
   await withGame(async (page, errors) => {
-    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'blind-the-radar': 2, 'first-contact': 3 })));
+    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'silence-the-launchers': 2, 'first-strike': 3 })));
     await page.reload();
     await page.waitForTimeout(300);
     assertEqual(await page.$eval('#missionStarsTotal', (e) => e.textContent), '5/18', 'stars total');
@@ -2432,11 +1936,13 @@ test('ART-15: an endless run ends on one result layout with RETRY and MENU', asy
 test('ART-15: a mission win offers NEXT MISSION, RETRY replays the same mission', async () => {
   await withGame(async (page, errors) => {
     await page.click('#missionsBtn');
-    await page.click('.missionBtn[data-mission="blind-the-radar"]');
+    await page.click('.missionBtn[data-mission="silence-the-launchers"]');
     await page.waitForTimeout(150);
     const win = async () => page.evaluate(() => {
       const T = window.__TEST__;
-      T.freezeWaves(); T.damageNode('ap0', 1000); T.damageNode('ap1', 1000); T.tickUpdate(0.05);
+      T.freezeWaves();
+      for (const t of T.fieldTargets.filter((f) => f.kind === 'launcher')) T.damageNode(t.id, 1000);
+      T.tickUpdate(0.05);
       return { title: document.getElementById('waveResultTitle').textContent,
         next: !document.getElementById('resultNext').hidden };
     });
@@ -2457,10 +1963,91 @@ test('ART-15: a mission win offers NEXT MISSION, RETRY replays the same mission'
       return { title: document.getElementById('waveResultTitle').textContent, next: !document.getElementById('resultNext').hidden }; });
     assertEqual(first.title, 'MISSION COMPLETE', 'won');
     assert(first.next, 'NEXT MISSION shows after a win');
-    assertEqual(retried, 'blind-the-radar', 'RETRY replays the same mission');
-    assertEqual(next, 'break-the-line', 'NEXT MISSION starts mission 3');
+    assertEqual(retried, 'silence-the-launchers', 'RETRY replays the same mission');
+    assertEqual(next, 'smash-the-sub-bases', 'NEXT MISSION starts mission 3');
     assertEqual(last.title, 'MISSION COMPLETE', 'last mission won');
     assert(!last.next, 'the last mission has no NEXT MISSION');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('LRNA-180: PLAY starts the fight at once - attacks fire and Wave 1 launches, nothing recon is left', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.attack = 99999;
+      T.attemptFire('fast');
+      const fired = T.missiles.filter((m) => m.originId === 'A' && m.typeKey === 'fast').length;
+      const plane = T.firePlane('strikeFighter');
+      for (let i = 0; i < 40; i++) T.tickUpdate(0.05); // 2s: Wave 1's first strike leaves at 0.6s
+      const menuText = document.getElementById('overlay').textContent + document.getElementById('bottomBar').textContent;
+      return {
+        fired, plane: !!plane,
+        inbound: T.missiles.filter((m) => m.typeKey === 'enemyStrike').length,
+        gone: ['[data-type="drone"]', '[data-plane="reconPlane"]', '[data-pillar="intel"]', '#openingLockedBanner', '#tokenIntel',
+          '#omegaGuardStatus', '#missionMapZones', '#satelliteWarning', '.loadoutSelect option[value="satellite"]']
+          .filter((sel) => document.querySelector(sel)),
+        words: ['RECON', 'DRONE', 'INTEL', 'SATELLITE', 'HIDDEN'].filter((w) => menuText.toUpperCase().includes(w)),
+        tokens: Object.keys(T.tokens),
+        objective: document.getElementById('objectiveHud').textContent,
+      };
+    });
+    assertEqual(r.fired, 1, 'a missile fires from the first second');
+    assert(r.plane, 'an attack plane launches from the first second');
+    assert(r.inbound >= 1, `Omega's Wave 1 is already on its way: ${r.inbound}`);
+    assertEqual(r.gone.length, 0, `recon UI left over: ${r.gone}`);
+    assertEqual(r.words.length, 0, `recon words left in the menus or bottom bar: ${r.words}`);
+    assertEqual(r.tokens.join(','), 'attack,counter', 'two currencies');
+    assertEqual(r.objective, 'DESTROY NODE OMEGA', 'one-line objective');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-180: a saved loadout with a Satellite falls back to that slot\'s default', async () => {
+  await withGame(async (page, errors) => {
+    await page.evaluate(() => localStorage.setItem('lrna_loadout_v1', JSON.stringify(['satellite', 'base', 'satellite'])));
+    await page.reload();
+    await page.waitForTimeout(300);
+    const picks = await page.evaluate(() => [...document.querySelectorAll('.loadoutSelect')].map((s) => s.value));
+    assertEqual(picks.join(','), 'gml,base,cb', 'Satellite slots go back to their defaults');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('LRNA-180: FIRST STRIKE counts destroyed installations; SMASH THE SUB-BASES needs both sub-bases', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#missionsBtn');
+    await page.click('.missionBtn[data-mission="first-strike"]');
+    await page.waitForTimeout(150);
+    const first = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      const small = T.fieldTargets.filter((t) => t.kind === 'infantry' || t.kind === 'vehicle');
+      for (const t of small.slice(0, 4)) T.damageNode(t.id, 1000);
+      T.tickUpdate(0.05);
+      const mid = { active: T.activeMission?.id, hud: document.getElementById('objectiveHud').textContent };
+      T.damageNode(small[4].id, 1000);
+      T.tickUpdate(0.05);
+      return { mid, title: document.getElementById('waveResultTitle').textContent, active: T.activeMission };
+    });
+    await page.click('#waveResultClose');
+    await page.click('#missionsBtn');
+    await page.click('.missionBtn[data-mission="smash-the-sub-bases"]');
+    await page.waitForTimeout(150);
+    const subs = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      const [a, b] = T.fieldTargets.filter((t) => t.kind === 'subbase');
+      T.damageNode(a.id, 5000); T.tickUpdate(0.05);
+      const one = T.activeMission?.id;
+      T.damageNode(b.id, 5000); T.tickUpdate(0.05);
+      return { one, title: document.getElementById('waveResultTitle').textContent };
+    });
+    assertEqual(first.mid.active, 'first-strike', 'four down, still running');
+    assert(first.mid.hud.includes('INSTALLATIONS 4/5'), first.mid.hud);
+    assertEqual(first.title, 'MISSION COMPLETE', 'the fifth completes it');
+    assertEqual(subs.one, 'smash-the-sub-bases', 'one sub-base is not enough');
+    assertEqual(subs.title, 'MISSION COMPLETE', 'both complete it');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
 });

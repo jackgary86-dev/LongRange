@@ -588,13 +588,13 @@ missions.
   (smoke, fire, exposed core as health drops), and a clear "what hit what"
   (interceptor trails that end in a visible kill).
 
-## OPEN — LRNA-180: remove recon, straight to the fight (2026-10-03)
+## DONE — LRNA-180: remove recon, straight to the fight (2026-10-03)
 
 Request: "remove everything related to RECON - remove the Drone the recon
 plane - the whole opening recon phase - just start the game and let us
 attack each other."
 
-- **LRNA-180** — OPEN — Remove recon. The game starts with both sides
+- **LRNA-180** — DONE — Remove recon. The game starts with both sides
   able to fire at once: the Strike Platform attacks Node Omega, Omega
   attacks back in waves, nothing to find first.
 
@@ -638,6 +638,29 @@ attack each other."
   no DRONE, RECON PLANE, INTEL, hidden node, discovery or RECON REQUIRED
   text is left in the game; the 6 missions all play without recon; the
   suite is green; installer, Alert copy, demo and Pages are updated.
+
+  *Done (2026-10-03), with the proposals taken as written:*
+  - Gone: the opening lock and its banner and unlock flash, DRONE, RECON
+    PLANE, the Attack Drone, the INTEL currency (bar, HUD chip, income,
+    saved balance), both hidden node sets (radar defenses and SEEK AND
+    DESTROY) with discovery, zones, markers and their drawing, Omega's
+    25% guard and its shield ring, and Satellite (a saved Satellite slot
+    goes back to that slot's default). Keys are 1-6 now.
+  - Objective line: DESTROY NODE OMEGA (plus how many times it has
+    fallen), or the mission's goal and clock.
+  - Missions 1-3 replaced with field-target missions: FIRST STRIKE
+    (destroy 5 installations, 2:30), SILENCE THE LAUNCHERS (all 3
+    launchers, 5:00), SMASH THE SUB-BASES (both sub-bases, 7:00). HOLD THE
+    LINE lost its recon flag. With no guard to clear, TAKE DOWN OMEGA's
+    stars are now 4:00/6:00 and NO SAFETY NET's 5:00/7:30.
+  - The Radar Lane panel stays as the threat list; the zone strip keeps
+    only the nearest-threat marker.
+  - HOW TO PLAY rewritten: ATTACK, DEFEND, BREAK, then currency and
+    controls.
+  - Tests: 17 recon tests removed with the feature; the phone tap tests
+    now use a field target; 3 new LRNA-180 tests (the fight starts at
+    once with nothing recon left, the Satellite loadout fallback, the
+    new missions). 69/69.
 
 ## OPEN — ART epic 3: in-game GUI redesign (2026-10-03)
 

@@ -117,15 +117,8 @@
     letter-spacing: 1.5px;
   }
   #waveHud.break { color: #7bffa0; }
-  /* LRNA-172/173: the current step of find -> clear the forward defenses -> hit the base */
+  /* LRNA-173/180: one short line - the wave, or the mission's goal */
   #objectiveHud { display: inline-block; margin-top: 2px; color: #9fffcf; font-size: 9.5px; letter-spacing: 1px; }
-  #objectiveHud.final { color: #ff5a36; }
-  #omegaGuardStatus { margin-top: 3px; font-size: 9.5px; letter-spacing: 1px; color: #35e6ff; }
-  #omegaGuardStatus.hidden { display: none; }
-  /* LRNA-173: the button that does the next step */
-  @keyframes nextStepGlow { 0%, 100% { box-shadow: inset 0 0 14px -8px var(--btncolor); } 50% { box-shadow: inset 0 0 16px -4px var(--btncolor), 0 0 14px 1px var(--btncolor); } }
-  .launchBtn.nextStep:not(:disabled) { animation: nextStepGlow 1.2s ease-in-out infinite; }
-  @media (prefers-reduced-motion: reduce) { .launchBtn.nextStep:not(:disabled) { animation: none; box-shadow: 0 0 10px 1px var(--btncolor); } }
   #waveHud.elite { color: #ff2ea6; animation: omegaJamPulse 0.9s infinite; }
 
   /* Radar Lane (LRNA-076, issue #433): absorbs the old ACTIVE CONTACTS
@@ -229,48 +222,6 @@
   #storageWarning.hidden { display: none; }
 
 
-  /* LRNA-080: persistent, non-blocking (unlike PAUSED) reminder during
-     the recon-gated opening - the player needs to keep looking at/
-     navigating the map while this is up, not have it covered.
-     ART-5: restyled from a plain bordered text box into a HUD scan
-     readout - same scanline-texture-under-solid-backdrop language as
-     ART-4's status panels, corner brackets instead of a full border
-     (matching the reticle look ART-5 also gave the recon zone markers
-     themselves), and a small scanning indicator bar under the text
-     instead of relying on opacity-pulse alone to read as "active." */
-  #openingLockedBanner {
-    position: absolute;
-    top: 96px; left: 50%;
-    transform: translateX(-50%);
-    z-index: 4;
-    pointer-events: none;
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 11px;
-    letter-spacing: 1.5px;
-    color: #9fffcf;
-    background:
-      repeating-linear-gradient(180deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
-      rgba(3,12,7,0.8);
-    padding: 8px 20px 10px;
-    text-align: center;
-    animation: omegaJamPulse 1.6s infinite;
-  }
-  /* Same top-left/bottom-right corner-bracket pattern ART-4 gave the
-     HUD buttons - one element only has 2 pseudo-elements to spend, so
-     it covers 2 opposing corners rather than all 4. */
-  #openingLockedBanner::before, #openingLockedBanner::after {
-    content: ''; position: absolute; width: 9px; height: 9px;
-    border-color: #9fffcf; border-style: solid; opacity: 0.85;
-  }
-  #openingLockedBanner::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
-  #openingLockedBanner::after { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
-  #openingLockedBanner .scanBar {
-    position: absolute; left: 6px; right: 6px; bottom: 2px; height: 1px;
-    background: linear-gradient(90deg, transparent, #9fffcf, transparent);
-    animation: reconSweep 1.8s linear infinite;
-  }
-  @keyframes reconSweep { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
-  #openingLockedBanner.hidden { display: none; }
 
   /* Emergency Counter (LRNA-074/#431): moved out of its old floating
      top-left HUD position into the COUNTER ability group, styled like
@@ -448,24 +399,14 @@
   #targetListScroll { max-height: 220px; overflow-y: auto; }
 
   /* The top-down zone strip: Strike Platform on the left, Node Omega on
-     the right, the 3 SEEK AND DESTROY recon zones and any discovered
-     AntiPlane nodes placed along it by real world-x position (same
-     nodeA.x..nodeO.x span the battlefield itself uses), plus the live
-     inbound threat if one exists. Placeholder rendering only (ART-7 is
-     the follow-up for real visual treatment, matching ART-5/ART-6's
-     precedent for gameplay-first builds in this pass) - deliberately
-     plain so the underlying data (zone bounds, discovery state) is easy
-     to verify against, both by eye and in tests. */
+     the right, and the live inbound threat placed along it by real
+     world-x position (same nodeA.x..nodeO.x span the battlefield itself
+     uses). LRNA-180 removed the recon zones and node markers it held. */
   /* ART-7: the zone strip restyled as a real top-down map lane rather
      than a flat grey bar - same soft-glow-corridor language the
      battlefield canvas itself uses (ART-3's drawn corridor), distance
      ticks for a real map/scale cue, and a scanline texture matching
-     every other panel this epic has touched. Every element the
-     LRNA-084 regression tests read (`.missionMapZone`'s own
-     `style.left`/`style.width`/`.discovered`/`.neutralized`,
-     `.missionMapMarker`'s `style.left`, `#missionMapThreatMarker`'s
-     `.hidden`/`style.left`) is untouched by JS - only how those same
-     elements paint. */
+     every other panel this epic has touched. */
   /* LRNA-158: the strip's own outer layout, now inside the persistent
      #counterOpsBar instead of a centered card in a full-screen window -
      full width, no more max-width/auto-centering. */
@@ -507,35 +448,6 @@
     height: 6px; transform: translateY(-50%);
     background: linear-gradient(90deg, rgba(143,107,255,0), rgba(143,107,255,0.25), rgba(143,107,255,0));
   }
-  #missionMapZones, #missionMapMarkers { position: absolute; inset: 0; }
-  .missionMapZone {
-    position: absolute; top: 2px; bottom: 2px;
-    background: repeating-linear-gradient(135deg, rgba(180,180,190,0.3) 0 5px, rgba(180,180,190,0.12) 5px 10px);
-    border-left: 1px dashed rgba(255,255,255,0.35); border-right: 1px dashed rgba(255,255,255,0.35);
-    animation: missionMapZoneScan 2.2s ease-in-out infinite;
-  }
-  @keyframes missionMapZoneScan { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.95; } }
-  .missionMapZone.discovered {
-    background: rgba(255,90,54,0.4);
-    border-left: 1px solid #ff5a36cc; border-right: 1px solid #ff5a36cc;
-    animation: none;
-  }
-  .missionMapZone.neutralized {
-    background: repeating-linear-gradient(135deg, rgba(123,255,160,0.3) 0 5px, rgba(123,255,160,0.12) 5px 10px);
-    border-left: 1px solid #7bffa0cc; border-right: 1px solid #7bffa0cc;
-    animation: none;
-  }
-  .missionMapMarker {
-    position: absolute; top: 50%; width: 7px; height: 7px;
-    transform: translate(-50%, -50%) rotate(45deg);
-    background: #ff5a36; box-shadow: 0 0 6px 1px #ff5a36aa;
-  }
-  .missionMapMarker::after {
-    content: ''; position: absolute; inset: -4px; border: 1px solid #ff5a3688;
-    animation: missionMapPulse 1.4s ease-out infinite;
-  }
-  .missionMapMarker.neutralized { background: #7bffa0; box-shadow: 0 0 6px 1px #7bffa0aa; }
-  .missionMapMarker.neutralized::after { border-color: #7bffa088; animation: none; opacity: 0; }
   @keyframes missionMapPulse {
     0% { transform: scale(0.6); opacity: 0.9; }
     100% { transform: scale(1.8); opacity: 0; }
@@ -661,20 +573,6 @@
     bottom: -1px; right: -1px;
     border-width: 0 1px 1px 0;
   }
-  /* ART-5: the "systems coming online" unlock-moment sweep - applied to
-     each ability button in DOM order with a staggered animation-delay
-     (see playSystemsOnlineTransition), so the whole ability bar lights
-     up left-to-right in sequence rather than all at once. Self-removing
-     (an 'animationend' listener strips the class) so it never lingers
-     as dead state on the button. */
-  @keyframes systemsOnlineSweep {
-    0% { filter: brightness(1); box-shadow: none; }
-    35% { filter: brightness(1.8); box-shadow: 0 0 14px 2px currentColor; }
-    100% { filter: brightness(1); box-shadow: none; }
-  }
-  .launchBtn.poweringUp, .upgradeBtn.poweringUp {
-    animation: systemsOnlineSweep 0.5s ease-out;
-  }
   .btnLabel {
     display: block;
     font-family: "Courier New", ui-monospace, monospace;
@@ -749,7 +647,6 @@
   }
   .abilityGroup[data-pillar="attack"] .abilityGroupHeader { color: #ff5a36; }
   .abilityGroup[data-pillar="counter"] .abilityGroupHeader { color: #ffe066; }
-  .abilityGroup[data-pillar="intel"] .abilityGroupHeader { color: #35e6ff; }
   .abilityGroupCount { font-size: 11px; }
   .abilityGroupButtons { display: flex; gap: 6px; flex-wrap: wrap; }
   /* LRNA-168: COUNTER has no planes, so its PLANES label headed an empty row */
@@ -886,8 +783,6 @@
     font-family: var(--m-display); font-weight: 700; font-size: 14px; letter-spacing: 0.08em; padding: 6px 8px;
   }
   .slotRole { font-size: 10.5px; line-height: 1.45; color: var(--m-muted); }
-  #satelliteWarning { font-size: 11px; letter-spacing: 0.08em; color: var(--m-accent); }
-  #satelliteWarning.hidden { display: none; }
   /* ART-12 missions */
   #missionList { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 10px; }
   .missionBtn {
@@ -991,11 +886,10 @@
     #contacts.open h3::after { content: ' ▾'; }
     #contacts:not(.open) #contactList { display: none; }
     #contacts:not(.open) #radarLaneTrack { margin-bottom: 0; }
-    #openingLockedBanner { font-size: 9px; padding: 6px 12px 8px; width: calc(100vw - 24px); }
 
     /* LRNA-168: compact ability bar. Each pillar becomes a 3-column grid
        (display: contents lifts the missile and plane buttons into it), so
-       ATTACK is 2 rows and COUNTER and INTEL 1 row each, instead of one
+       ATTACK is 2 rows and COUNTER 1 row, instead of one
        full-width button per row. */
     #counterOpsBar { padding: 5px 8px; }
     .missionMapStripEnd { width: 40px; font-size: 6.5px; padding-top: 11px; }
@@ -1038,12 +932,11 @@
       <div class="barOuter"><div class="barInner" id="aBar" style="background:var(--green)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="aImpacts">0</span></div>
     </div>
-    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span id="hudHostLine"><span class="url" id="hudHost"></span><br></span></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span> <span class="tokenChip" style="color:#35e6ff">&#9679; <span id="tokenIntel">0</span></span></span><br><span id="waveHud">WAVE 1</span><br><span id="objectiveHud"></span></div>
+    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span id="hudHostLine"><span class="url" id="hudHost"></span><br></span></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span> <span class="tokenChip" style="color:#ffe066">&#9679; <span id="tokenCounter">0</span></span></span><br><span id="waveHud">WAVE 1</span><br><span id="objectiveHud"></span></div>
     <div class="panel right">
       <div>NODE OMEGA — <span id="oHealth">250</span>/250</div>
       <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
       <div style="margin-top:3px;">IMPACTS <span id="oImpacts">0</span></div>
-      <div id="omegaGuardStatus" class="hidden">GUARDED</div>
       <div id="pointDefenseJamStatus" class="hidden">POINT DEFENSE JAMMED 0:15</div>
       <div id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</div>
       <div id="omegaCounterStatus"></div>
@@ -1058,7 +951,6 @@
   <!-- LRNA-158: renamed from #opsCenterBtn/"COUNTER CENTER" - this now
        opens the STATS-only window, not an operations screen. -->
   <button id="menuBtn" aria-label="Menu">&#9776; MENU</button>
-  <div id="openingLockedBanner" class="hidden">RECON REQUIRED — LOCATE A HIDDEN NODE TO BEGIN THE ASSAULT (send a DRONE or RECON PLANE)<div class="scanBar"></div></div>
   <div id="storageWarning" class="hidden">⚠ PROGRESS NOT SAVING — storage unavailable</div>
 
   <!-- ART-14: the in-game menu. STATS and SOUND keep their old ids. -->
@@ -1148,15 +1040,12 @@
     <div id="missionMapStrip">
       <div class="missionMapStripEnd">STRIKE<br>PLATFORM</div>
       <div id="missionMapStripTrack">
-        <div id="missionMapZones"></div>
-        <div id="missionMapMarkers"></div>
         <div id="missionMapThreatMarker" class="hidden"></div>
       </div>
       <div class="missionMapStripEnd">NODE<br>OMEGA</div>
     </div>
     <!-- LRNA-161: dot lane for interception, drawn like #minimap but
-         only inbound strikes, the intercepts aimed at them, and
-         discovered AntiPlane nodes. Same end columns and the same
+         only inbound strikes and the intercepts aimed at them. Same end columns and the same
          Strike-Platform-to-Omega mapping as the zone strip above, so the
          two lanes line up. -->
     <div id="counterLaneRow">
@@ -1226,19 +1115,6 @@
           <div class="abilityGroupSub">PLANES</div>
           <div class="abilityGroupButtons" id="planeButtons-counter"></div>
         </div>
-        <div class="abilityGroup" data-pillar="intel">
-          <div class="abilityGroupHeader">INTEL <span class="abilityGroupCount">&#9679; <span id="groupTokenIntel">0</span></span></div>
-          <div class="abilityGroupButtons">
-            <button class="launchBtn" data-type="drone" style="--btncolor:#9fffcf">
-              <span class="btnKey">7</span>
-              <span class="btnLabel">DRONE</span>
-              <span class="btnEta">120s flight</span>
-              <span class="btnDmg">&#9679; 5 INTEL</span>
-            </button>
-          </div>
-          <div class="abilityGroupSub">PLANES</div>
-          <div class="abilityGroupButtons" id="planeButtons-intel"></div>
-        </div>
       </div>
     </div>
   </div>
@@ -1288,7 +1164,6 @@
           <div class="slotRole" data-role="2"></div>
         </div>
       </div>
-      <div id="satelliteWarning" class="hidden">SATELLITE ALREADY IN LOADOUT &mdash; A SECOND ONE ADDS NOTHING</div>
       <button class="mBtn primary" data-goto="home">DONE</button>
     </section>
 
@@ -1303,19 +1178,16 @@
       <div class="mHead"><button class="mLink" data-goto="home">&#9666; BACK</button><h2>HOW TO PLAY</h2></div>
       <div class="mPanel">
         <ol class="howSteps">
-          <li><span><strong>FIND</strong> the forward defenses in front of Node Omega: send a DRONE or RECON PLANE into the marked zones. Attacks unlock once you find the first one.</span></li>
-          <li><span><strong>DESTROY</strong> them. Tap a found defense on the battlefield to target it, then fire. While any stand, Omega takes only 25% damage.</span></li>
-          <li><span><strong>ATTACK</strong> Node Omega at full damage. When it falls it rebuilds with a fresh hidden set, and the hunt starts again.</span></li>
+          <li><span><strong>ATTACK</strong> Node Omega from the first second. Missiles and strike planes cost ATTACK; tap any enemy on the battlefield, or pick one in STATS, to aim at it.</span></li>
+          <li><span><strong>DEFEND</strong> against what Omega sends back in waves. COUNTER MISSILE takes missiles, COUNTER ATTACK PLANES take planes, EMERGENCY COUNTER is a last-second shot. You get 10, 10 and 5 per game; so does Omega.</span></li>
+          <li><span><strong>BREAK</strong> Omega. It rebuilds stronger each time it falls; the run ends when your Strike Platform does.</span></li>
         </ol>
       </div>
       <div class="mPanel">
-        <p class="howText"><strong>DEFEND</strong> &mdash; Omega fires back in waves. COUNTER MISSILE takes missiles, COUNTER ATTACK PLANES take planes, and EMERGENCY COUNTER is a last-second shot. You get 10, 10 and 5 per game; so does Omega.</p>
+        <p class="howText"><strong>CURRENCY</strong> &mdash; <span style="color:#ff5a36">ATTACK</span> pays for warheads and strike planes, <span style="color:#ffe066">COUNTER</span> for counters. Both trickle in; hits pay back part of their cost.</p>
       </div>
       <div class="mPanel">
-        <p class="howText"><strong>CURRENCY</strong> &mdash; <span style="color:#ff5a36">ATTACK</span> pays for warheads and strike planes, <span style="color:#ffe066">COUNTER</span> for counters, <span style="color:#35e6ff">INTEL</span> for recon. All three trickle in; hits pay back part of their cost.</p>
-      </div>
-      <div class="mPanel">
-        <p class="howText"><strong>CONTROLS</strong> &mdash; drag or arrow keys to look around, tap a missile to follow it, keys 1-7 fire the abilities, R restarts.</p>
+        <p class="howText"><strong>CONTROLS</strong> &mdash; drag or arrow keys to look around, tap a missile to follow it, keys 1-6 fire the abilities, R restarts.</p>
       </div>
     </section>
   </div>
@@ -1407,13 +1279,6 @@
   // as cut off - swap to short forms instead of just shrinking the font.
   function isMobileViewport() { return window.matchMedia('(max-width: 560px)').matches; }
 
-  // ---- SEEK AND DESTROY window (LRNA-063, scoped MVP): opened from the
-  // Intelligence panel, shows the 3 hidden nodes (UNKNOWN until a recon
-  // drone finds them) with a per-node ATTACK button once discovered -
-  // same interaction pattern as the Intelligence panel's known-threats
-  // list (LRNA-039), just against seekDestroyNodes instead of
-  // antiPlaneNodes.
-  //
   // LRNA-084: this used to be its own SEEK AND DESTROY window
   // (LRNA-063), and the Counter Missile Intercept window (LRNA-051) was
   // a separate thing entirely. Direct request: "Remove the two side
@@ -1438,8 +1303,6 @@
   let missionMapOpen = false;
   const missionMapWindowEl = document.getElementById('missionMapWindow');
   const missionMapCloseBtnEl = document.getElementById('missionMapClose');
-  const missionMapZonesEl = document.getElementById('missionMapZones');
-  const missionMapMarkersEl = document.getElementById('missionMapMarkers');
   const missionMapThreatMarkerEl = document.getElementById('missionMapThreatMarker');
 
   // LRNA-156: STATS pauses the battle while it's open. Only a pause STATS
@@ -1462,25 +1325,12 @@
   }
   // The zone strip: real world-x positions (the same nodeA.x..nodeO.x
   // span the battlefield canvas itself uses) mapped to a 0-100% track.
-  // SEEK AND DESTROY zone bounds are always shown once the map is open
-  // (that's the whole point of a scannable zone, LRNA-080) - only the
-  // exact node inside stays hidden until discovered. AntiPlane markers
-  // only appear once discovered - showing an undiscovered one's exact x
-  // would leak the one thing recon is supposed to protect.
+  // LRNA-180: with recon gone it only marks the nearest inbound threat.
   function missionMapPct(x) {
     return Math.max(0, Math.min(100, (x - nodeA.x) / (nodeO.x - nodeA.x) * 100));
   }
   function renderMissionMapStrip() {
-    if (!missionMapZonesEl) return;
-    missionMapZonesEl.innerHTML = seekDestroyNodes.map(n => {
-      const cls = n.destroyed ? 'neutralized' : (n.discovered ? 'discovered' : '');
-      const left = missionMapPct(n.zoneStart), right = missionMapPct(n.zoneEnd);
-      return `<div class="missionMapZone ${cls}" style="left:${left}%; width:${right - left}%;" title="${n.discovered ? n.name : 'UNKNOWN NODE'}"></div>`;
-    }).join('');
-    missionMapMarkersEl.innerHTML = antiPlaneNodes
-      .filter(ap => ap.discovered)
-      .map(ap => `<div class="missionMapMarker ${ap.destroyed ? 'neutralized' : ''}" style="left:${missionMapPct(ap.x)}%;" title="${ap.name}"></div>`)
-      .join('');
+    if (!missionMapThreatMarkerEl) return;
     const target = findInboundEnemyMissiles()[0];
     if (target) {
       missionMapThreatMarkerEl.classList.remove('hidden');
@@ -1490,12 +1340,6 @@
     }
   }
   missionMapCloseBtnEl.addEventListener('click', closeMissionMap);
-  // LRNA-162: the SEEK AND DESTROY and discovered-AntiPlane lists that
-  // used to sit under the lanes are gone (direct request), and with them
-  // the only buttons that called fireAttackDrone(). Discovery still works
-  // and still shows on the zone strip/Counter Lane. LRNA-167: a
-  // discovered node is now picked from TARGETS and hit with the normal
-  // missiles and attack planes instead (see getTarget).
 
   const modeStatusEl = document.getElementById('modeStatus');
 
@@ -1625,16 +1469,10 @@
   const hudEl = document.getElementById('hud');
   const contactsEl = document.getElementById('contacts');
   const storageWarningEl = document.getElementById('storageWarning');
-  const openingBannerEl = document.getElementById('openingLockedBanner');
   function layoutTopStack() {
     const top = hudEl.offsetHeight + 6;
     contactsEl.style.top = top + 'px';
     [menuBtnEl, storageWarningEl].forEach((el, i) => { el.style.top = (top + i * 38) + 'px'; });
-    // phones: the banner sits just above the lanes, clear of the Radar
-    // Lane and of the Strike Platform on the centerline
-    const mobile = isMobileViewport();
-    openingBannerEl.style.top = mobile ? 'auto' : '';
-    openingBannerEl.style.bottom = mobile ? (bottomBarEl.offsetHeight + counterOpsBarEl.offsetHeight + 6) + 'px' : '';
   }
 
   function resize() {
@@ -1680,8 +1518,6 @@
     nodeO.y = vh() / 2;
     for (const t of fieldTargets) t.y = vh() / 2 + t.yOffset;
     for (const n of amNodes) n.y = vh() / 2 + n.yOffset;
-    for (const ap of antiPlaneNodes) ap.y = vh() / 2 + ap.yOffset;
-    for (const sd of seekDestroyNodes) sd.y = vh() / 2 + sd.yOffset;
     for (const n of loadoutNodes) n.y = vh() / 2 + n.yOffset;
   }
 
@@ -1876,21 +1712,17 @@
       // Skip damage during rebuild invulnerability window (LRNA-125)
       if (omegaInvulnTimer > 0) return false;
       const wasAlive = omegaHealth > 0;
-      // LRNA-172: while any forward defense stands, Omega only takes a
-      // quarter of the damage - clear them first, then hit the base.
-      const guard = forwardDefensesStanding() > 0 ? OMEGA_GUARDED_DMG_FACTOR : 1;
-      damageOmegaAt(x - dest.x, laneY, dmg * guard); // cosmetic crumble only
-      omegaHealth = Math.max(0, omegaHealth - Math.max(1, Math.round(dmg * guard * OMEGA_HEALTH_DMG_RATIO)));
+      damageOmegaAt(x - dest.x, laneY, dmg); // cosmetic crumble only
+      omegaHealth = Math.max(0, omegaHealth - Math.max(1, Math.round(dmg * OMEGA_HEALTH_DMG_RATIO)));
       return wasAlive && omegaHealth <= 0;
     }
     const wasAlive = !dest.destroyed;
     dest.health = Math.max(0, dest.health - dmg);
     if (dest.health <= 0) dest.destroyed = true;
-    // LRNA-167: a hidden node killed by a missile or plane gets the same
-    // ground-kill effect the Attack Drone kill always had.
-    if (wasAlive && dest.destroyed && allHuntableNodes().includes(dest)) {
-      spawnGroundKillFx(dest.x, dest.y);
-      if (dest.radar) missionStats.radarKills += 1; else missionStats.nodeKills += 1; // LRNA-174
+    // LRNA-180: missions count field targets by kind
+    if (wasAlive && dest.destroyed && fieldTargets.includes(dest)) {
+      missionStats.fieldKills += 1;
+      missionStats.kindKills[dest.kind] = (missionStats.kindKills[dest.kind] || 0) + 1;
     }
     return wasAlive && dest.destroyed;
   }
@@ -1922,8 +1754,7 @@
   // as flat despite already having real terrain content. Deliberately
   // generic procedural placement (evenly spaced, randomized only in
   // size/color/vertical offset) - no relation to any node's real
-  // position, so it can never hint at a hidden AntiPlane/SEEK AND
-  // DESTROY node the way a deliberately-placed landmark might.
+  // position.
   const NEBULA_PARALLAX = 0.12;
   const NEBULA_COLORS = ['#2a1a5e', '#1a2a5e', '#3a1a4a', '#1a4a3a', '#4a1a2a'];
   const NEBULA_CLOUDS = (() => {
@@ -2121,44 +1952,6 @@
   let waveStrikeTimer = 0;
   let waveBreakTimer = 0;
   let omegaRebuildCount = 0;
-  // LRNA-080: recon-gated opening. No attacking (and no Wave 1) until the
-  // player has located at least one of the 3 hidden SEEK AND DESTROY
-  // nodes - "find the enemy before you can hit it" instead of combat
-  // starting immediately on startGame. Lifts permanently on first
-  // discovery; the other 2 undiscovered nodes stay individually
-  // non-attackable same as always (SEEK AND DESTROY's existing gating).
-  let openingLocked = true;
-  // ART-5: the "systems coming online" transition when the opening
-  // lock lifts - a brief full-viewport color flash (unlockFlashTimer,
-  // decayed in update(dt), drawn screen-space in draw()) plus a real
-  // camera jolt (reuses LRNA-086's existing triggerCamShake, no new
-  // shake mechanism needed) and a staggered glow sweeping left-to-right
-  // across the ability bar buttons in DOM order, selling "HUD elements
-  // lighting up in sequence" rather than one floating text line alone.
-  const UNLOCK_FLASH_DURATION = 0.5;
-  let unlockFlashTimer = 0;
-  function updateOpeningLockUi() {
-    const el = document.getElementById('openingLockedBanner');
-    if (el) el.classList.toggle('hidden', !openingLocked);
-  }
-  function playSystemsOnlineTransition() {
-    unlockFlashTimer = UNLOCK_FLASH_DURATION;
-    triggerCamShake(5, 0.35);
-    const btns = document.querySelectorAll('.launchBtn, .upgradeBtn');
-    btns.forEach((btn, i) => {
-      btn.style.animationDelay = (i * 45) + 'ms';
-      btn.classList.add('poweringUp');
-      btn.addEventListener('animationend', () => btn.classList.remove('poweringUp'), { once: true });
-    });
-  }
-  function checkOpeningUnlock() {
-    if (openingLocked && seekDestroyNodes.some(n => n.discovered)) {
-      openingLocked = false;
-      spawnFloatText(nodeA.x, nodeA.y - 190, 'RECON COMPLETE — ATTACK SYSTEMS ONLINE', '#7bffa0');
-      updateOpeningLockUi();
-      playSystemsOnlineTransition();
-    }
-  }
   let bestWave = 1;
   function loadBestWave() {
     try {
@@ -2191,16 +1984,6 @@
     // engagement and flak) for EMP_JAM_DURATION seconds instead, opening a
     // window to land a real strike unopposed.
     emp:     { label: 'EMP',         names: ['STORM', 'PULSE', 'SURGE', 'ARC'],        eta: 18, dmg: 200,  radius: 7, color: '#fff066', peak: 260, cost: 500 },
-    // extremely cheap, extremely slow recon/cheap-attack - a genuinely
-    // wandering flight path (see weaveOffset's drone branch) instead of a
-    // straight line, and periodically calls out live intel on whatever
-    // it's passing nearest to (see updateDroneRecon).
-    drone:   { label: 'DRONE',       names: ['SCOUT', 'WRAITH', 'PROWLER', 'GLIMPSE'], eta: 120, dmg: 10,   radius: 4, color: '#9fffcf', peak: 80,  cost: 5 },
-    // dedicated hunt-and-kill drone against a *discovered* AntiPlane node
-    // (LRNA-039) - not on the launch bar (no data-type button), fired
-    // instead via fireAttackDrone from the Intelligence panel, purely
-    // coin-gated like Counter Missile/Counter Attack Planes.
-    attackDrone: { label: 'ATK DRONE', names: ['HUNTER', 'REAPER', 'VIPER', 'TALON'], eta: 70, dmg: 0, radius: 4, color: '#ff5a36', peak: 70, cost: 60 },
     // Omega's own offensive strike on the Strike Platform - not player-selectable
     // (no launch button), scaled for nodeA's 0-PLAYER_MAX_HEALTH regenerating
     // health, not the player's node-count/health-pool damage tiers above.
@@ -2245,10 +2028,7 @@
   // arsenal has (Counter Grid: Versus's own precedent for this exact
   // split: "Planes and missiles follow the same time to cross map and
   // cost and dmg stats" - same tiers, different flavor, not a new balance
-  // axis). Drone is deliberately excluded - the player's own recon DRONE
-  // stayed single-tier/non-offensive by the same direct decision, so
-  // there's no real 3-tier offensive Drone class on the player's side to
-  // mirror either. weaponClass is purely a flavor/rendering split - the
+  // axis). weaponClass is purely a flavor/rendering split - the
   // size tier (sizeKey, unchanged) still drives every real mechanic
   // (damage, speed, which defenses can engage it), so nothing downstream
   // of `pickEnemyStrikeSize` needed to change.
@@ -2272,8 +2052,8 @@
   const COUNTER = { label: 'COUNTER', names: ['GUARDIAN', 'SENTRY', 'AEGIS', 'WARDEN'], color: '#ffe066', radius: 6, speed: 840, totalSeconds: 6, peak: 90, hitChance: 0.5 };
   const HIT_CHANCE = 0.85;
   const nameCounters = {
-    fast: 0, medium: 0, large: 0, cluster: 0, emp: 0, drone: 0, attackDrone: 0, enemyStrike: 0, counter: 0,
-    strikeFighter: 0, strikeBomber: 0, heavyBomber: 0, reconPlane: 0, interceptorJet: 0,
+    fast: 0, medium: 0, large: 0, cluster: 0, emp: 0, enemyStrike: 0, counter: 0,
+    strikeFighter: 0, strikeBomber: 0, heavyBomber: 0, interceptorJet: 0,
   };
   // LRNA-078/#435: plane kinds aren't in TYPES (they're a separate
   // arsenal), so nextName needs its own name pools for them.
@@ -2281,7 +2061,6 @@
     strikeFighter: ['VIPER', 'FALCON', 'TALON', 'KESTREL'],
     strikeBomber: ['RAVEN', 'CONDOR', 'HERON', 'OSPREY'],
     heavyBomber: ['ATLAS', 'TITAN', 'GOLIATH', 'COLOSSUS'],
-    reconPlane: ['SCOUT', 'GLIMPSE', 'WATCHER', 'SPOTTER'],
     interceptorJet: ['SABRE', 'LANCE', 'RAPIER', 'BLADE'],
   };
   // LRNA-072/#430: this used to be the gap between every standalone Omega
@@ -2376,137 +2155,6 @@
     return nodes;
   })();
 
-  // ---- AntiPlane lane defenses (LRNA-039): 2 hidden enemy nodes, each
-  // bound to one of 10 discrete lanes at game start (a quantized bucket of
-  // the continuous launchAttack `laneY`, not a new positioning system).
-  // Undiscovered ones render nothing and appear in no list; a recon DRONE
-  // (LRNA-038) passing near one has a chance to reveal it. Interception is
-  // a genuinely separate, parallel check from getDefender/fireCounter's
-  // per-destination auto-defense above - these resolve by lane+position,
-  // not by target id, and only ever engage FAST/MEDIUM ("plane") missiles.
-  const ANTIPLANE_COUNT = 2;
-  const ANTIPLANE_LANES = 10;
-  const ANTIPLANE_HIT_CHANCE = 0.75;
-  const ANTIPLANE_ENGAGE_RANGE = 260;
-  const ANTIPLANE_DISCOVERY_RANGE = 220;
-  const ANTIPLANE_DISCOVERY_CHANCE_PER_SEC = 0.18;
-  // LRNA-172: the AntiPlane nodes are the "radar defenses" in front of
-  // the base. They take real hits now (missiles and planes, picked from
-  // TARGETS or by tapping them), not only the Attack Drone's single shot.
-  const ANTIPLANE_MAX_HEALTH = 300;
-  // LRNA-172: Omega's damage taken while any forward defense (radar
-  // defense or SEEK AND DESTROY node) still stands.
-  const OMEGA_GUARDED_DMG_FACTOR = 0.25;
-  let antiPlaneNodes = [];
-  function initAntiPlaneNodes() {
-    const usedLanes = new Set();
-    const start = MAP_W / 2 + 300, end = nodeO.x - 700;
-    antiPlaneNodes = [];
-    for (let i = 0; i < ANTIPLANE_COUNT; i++) {
-      let laneIndex;
-      do { laneIndex = (Math.random() * ANTIPLANE_LANES) | 0; } while (usedLanes.has(laneIndex));
-      usedLanes.add(laneIndex);
-      antiPlaneNodes.push({
-        id: `ap${i}`, name: `RADAR DEFENSE ${String(i + 1).padStart(2, '0')}`,
-        laneIndex, discovered: hasSatellite(), destroyed: false,
-        health: ANTIPLANE_MAX_HEALTH, maxHealth: ANTIPLANE_MAX_HEALTH, impacts: 0, radar: true,
-        x: start + Math.random() * (end - start),
-        y: vh() / 2, yOffset: (Math.random() - 0.5) * NODE_SCATTER,
-        color: '#ff5a36', hitChance: ANTIPLANE_HIT_CHANCE, faction: 'enemy',
-      });
-    }
-  }
-
-  // called every frame for every live FAST/MEDIUM player missile - each
-  // AntiPlane node fires once at the first such missile that shares its
-  // lane and comes within engagement range, same seeking-counter mechanic
-  // (`fireCounter`) the rest of the game's interceptors already use.
-  function updateAntiPlaneNodes() {
-    if (empGlobalJamTimer > 0) return;
-    for (const ap of antiPlaneNodes) {
-      if (ap.destroyed) continue;
-      for (const m of missiles) {
-        if (m.originId !== 'A' || (m.typeKey !== 'fast' && m.typeKey !== 'medium')) continue;
-        if (m.antiPlaneEngaged || m.laneIndex !== ap.laneIndex) continue;
-        if (Math.abs(m.x - ap.x) > ANTIPLANE_ENGAGE_RANGE) continue;
-        m.antiPlaneEngaged = true;
-        fireCounter(ap, m.id, 'antiplane');
-      }
-    }
-  }
-
-  // ---- SEEK AND DESTROY (LRNA-063): 3 hidden objective nodes - one each
-  // of Attack/Counter/Base - found via recon DRONE and destroyed with
-  // Attack Drone hits, same tools as the AntiPlane hunt (LRNA-039), but a
-  // separate node set: these don't intercept anything, they're pure
-  // find-and-kill objectives with real health pools instead of a single-
-  // hit destroy. Placement follows LRNA-062's resolved rules: the
-  // existing corridor band split into 3 equal thirds (one node per
-  // third, guaranteeing spacing), Base in the third nearest Omega (it's
-  // the toughest node), Attack/Counter randomized between the other two.
-  const SEEK_DESTROY_KINDS = [
-    { kind: 'attack', label: 'ATTACK NODE', maxHealth: 500 },
-    { kind: 'counter', label: 'COUNTER NODE', maxHealth: 500 },
-    { kind: 'base', label: 'BASE NODE', maxHealth: 1000 },
-  ];
-  let seekDestroyNodes = [];
-  function initSeekDestroyNodes() {
-    const start = MAP_W / 2 + 300, end = nodeO.x - 700;
-    const third = (end - start) / 3;
-    const order = [SEEK_DESTROY_KINDS[0], SEEK_DESTROY_KINDS[1]];
-    if (Math.random() < 0.5) order.reverse(); // attack/counter order randomized between the two nearer thirds
-    order.push(SEEK_DESTROY_KINDS[2]); // base always deepest, nearest Omega
-    seekDestroyNodes = order.map((def, i) => {
-      const bandStart = start + i * third;
-      return {
-        id: `sd-${def.kind}`, name: def.label, kind: def.kind,
-        // LRNA-080: unlike AntiPlane nodes, Satellite does NOT auto-reveal
-        // these - the whole point of the recon-gated opening is that the
-        // player has to actually go find one, and an instant global
-        // reveal from a loadout pick made before the run even starts
-        // would trivialize that requirement entirely.
-        discovered: false, destroyed: false, impacts: 0,
-        health: def.maxHealth, maxHealth: def.maxHealth,
-        x: bandStart + Math.random() * third,
-        y: vh() / 2, yOffset: (Math.random() - 0.5) * NODE_SCATTER,
-        color: def.kind === 'base' ? '#ff2ea6' : '#ff5a36', faction: 'enemy',
-        // LRNA-080: the recon zone boundary this node lives in - drawn
-        // as a scannable region before discovery (see drawReconZones),
-        // distinct from the node's own exact (still hidden) position.
-        zoneStart: bandStart, zoneEnd: bandStart + third,
-      };
-    });
-  }
-
-  // shared by both hunt systems - AntiPlane nodes (LRNA-039) and SEEK AND
-  // DESTROY nodes (LRNA-063) have the same discovered/destroyed/x/y shape,
-  // so recon and Attack Drone targeting work across both without
-  // duplicating either mechanic.
-  function allHuntableNodes() { return [...antiPlaneNodes, ...seekDestroyNodes]; }
-  // LRNA-172: the forward defenses are exactly these nodes; Omega is
-  // guarded while any of them stands.
-  function forwardDefensesStanding() { return allHuntableNodes().filter(n => !n.destroyed).length; }
-  function findHuntableNode(id) { return allHuntableNodes().find(n => n.id === id) || null; }
-
-  // called from the DRONE's own per-frame update (updateDroneRecon's
-  // sibling) - genuine discovery, not a guaranteed reveal: a rolling
-  // per-second chance while the drone is within range of an undiscovered
-  // node.
-  function updateDroneDiscovery(m, dt) {
-    for (const ap of allHuntableNodes()) {
-      if (ap.discovered || ap.destroyed) continue;
-      if (Math.abs(m.x - ap.x) > ANTIPLANE_DISCOVERY_RANGE) continue;
-      if (Math.random() < ANTIPLANE_DISCOVERY_CHANCE_PER_SEC * dt) {
-        ap.discovered = true;
-        spawnFloatText(ap.x, ap.y - 40, `DETECTED: ${ap.name}`, '#ff5a36');
-        spawnBurst(ap.x, ap.y, '#ff5a36', 20);
-        // Economy rework (direct request): discovery no longer earns
-        // coins - the only reward left is the flat passive rate plus
-        // DMG_TO_COIN_RATIO on an actual landed hit.
-        checkOpeningUnlock(); // LRNA-080
-      }
-    }
-  }
 
   // ---- LOADOUT NODES (LRNA-070, issue #427): 3 point-defense nodes the
   // player picks and places at fixed corridor fractions before every run
@@ -2524,13 +2172,13 @@
   const LOADOUT_NODE_TYPES = {
     gml: {
       key: 'gml', label: 'GROUND MISSILE LAUNCHER', short: 'GML',
-      desc: 'vs missiles/planes, not drones — 40% hit',
+      desc: 'vs missiles and small planes, not large ones — 40% hit',
       color: '#35e6ff', hitChance: 0.40, cooldown: 1.4,
       engages: sizeKey => sizeKey === 'fast' || sizeKey === 'medium',
     },
     mgaa: {
       key: 'mgaa', label: 'MACHINE GUN ANTI-AIR', short: 'MG AA',
-      desc: 'vs planes/drones/large planes, not missiles — 35% hit',
+      desc: 'vs everything — 35% hit',
       color: '#7bffa0', hitChance: 0.35, cooldown: 1.1,
       engages: () => true,
     },
@@ -2570,30 +2218,19 @@
       color: '#c48bff', hitChance: 0.35, cooldown: 6, volley: true,
       engages: () => true,
     },
-    // LRNA-077/#434: a 4th, non-combat loadout choice - `vision: true`
-    // opts it out of updateLoadoutNodes' engagement loop entirely (it
-    // has no hitChance/engages/cooldown, and doesn't need any). Its
-    // effect is global (hasSatellite() below), not tied to its slot.
-    satellite: {
-      key: 'satellite', label: 'SATELLITE', short: 'SAT',
-      desc: 'reveals the whole map — no combat',
-      color: '#35e6ff', vision: true,
-    },
   };
   let loadout = ['gml', 'mgaa', 'cb'];
   function loadLoadout() {
     try {
       const saved = JSON.parse(localStorage.getItem(LOADOUT_KEY));
-      if (Array.isArray(saved) && saved.length === 3 && saved.every(k => LOADOUT_NODE_TYPES[k])) loadout = saved;
+      // LRNA-180: a slot holding a removed node (Satellite) goes back to its default
+      if (Array.isArray(saved) && saved.length === 3) loadout = saved.map((k, i) => LOADOUT_NODE_TYPES[k] ? k : loadout[i]);
     } catch (e) { /* private/blocked storage: keep the default loadout */ }
   }
   function saveLoadout() {
     trySaveStorage(LOADOUT_KEY, JSON.stringify(loadout));
   }
   loadLoadout();
-  // global regardless of which slot it's in, and a second one adds
-  // nothing - it's a plain "is one present" check, not per-slot.
-  function hasSatellite() { return loadout.includes('satellite'); }
 
   let loadoutNodes = [];
   function initLoadoutNodes() {
@@ -2624,7 +2261,6 @@
     // (updateFlak only checks it for faction === 'enemy'); loadout nodes
     // now match that.
     for (const node of loadoutNodes) {
-      if (node.def.vision) continue; // Satellite: pure vision, no combat (see hasSatellite())
       if (node.volleyFlash > 0) node.volleyFlash = Math.max(0, node.volleyFlash - dt); // ART-6
       if (node.def.cycling) {
         node.cycleTimer -= dt;
@@ -2709,40 +2345,43 @@
   }
   // ---- LRNA-174: MISSIONS. Each has one goal, a time limit (or none),
   // and 1-3 stars on success. They reuse the endless game's systems - the
-  // recon chain (LRNA-172), waves, counters - with a goal on top. Stars
+  // field targets, waves, counters - with a goal on top. Stars
   // are kept per browser; LRNA-175 will spend them on unlocks.
   const MISSION_STARS_KEY = 'lrna_mission_stars_v1';
   const fmtTime = (t) => formatETA(Math.max(0, t));
   // stars from a time: 3 at or under t3, 2 at or under t2, else 1
   const starsByTime = (t, t3, t2) => (t <= t3 ? 3 : t <= t2 ? 2 : 1);
   const MISSIONS = [
-    { id: 'first-contact', name: 'FIRST CONTACT', goal: 'Find 3 of the 5 forward defenses.',
+    // LRNA-180: the first three were recon missions; these use the
+    // installations along Omega's side of the corridor instead.
+    { id: 'first-strike', name: 'FIRST STRIKE', goal: 'Destroy 5 enemy installations.',
       limit: 150, starsHint: '3★ under 1:00, 2★ under 1:40',
-      progress: (st) => `FOUND ${st.found}/3`, done: (st) => st.found >= 3,
+      progress: (st) => `INSTALLATIONS ${Math.min(5, st.fieldKills)}/5`, done: (st) => st.fieldKills >= 5,
       stars: (st) => starsByTime(st.time, 60, 100) },
-    { id: 'blind-the-radar', name: 'BLIND THE RADAR', goal: 'Destroy both radar defenses.',
+    { id: 'silence-the-launchers', name: 'SILENCE THE LAUNCHERS', goal: 'Destroy all 3 launchers.',
       limit: 300, starsHint: '3★ under 2:30, 2★ under 4:00',
-      progress: (st) => `RADAR DEFENSES ${Math.min(2, st.radarKills)}/2`, done: (st) => st.radarKills >= 2,
-      stars: (st) => starsByTime(st.time, 150, 240) },
-    { id: 'break-the-line', name: 'BREAK THE LINE', goal: 'Destroy all 5 forward defenses.',
+      progress: (st) => `LAUNCHERS ${Math.min(3, st.kindKills.launcher || 0)}/3`,
+      done: (st) => (st.kindKills.launcher || 0) >= 3, stars: (st) => starsByTime(st.time, 150, 240) },
+    { id: 'smash-the-sub-bases', name: 'SMASH THE SUB-BASES', goal: 'Destroy both sub-bases.',
       limit: 420, starsHint: '3★ under 4:00, 2★ under 5:30',
-      progress: (st) => `FORWARD DEFENSES ${Math.min(5, st.radarKills + st.nodeKills)}/5`,
-      done: (st) => st.radarKills + st.nodeKills >= 5, stars: (st) => starsByTime(st.time, 240, 330) },
-    { id: 'hold-the-line', name: 'HOLD THE LINE', goal: 'Survive 5 waves. No recon needed: the attack starts at once.',
-      limit: 0, skipRecon: true, starsHint: '3★ above 200 hull, 2★ above 120',
+      progress: (st) => `SUB-BASES ${Math.min(2, st.kindKills.subbase || 0)}/2`,
+      done: (st) => (st.kindKills.subbase || 0) >= 2, stars: (st) => starsByTime(st.time, 240, 330) },
+    { id: 'hold-the-line', name: 'HOLD THE LINE', goal: 'Survive 5 waves.',
+      limit: 0, starsHint: '3★ above 200 hull, 2★ above 120',
       progress: (st) => `WAVES ${Math.min(5, st.wavesCleared)}/5`, done: (st) => st.wavesCleared >= 5,
       stars: () => (nodeA.health > 200 ? 3 : nodeA.health > 120 ? 2 : 1) },
     { id: 'take-down-omega', name: 'TAKE DOWN OMEGA', goal: 'Destroy Node Omega.',
-      limit: 600, starsHint: '3★ under 6:00, 2★ under 8:00',
+      limit: 600, starsHint: '3★ under 4:00, 2★ under 6:00', // LRNA-180: no guard to clear first
       progress: () => `OMEGA ${Math.round(omegaHealth)}/${PLAYER_MAX_HEALTH}`, done: (st) => st.omegaKills >= 1,
-      stars: (st) => starsByTime(st.time, 360, 480) },
+      stars: (st) => starsByTime(st.time, 240, 360) },
     { id: 'no-safety-net', name: 'NO SAFETY NET', goal: 'Destroy Node Omega with no Emergency Counters.',
-      limit: 720, noEmergency: true, starsHint: '3★ under 7:00, 2★ under 9:30',
+      limit: 720, noEmergency: true, starsHint: '3★ under 5:00, 2★ under 7:30',
       progress: () => `OMEGA ${Math.round(omegaHealth)}/${PLAYER_MAX_HEALTH}`, done: (st) => st.omegaKills >= 1,
-      stars: (st) => starsByTime(st.time, 420, 570) },
+      stars: (st) => starsByTime(st.time, 300, 450) },
   ];
   let activeMission = null;
-  let missionStats = { time: 0, radarKills: 0, nodeKills: 0, wavesCleared: 0, omegaKills: 0 };
+  const freshMissionStats = () => ({ time: 0, fieldKills: 0, kindKills: {}, wavesCleared: 0, omegaKills: 0 });
+  let missionStats = freshMissionStats();
   function loadMissionStars() {
     try { return JSON.parse(localStorage.getItem(MISSION_STARS_KEY)) || {}; } catch (e) { return {}; }
   }
@@ -2757,14 +2396,10 @@
       `<span class="mGoal">${m.goal}${m.limit ? ` Time limit ${fmtTime(m.limit)}.` : ''}</span>` +
       `<span class="mMeta">${m.starsHint}</span></button>`).join('');
   }
-  function missionState() {
-    const found = allHuntableNodes().filter(n => n.discovered).length;
-    return { ...missionStats, found };
-  }
+  function missionState() { return missionStats; }
   // applied after reset() when a mission starts
   function applyMissionSetup(m) {
-    missionStats = { time: 0, radarKills: 0, nodeKills: 0, wavesCleared: 0, omegaKills: 0 };
-    if (m.skipRecon) { openingLocked = false; updateOpeningLockUi(); }
+    missionStats = freshMissionStats();
     if (m.noEmergency) { counterAmmo.emergency = 0; updateCounterAmmoBadges(); }
   }
   function updateMission(dt) {
@@ -2791,7 +2426,7 @@
       sub: m.name + (bestNote ? ' · NEW BEST' : ''),
       rows: [
         ['TIME', `${fmtTime(st.time)}${m.limit ? ` / ${fmtTime(m.limit)}` : ''}`],
-        ['RADAR DEFENSES', st.radarKills], ['NODES DESTROYED', st.nodeKills],
+        ['INSTALLATIONS DESTROYED', st.fieldKills], ['WAVES CLEARED', st.wavesCleared],
         ['WARHEADS FIRED', stats.fired.toLocaleString()],
       ],
     });
@@ -2799,58 +2434,24 @@
     renderMissionList();
   }
 
-  // ---- LRNA-172/173: objective line and Omega's guard. Step 1: find the
-  // forward defenses (recon). Step 2: destroy the ones still standing.
-  // Step 3: Omega takes full damage. Rebuilds start again at step 1.
+  // ---- LRNA-173/180: the objective line - a mission's goal and clock,
+  // or in endless play just the target and how often it has fallen.
   let lastObjectiveText = '';
-  function objectiveState() {
-    const nodes = allHuntableNodes();
-    const standing = nodes.filter(n => !n.destroyed);
-    const hidden = standing.filter(n => !n.discovered).length;
-    const ready = standing.length - hidden;
-    const step = standing.length === 0 ? 3 : hidden > 0 ? 1 : 2;
-    return { total: nodes.length, standing: standing.length, hidden, ready, found: nodes.length - hidden, step };
-  }
   function updateObjectiveHud() {
     const el = document.getElementById('objectiveHud');
     if (!el) return;
-    const o = objectiveState();
-    const sel = getTarget(selectedTargetId);
-    const aimed = sel && allHuntableNodes().includes(sel);
     let text;
     if (activeMission) {
-      // LRNA-174: the mission's own goal and clock replace the step line
+      // LRNA-174: the mission's own goal and clock
       const st = missionState();
       const clock = activeMission.limit ? ` · ${fmtTime(activeMission.limit - st.time)} LEFT` : '';
       text = `${isMobileViewport() ? '' : 'MISSION · '}${activeMission.name} · ${activeMission.progress(st)}${clock}`;
-    } else if (isMobileViewport()) {
-      // phones: same steps, a third of the width
-      text = o.step === 1 ? `1/3 FIND DEFENSES ${o.found}/${o.total}${o.ready && !aimed ? ' · TAP ONE' : ''}`
-        : o.step === 2 ? `2/3 DESTROY DEFENSES · ${o.standing} LEFT${aimed ? '' : ' · TAP ONE'}`
-        : '3/3 ATTACK NODE OMEGA';
-    } else if (o.step === 1) {
-      text = `STEP 1/3 · FIND THE FORWARD DEFENSES ${o.found}/${o.total}` +
-        (o.ready ? ` · ${o.ready} FOUND${aimed ? '' : ' — TAP ONE TO TARGET IT'}` : ' — SEND A DRONE OR RECON PLANE');
-    } else if (o.step === 2) {
-      text = `STEP 2/3 · DESTROY THE FORWARD DEFENSES (${o.standing} LEFT)${aimed ? '' : ' — TAP ONE TO TARGET IT'}`;
     } else {
-      text = 'STEP 3/3 · ATTACK NODE OMEGA — FULL DAMAGE';
+      text = `DESTROY NODE OMEGA${omegaRebuildCount ? ` · DESTROYED ${omegaRebuildCount}×` : ''}`;
     }
     if (text !== lastObjectiveText) {
       el.textContent = text;
-      el.classList.toggle('final', o.step === 3);
       lastObjectiveText = text;
-    }
-    const guardEl = document.getElementById('omegaGuardStatus');
-    if (guardEl) {
-      guardEl.classList.toggle('hidden', o.standing === 0);
-      const pct = Math.round(OMEGA_GUARDED_DMG_FACTOR * 100);
-      guardEl.textContent = isMobileViewport() ? `GUARDED ${pct}% · ${o.standing} UP`
-        : `GUARDED · TAKES ${pct}% DAMAGE (${o.standing} FORWARD DEFENSE${o.standing === 1 ? '' : 'S'} UP)`;
-    }
-    // LRNA-173: pulse the recon buttons while there's something left to find.
-    for (const btn of document.querySelectorAll('.launchBtn[data-type="drone"], .planeBtn[data-plane="reconPlane"]')) {
-      btn.classList.toggle('nextStep', running && o.step === 1);
     }
   }
 
@@ -2917,16 +2518,9 @@
     buildOmegaBase();
     nodeO.hitChance = Math.min(OMEGA_HIT_CHANCE_CAP, (nodeO.hitChance || COUNTER.hitChance * DIFFICULTIES[difficulty].interceptMult) + 0.05);
     omegaInvulnTimer = OMEGA_REBUILD_INVULN; // Add invulnerability window (LRNA-125)
-    // LRNA-172: every rebuild hides a fresh set of forward defenses, so
-    // each round starts with recon again and Omega is guarded again.
-    initAntiPlaneNodes();
-    initSeekDestroyNodes();
-    if (selectedTargetId !== 'O' && !getTarget(selectedTargetId)) { selectedTargetId = 'O'; updateTargetLabel(); }
-    spawnFloatText(nodeO.x, nodeO.y - 200, 'NEW FORWARD DEFENSES HIDDEN — RECON AGAIN', '#9fffcf');
     updateObjectiveHud();
   }
   function updateWaveDirector(dt) {
-    if (openingLocked) return; // LRNA-080: no Wave 1 until initial recon
     if (omegaHealth <= 0) return; // mid-rebuild this frame, applyDamage's caller handles it
     if (waveState === 'active') {
       if (waveStrikesLaunched < waveStrikesTotal) {
@@ -2961,11 +2555,7 @@
   function getTarget(id) {
     if (id === 'A') return nodeA;
     if (id === 'O') return nodeO;
-    // LRNA-167: a SEEK AND DESTROY node becomes a normal target once
-    // recon has found it - missiles and attack planes can be aimed at it
-    // from TARGETS like any field target. Never before discovery.
-    // LRNA-172: radar defenses too, under the same rule.
-    return fieldTargets.find(t => t.id === id) || allHuntableNodes().find(n => n.id === id && n.discovered) || null;
+    return fieldTargets.find(t => t.id === id) || null;
   }
 
   function getDefender(id) {
@@ -3044,22 +2634,21 @@
   const camMin = () => 0;
   const camMax = () => Math.max(0, MAP_W - vw());
 
-  // ---- THREE-TOKEN ECONOMY (LRNA-073, issue #429): replaces the single
-  // `coins` balance with three pillars - Attack (red), Counter (yellow),
-  // Intel (blue) - each spent on its own family of abilities.
+  // ---- TOKEN ECONOMY (LRNA-073, issue #429): replaces the single
+  // `coins` balance with pillars - Attack (red) and Counter (yellow) -
+  // each spent on its own family of abilities. LRNA-180 dropped the third,
+  // Intel, along with the recon tools that were its only use.
   // ABILITY_PILLARS below is the single source of truth for which pillar
   // a launch-bar warhead spends. Earning is now flat (TOKEN_PASSIVE_RATE)
   // plus DMG_TO_COIN_RATIO on a landed Attack-pillar hit - see those
   // constants below for the full economy.
-  const TOKEN_KEYS = ['attack', 'counter', 'intel'];
+  const TOKEN_KEYS = ['attack', 'counter'];
   const TOKEN_META = {
     attack:  { label: 'ATTACK',  color: '#ff5a36' },
     counter: { label: 'COUNTER', color: '#ffe066' },
-    intel:   { label: 'INTEL',   color: '#35e6ff' },
   };
   const ABILITY_PILLARS = {
     fast: 'attack', medium: 'attack', large: 'attack', cluster: 'attack', emp: 'attack',
-    drone: 'intel', attackDrone: 'intel',
   };
 
   // ---- PLANE ARSENAL (LRNA-078, issue #435, LRNA-047's "Plane Class"):
@@ -3075,7 +2664,6 @@
     strikeFighter: { key: 'strikeFighter', label: 'STRIKE FIGHTER', pillar: 'attack', eta: 10, dmg: 300, cost: 150, dodge: true, color: '#35e6ff' },
     strikeBomber:  { key: 'strikeBomber',  label: 'STRIKE BOMBER',  pillar: 'attack', eta: 20, dmg: 700, cost: 350, color: '#8f6bff' },
     heavyBomber:   { key: 'heavyBomber',   label: 'HEAVY BOMBER',   pillar: 'attack', eta: 30, dmg: 1200, cost: 550, easyTarget: true, color: '#ff5a36' },
-    reconPlane:    { key: 'reconPlane',    label: 'RECON PLANE',    pillar: 'intel', eta: 20, cost: 40, color: '#9fffcf' },
     // Interceptor Jet removed for now (direct request) - buttons are
     // generated from this object, so dropping the entry is enough to
     // stop it being offered. Every code path that resolves it (firePlane,
@@ -3103,20 +2691,20 @@
   const TOKENS_KEY = 'lrna_tokens_v2';
   const LEGACY_COIN_KEY = 'lrna_coins_v1';
   function splitEvenly(total) {
-    const share = Math.floor(total / 3);
-    return { attack: share, counter: share, intel: total - share * 2 };
+    const share = Math.floor(total / 2);
+    return { attack: share, counter: total - share };
   }
   // LRNA-166: every game now starts from this purse - tokens no longer
   // carry over from one game to the next (reset() below). "There is too
   // much currency in rotation each game - lower this."
-  const STARTING_TOKENS = { attack: 500, counter: 500, intel: 500 };
-  let tokens = { attack: 0, counter: 0, intel: 0 };
+  const STARTING_TOKENS = { attack: 500, counter: 500 };
+  let tokens = { attack: 0, counter: 0 };
   let tokenSaveTimer = 1;
   (function loadTokens() {
     try {
       const saved = JSON.parse(localStorage.getItem(TOKENS_KEY));
       if (saved && TOKEN_KEYS.every(k => typeof saved[k] === 'number')) {
-        tokens = { attack: Math.max(0, saved.attack), counter: Math.max(0, saved.counter), intel: Math.max(0, saved.intel) };
+        tokens = { attack: Math.max(0, saved.attack), counter: Math.max(0, saved.counter) };
         return;
       }
     } catch (e) { /* fall through */ }
@@ -3179,14 +2767,12 @@
   const tokenDisplayEls = {
     attack: document.getElementById('tokenAttack'),
     counter: document.getElementById('tokenCounter'),
-    intel: document.getElementById('tokenIntel'),
   };
   // LRNA-074/#431: each ability group header shows that pillar's own
   // token count too, alongside the top-center HUD chips.
   const groupTokenDisplayEls = {
     attack: document.getElementById('groupTokenAttack'),
     counter: document.getElementById('groupTokenCounter'),
-    intel: document.getElementById('groupTokenIntel'),
   };
   const tokenHudEl = document.getElementById('tokenHud');
   let tokenPulseTimeout = null;
@@ -3253,13 +2839,7 @@
     for (const t of fieldTargets) { t.health = t.maxHealth; t.destroyed = false; t.impacts = 0; }
     empGlobalJamTimer = 0;
     omegaInvulnTimer = 0; // Reset Omega invulnerability timer (LRNA-125)
-    initAntiPlaneNodes();
-    initSeekDestroyNodes();
     initLoadoutNodes();
-    // LRNA-080: a genuinely fresh run starts locked until recon finds a
-    // node; a hot-reload dev snapshot resume (`initial` set) is already
-    // mid-game and shouldn't suddenly re-lock attacking.
-    openingLocked = !initial;
     // Omega's own interceptor chance vs the player's outgoing missiles
     // (getDefender('O') -> fireCounter, otherwise COUNTER.hitChance)
     // scales with difficulty (LRNA-071/#428).
@@ -3293,9 +2873,8 @@
     renderTargetList();
     updateTargetLabel();
     updateModeStatus();
-    updateOpeningLockUi(); // LRNA-080
     lastObjectiveText = '';
-    updateObjectiveHud(); // LRNA-172/173
+    updateObjectiveHud(); // LRNA-173
   }
 
   function updateHud() {
@@ -3348,9 +2927,7 @@
       const typeKey = b.dataset.type;
       const cost = TYPES[typeKey].cost;
       const pillar = ABILITY_PILLARS[typeKey];
-      // LRNA-080: attack-pillar buttons stay visibly disabled during the
-      // recon-gated opening, not just silently no-op'd on click.
-      b.disabled = shotsRemaining <= 0 || atCap || tokens[pillar] < cost || (openingLocked && pillar === 'attack');
+      b.disabled = shotsRemaining <= 0 || atCap || tokens[pillar] < cost;
     });
   }
 
@@ -3377,7 +2954,6 @@
       originId: origin.id, destId: dest.id,
       dest, targetX,
       x: origin.x, laneY: lane,
-      laneIndex: Math.max(0, Math.min(ANTIPLANE_LANES - 1, Math.floor((lane + LANE_SPAN / 2) / (LANE_SPAN / ANTIPLANE_LANES)))),
       vx: speed * dir,
       totalSeconds: t.eta, age: 0,
       peak: t.peak,
@@ -3388,12 +2964,6 @@
     };
     if (WEAVE_ELIGIBLE[typeKey]) {
       missile.pathProfile = PLANE_PATHS[(Math.random() * PLANE_PATHS.length) | 0];
-    }
-    if (typeKey === 'drone') {
-      missile.wanderOffset = 0;
-      missile.wanderVel = 0;
-      missile.wanderTimer = 0;
-      missile.reconTimer = 0.5 + Math.random() * 0.5;
     }
     if (t.burn != null) {
       missile.burnFrac = Math.min(0.95, t.burn / t.eta);
@@ -3464,7 +3034,7 @@
   // "INTERCEPTED BY ..." callout on a successful hit - players couldn't
   // tell which of the many independent defense systems (Emergency
   // Counter, Counter Missile/Planes, Omega, AM batteries, loadout nodes,
-  // AntiPlane nodes, a defending field target) shot down a given threat.
+  // a defending field target) shot down a given threat.
   // Explicitly-tagged player/Omega abilities resolve directly; everything
   // else (AM batteries, defending field targets - fired through the
   // generic getDefender() auto-defend loop with no tag) falls back to a
@@ -3475,7 +3045,6 @@
       countermissile: 'COUNTER MISSILE',
       counterplanes: 'COUNTER ATTACK PLANES',
       loadout: null, // resolved by name below - each node has its own
-      antiplane: null,
       omega: 'NODE OMEGA',
       omegaEmergency: 'OMEGA EMERGENCY COUNTER', // LRNA-165
     };
@@ -3489,8 +3058,6 @@
     if (amNode) return amNode.name || 'AM BATTERY';
     const ft = fieldTargets.find(t => t.id === m.originId);
     if (ft) return ft.name;
-    const ap = antiPlaneNodes.find(n => n.id === m.originId);
-    if (ap) return ap.name || 'ANTIPLANE';
     return 'DEFENSE GRID';
   }
 
@@ -3743,11 +3310,6 @@
     for (const m of missiles) {
       if (m.typeKey === 'counter' || m.originId !== 'A') continue;
       if (m.typeKey === 'plane' && !includePlanes) continue;
-      // LRNA-080: recon DRONE used to be fully exempt from Omega's
-      // defenses here (direct request, so it could eventually survive to
-      // attack the base), but that made it a "free look" during the new
-      // recon-gated opening. Direct request superseded: DRONE is now a
-      // normal candidate like every other plane/missile.
       if ((m.omegaCounterUsed || 0) >= OMEGA_COUNTER_MAX_PER_TARGET) continue;
       if (m.omegaReactionDelay == null) {
         m.omegaReactionDelay = OMEGA_COUNTER_REACTION_MIN + Math.random() * (OMEGA_COUNTER_REACTION_MAX - OMEGA_COUNTER_REACTION_MIN);
@@ -3867,7 +3429,6 @@
   function firePlane(key) {
     if (paused) return; // LRNA-119
     const def = PLANE_TYPES[key];
-    if (openingLocked && def && def.pillar === 'attack') return; // LRNA-080: intel planes (recon) still fly
     const slot = planeSlots[key];
     if (!def || !slot || slot.state !== 'ready') return;
     if (tokens[def.pillar] < def.cost) return;
@@ -3917,22 +3478,11 @@
   }
 
   // resolves a plane's job the moment it reaches its outbound target -
-  // attack planes deal damage (Attack pillar), Recon Plane force-
-  // discovers the nearest undiscovered hidden node (Intel pillar);
+  // attack planes deal damage (Attack pillar);
   // Interceptor Jet resolves inline in the physics loop instead, since
   // its "target" is a moving missile it has to chase, not a fixed point.
   function resolvePlaneOutboundJob(m) {
     const def = PLANE_TYPES[m.planeKind];
-    if (m.planeKind === 'reconPlane') {
-      const target = allHuntableNodes().find(n => !n.discovered && !n.destroyed);
-      if (target) {
-        target.discovered = true;
-        spawnFloatText(target.x, target.y - 40, `RECON: ${target.name}`, '#9fffcf');
-        spawnBurst(target.x, target.y, '#9fffcf', 16);
-        checkOpeningUnlock(); // LRNA-080
-      }
-      return;
-    }
     const dest = m.dest;
     if (!dest || dest.destroyed || (dest.id === 'O' && omegaHealth <= 0)) return;
     const blastScale = m.planeKind === 'heavyBomber' ? 2.2 : m.planeKind === 'strikeBomber' ? 1.6 : 1;
@@ -3947,50 +3497,6 @@
     }
   }
 
-  // ---- Attack Drone (LRNA-039): a dedicated hunt-and-kill drone that can
-  // only be sent against a *discovered* AntiPlane node, distinct from both
-  // the recon DRONE (LRNA-038) and the main launch-bar arsenal. Flies as
-  // its own missile but resolves entirely outside the generic
-  // launchAttack/impact pipeline (like `counter`), since its target is an
-  // AntiPlane node rather than anything in getTarget's id space.
-  const ATTACK_DRONE_HIT_CHANCE = 0.8;
-  // damage per landed hit against a health-based hunt target (SEEK AND
-  // DESTROY's nodes) - AntiPlane nodes have no maxHealth and stay a
-  // single successful hit destroys them (LRNA-039's original mechanic,
-  // unchanged). 250/hit means 2 hits kill Attack/Counter (500 hp) and 4
-  // kill Base (1000 hp).
-  const ATTACK_DRONE_DAMAGE = 250;
-  function fireAttackDrone(apId) {
-    if (paused) return null; // LRNA-119
-    const ap = findHuntableNode(apId);
-    const t = TYPES.attackDrone;
-    if (!ap || ap.destroyed || !ap.discovered || tokens.intel < t.cost) return null;
-    spendTokens('intel', t.cost, nodeA.x, nodeA.y - 90);
-    const dist = Math.abs(ap.x - nodeA.x);
-    const dir = ap.x > nodeA.x ? 1 : -1;
-    const lane = (Math.random() - 0.5) * LANE_SPAN;
-    const missile = {
-      id: Math.random().toString(36).slice(2, 9),
-      name: nextName('attackDrone'),
-      typeKey: 'attackDrone', label: t.label,
-      color: t.color, radius: t.radius, dmg: 0,
-      originId: 'A', destId: ap.id, dest: null,
-      x: nodeA.x, laneY: lane,
-      vx: (dist / t.eta) * dir,
-      totalSeconds: t.eta, age: 0, peak: t.peak,
-      boost: 1.5, boostTimer: 0, smokeTimer: 0,
-      weavePhase: Math.random() * Math.PI * 2,
-      // weaving approach trail (LRNA-063's reference mockup) - reuses the
-      // same randomized flight-path system FAST/MEDIUM already fly
-      // (LRNA-034), so the hunt-kill drone visibly curves in rather than
-      // beelining straight at its target.
-      pathProfile: PLANE_PATHS[(Math.random() * PLANE_PATHS.length) | 0],
-      targetApId: ap.id,
-    };
-    missiles.push(missile);
-    spawnLaunchFx(nodeA.x, nodeA.y + lane, t.color, 'attackDrone');
-    return missile;
-  }
 
   function altitude(m) {
     const t = Math.min(1, Math.max(0, m.age / m.totalSeconds));
@@ -4018,10 +3524,6 @@
     { amp: 26, freq: 3.0 },  // 5: aggressive double-S
   ];
   function weaveOffset(m) {
-    // DRONE flies a genuinely wandering path (updateDroneWander evolves
-    // wanderOffset as actual state over time), not a deterministic curve
-    // like the plane weave below.
-    if (m.typeKey === 'drone') return m.wanderOffset || 0;
     if (!m.pathProfile) return 0;
     return Math.sin(m.age * m.pathProfile.freq + m.weavePhase) * m.pathProfile.amp;
   }
@@ -4046,43 +3548,7 @@
     });
   }
 
-  // random-walk lateral drift for DRONE, so it visibly meanders instead of
-  // beelining or following a fixed periodic curve.
-  function updateDroneWander(m, dt) {
-    m.wanderTimer -= dt;
-    if (m.wanderTimer <= 0) {
-      m.wanderTimer = 0.8 + Math.random() * 0.8;
-      m.wanderVel = (Math.random() - 0.5) * 40;
-    }
-    m.wanderOffset = Math.max(-90, Math.min(90, (m.wanderOffset || 0) + m.wanderVel * dt));
-  }
 
-  // periodically calls out live intel on whatever field target/Omega the
-  // drone is currently passing nearest to - a real, visible readout (not
-  // just flavor text), since the game has no fog-of-war to genuinely
-  // reveal.
-  const DRONE_RECON_RANGE = 260;
-  function updateDroneRecon(m, dt) {
-    m.reconTimer -= dt;
-    if (m.reconTimer > 0) return;
-    m.reconTimer = 1.4 + Math.random() * 0.6;
-    let nearest = null, nearestDist = DRONE_RECON_RANGE;
-    for (const t of fieldTargets) {
-      if (t.destroyed) continue;
-      const d = Math.abs(t.x - m.x);
-      if (d < nearestDist) { nearest = t; nearestDist = d; }
-    }
-    if (omegaHealth > 0) {
-      const d = Math.abs(nodeO.x - m.x);
-      if (d < nearestDist) { nearest = nodeO; nearestDist = d; }
-    }
-    if (!nearest) return;
-    const label = nearest.id === 'O'
-      ? `OMEGA: ${Math.round(omegaHealth)}/${PLAYER_MAX_HEALTH} hp`
-      : `${nearest.name}: ${Math.round(nearest.health)}/${nearest.maxHealth} hp`;
-    spawnFloatText(nearest.x, nearest.y - 40, label, '#9fffcf');
-    spawnBurst(nearest.x, nearest.y - 10, '#9fffcf', 6);
-  }
 
   // ---- burn/coast speed profile: accelerate for the first `burnFrac` of
   // the flight, then decelerate for the rest, instead of the flat constant
@@ -4199,14 +3665,11 @@
     large: { freq: 220, sweepTo: 70, type: 'sawtooth', gain: 0.20, dur: 0.30 },
     cluster: { freq: 260, sweepTo: 90, type: 'square', gain: 0.17, dur: 0.24 },
     emp: { freq: 340, sweepTo: 900, type: 'triangle', gain: 0.15, dur: 0.22 },
-    drone: { freq: 500, sweepTo: 260, type: 'triangle', gain: 0.09, dur: 0.12 },
-    attackDrone: { freq: 460, sweepTo: 220, type: 'triangle', gain: 0.11, dur: 0.14 },
     enemyStrike: { freq: 260, sweepTo: 90, type: 'sawtooth', gain: 0.15, dur: 0.2 },
     counter: { freq: 340, sweepTo: 180, type: 'square', gain: 0.12, dur: 0.14 },
     strikeFighter: { freq: 420, sweepTo: 180, type: 'sawtooth', gain: 0.13, dur: 0.16 },
     strikeBomber: { freq: 260, sweepTo: 100, type: 'sawtooth', gain: 0.18, dur: 0.26 },
     heavyBomber: { freq: 200, sweepTo: 65, type: 'sawtooth', gain: 0.22, dur: 0.34 },
-    reconPlane: { freq: 460, sweepTo: 300, type: 'triangle', gain: 0.08, dur: 0.12 },
     interceptorJet: { freq: 480, sweepTo: 220, type: 'sawtooth', gain: 0.12, dur: 0.14 },
   };
   function sfxLaunch(kind) {
@@ -4347,28 +3810,6 @@
     spawnBurst(x, y, '#ffffff', 12);
   }
 
-  // LRNA-063: "Smoking Explosion effect" on a destroyed hidden ground node
-  // (AntiPlane or SEEK AND DESTROY's Attack/Counter/Base) - a dark burst
-  // with shrapnel/tendrils, deliberately distinct from every other impact
-  // FX in the game (which all read bright/warm) since this specifically
-  // marks a ground base's permanent death, not just a landed hit. Fires
-  // once, exactly on the killing blow (not on every non-lethal hit,
-  // which keeps the existing orange spawnBurst/spawnScorch feedback).
-  function spawnGroundKillFx(x, y) {
-    sfxImpact(1.4, 'large');
-    launchRings.push({ x, y, age: 0, color: '#2a2a26', maxR: 90 });
-    spawnBurst(x, y, '#3a3a34', 22); // dark shrapnel
-    spawnBurst(x, y, '#ff8a3c', 10); // ember core
-    for (let i = 0; i < 14; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const spd = 20 + Math.random() * 50;
-      particles.push({
-        x, y, vx: Math.cos(a) * spd * 0.4, vy: Math.sin(a) * spd - 30,
-        life: 1.6 + Math.random() * 0.8, color: '#4a4a42', smoke: true,
-      });
-    }
-    spawnScorch(x, 40, 'rgba(30,30,26,0.5)');
-  }
 
   function formatETA(seconds) {
     seconds = Math.max(0, seconds);
@@ -4463,7 +3904,6 @@
     if (omegaHealth > 0) updateFlak(dt, nodeO);
     for (const t of fieldTargets) if (t.defends && !t.destroyed) updateFlak(dt, t);
     for (const n of amNodes) updateFlak(dt, n);
-    updateAntiPlaneNodes();
     updateLoadoutNodes(dt);
 
     updateOmegaRepair(dt);
@@ -4556,64 +3996,6 @@
         continue;
       }
 
-      if (m.typeKey === 'attackDrone') {
-        m.x += m.vx * dt;
-        if (m.boost > 0) {
-          m.boost -= dt;
-          m.boostTimer -= dt;
-          if (m.boostTimer <= 0) {
-            m.boostTimer = 0.03;
-            const alt = altitude(m);
-            const ex = m.x - (m.vx >= 0 ? 1 : -1) * (m.radius + 2);
-            const ey = vh() / 2 + m.laneY - alt + 6;
-            particles.push({ x: ex, y: ey, vx: -m.vx * 0.15, vy: 30 + Math.random() * 20, life: 0.8, color: '#ffb26b' });
-          }
-        }
-        // weaving trail smoke on approach (LRNA-063's reference mockup) -
-        // same speed-scaled puff system every other warhead gets
-        // (LRNA-059), following the weaving path set on launch above.
-        m.smokeTimer -= dt;
-        if (m.smokeTimer <= 0) {
-          const speedFrac = Math.min(1, Math.abs(m.vx) / 700);
-          m.smokeTimer = 0.045 - speedFrac * 0.025;
-          const alt = altitude(m);
-          const dir = m.vx >= 0 ? 1 : -1;
-          particles.push({
-            x: m.x - dir * (m.radius + 3),
-            y: vh() / 2 + m.laneY + weaveOffset(m) - alt + 4,
-            vx: -m.vx * 0.06 + (Math.random() - 0.5) * 6,
-            vy: -8 - Math.random() * 10,
-            life: (1.6 + Math.random() * 0.6) * (0.7 + speedFrac * 0.5),
-            color: '#9fd6ff', smoke: true,
-          });
-          maybeSpawnSpeedLine(m, m.x - dir * (m.radius + 3), vh() / 2 + m.laneY + weaveOffset(m) - alt + 4); // LRNA-087
-        }
-        const ap = findHuntableNode(m.targetApId);
-        if (!ap || ap.destroyed) { toRemove.add(m.id); continue; }
-        const prox = Math.abs(ap.x - m.x);
-        if (prox <= 20 || m.age >= m.totalSeconds) {
-          if (prox <= 20 && Math.random() < ATTACK_DRONE_HIT_CHANCE) {
-            sfxIntercept();
-            spawnBurst(ap.x, ap.y, '#ff5a36', 30);
-            spawnScorch(ap.x, 30, 'rgba(255,90,54,0.35)');
-            if (ap.maxHealth != null && !ap.radar) { // radar defenses keep LRNA-039's one-hit drone kill
-              // SEEK AND DESTROY node (LRNA-063): real health pool, may
-              // take several hits rather than a single-shot destroy.
-              ap.health = Math.max(0, ap.health - ATTACK_DRONE_DAMAGE);
-              if (ap.health <= 0 && !ap.destroyed) { ap.destroyed = true; spawnGroundKillFx(ap.x, ap.y); }
-            } else if (!ap.destroyed) {
-              ap.destroyed = true; // AntiPlane node (LRNA-039): unchanged single-hit destroy
-              spawnGroundKillFx(ap.x, ap.y);
-            }
-            earnTokens('attack', Math.round(ATTACK_DRONE_DAMAGE * DMG_TO_COIN_RATIO), ap.x, ap.y - 24);
-          } else {
-            sfxMiss();
-            spawnBurst(m.x, vh() / 2 + m.laneY, '#8a8a7a', 14);
-          }
-          toRemove.add(m.id);
-        }
-        continue;
-      }
 
       // ---- plane arsenal (LRNA-078/#435): out to its job, then rearm.
       // LRNA-164 removed the flight back to base.
@@ -4685,12 +4067,6 @@
         m.vx = m.baseSpeed * m.dir * (rawSpeedMultiplier(tn, m.burnFrac) / m.speedNorm);
       }
       m.x += m.vx * dt;
-
-      if (m.typeKey === 'drone') {
-        updateDroneWander(m, dt);
-        updateDroneRecon(m, dt);
-        updateDroneDiscovery(m, dt);
-      }
 
       if (m.boost > 0) {
         m.boost -= dt;
@@ -4852,7 +4228,6 @@
       camShakeTimer = Math.max(0, camShakeTimer - dt);
       if (camShakeTimer <= 0) camShakeMag = 0;
     }
-    if (unlockFlashTimer > 0) unlockFlashTimer = Math.max(0, unlockFlashTimer - dt); // ART-5
 
     // no passive healing on the Strike Platform anymore, per direct
     // request - damage taken is now permanent for the rest of the run
@@ -4866,8 +4241,7 @@
 
     tokens.attack += TOKEN_PASSIVE_RATE * dt;
     tokens.counter += TOKEN_PASSIVE_RATE * dt;
-    tokens.intel += TOKEN_PASSIVE_RATE * dt;
-    lifetimeTokensTotal += TOKEN_PASSIVE_RATE * 3 * dt;
+    lifetimeTokensTotal += TOKEN_PASSIVE_RATE * TOKEN_KEYS.length * dt;
     updateTokenHud(false);
     tokenSaveTimer -= dt;
     if (tokenSaveTimer <= 0) { tokenSaveTimer = 1; saveTokens(); saveLifetimeTokens(); }
@@ -4909,10 +4283,7 @@
 
   // ---- Radar Lane (LRNA-076, issue #433): every visible contact on a
   // 0-1000 distance scale (0 = Strike Platform, 1000 = Node Omega),
-  // absorbing the old ACTIVE CONTACTS panel. "Visible" follows the
-  // existing discovery rules - all live missiles (never hidden, same as
-  // before this ticket) plus AntiPlane/SEEK AND DESTROY nodes once
-  // `.discovered` (LRNA-038/039) - nothing undiscovered appears here.
+  // absorbing the old ACTIVE CONTACTS panel: every live missile and plane.
   function dist1000(x) {
     return Math.max(0, Math.min(1000, Math.round((x - nodeA.x) / (nodeO.x - nodeA.x) * 1000)));
   }
@@ -4930,16 +4301,6 @@
         id: m.id, kind: 'missile', x: m.x, color: m.color, name: m.name,
         dist: dist1000(m.x), speed: Math.round(Math.abs(m.vx || 0)), type, role,
       });
-    }
-    for (const ap of antiPlaneNodes) {
-      if (!ap.discovered || ap.destroyed) continue;
-      list.push({ id: ap.id, kind: 'node', x: ap.x, color: ap.color, name: ap.name,
-        dist: dist1000(ap.x), speed: 0, type: 'ANTIPLANE', role: 'GRD' });
-    }
-    for (const sd of seekDestroyNodes) {
-      if (!sd.discovered || sd.destroyed) continue;
-      list.push({ id: sd.id, kind: 'node', x: sd.x, color: sd.color, name: sd.name,
-        dist: dist1000(sd.x), speed: 0, type: sd.kind.toUpperCase(), role: 'GRD' });
     }
     list.sort((a, b) => a.dist - b.dist);
     return list;
@@ -4977,19 +4338,10 @@
     contactListEl.innerHTML = html;
     renderRadarLaneTrack(relevant);
   }
-  // clicking a missile contact tracks it with the camera (followId), same
-  // as before this ticket; a static discovered node isn't in `missiles`
-  // (nothing to "follow"), so instead pan the camera to center on it.
-  function trackRadarContact(id, kind) {
-    if (kind === 'missile') {
-      if (!missiles.some(m => m.id === id)) return;
-      followId = id;
-    } else {
-      const node = findHuntableNode(id);
-      if (!node) return;
-      followId = null;
-      camX = Math.max(camMin(), Math.min(camMax(), node.x - vw() / 2));
-    }
+  // clicking a contact tracks it with the camera (followId)
+  function trackRadarContact(id) {
+    if (!missiles.some(m => m.id === id)) return;
+    followId = id;
     renderContacts();
   }
 
@@ -5005,10 +4357,6 @@
     for (const t of fieldTargets) {
       if (t.destroyed) continue;
       rows.push({ id: t.id, name: t.name, color: t.color, hp: `${Math.ceil(t.health)}/${t.maxHealth}`, dist: t.x - nodeA.x });
-    }
-    for (const n of allHuntableNodes()) { // LRNA-167, LRNA-172
-      if (!n.discovered || n.destroyed) continue;
-      rows.push({ id: n.id, name: n.name, color: n.color, hp: `${Math.ceil(n.health)}/${n.maxHealth}`, dist: n.x - nodeA.x });
     }
     rows.sort((a, b) => a.dist - b.dist);
     let html = '';
@@ -5235,45 +4583,6 @@
     ctx.fill();
   }
 
-  // small quadcopter silhouette for DRONE/attackDrone (LRNA-055) - reads
-  // instantly as "drone" instead of falling through to the generic rocket
-  // body every other unlabeled type still uses. A quadcopter doesn't bank
-  // nose-first like a plane, so it stays symmetric regardless of heading.
-  // ART-1: `armed` adds small slung ordnance pods on the front two arms -
-  // the same unarmed/armed distinction the plane silhouettes below draw,
-  // so attackDrone reads as a weapon and the recon DRONE reads as a pure
-  // scout, not just two different colors on one identical shape.
-  function drawDrone(r, armed) {
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.lineWidth = r * 0.16;
-    ctx.strokeStyle = ctx.fillStyle;
-    const arms = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
-    for (const [dx, dy] of arms) {
-      const ax = dx * r * 0.95, ay = dy * r * 0.65;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(ax, ay);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(ax, ay, r * 0.38, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    if (armed) {
-      ctx.fillStyle = 'rgba(20,10,8,0.7)';
-      for (const [dx, dy] of [[1, 1], [1, -1]]) {
-        const ax = dx * r * 0.6, ay = dy * r * 0.42;
-        ctx.beginPath();
-        ctx.rect(ax - r * 0.12, ay, r * 0.24, r * 0.5);
-        ctx.fill();
-      }
-    }
-    ctx.beginPath();
-    ctx.arc(0, r * 0.1, r * 0.18, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fill();
-  }
 
   // ART-1: heavy delta/flying-wing silhouette for LONG RANGE (and, at
   // smaller scale, each body in a CLUSTER formation) - broad aft-swept
@@ -5308,49 +4617,6 @@
     ctx.fill();
   }
 
-  // ART-1: a dedicated unarmed silhouette for RECON PLANE - long straight
-  // tapered wings (not swept, unlike every armed type), a slender
-  // fuselage, a single small tail fin, and a sensor pod under the nose
-  // instead of any weapon hardpoint. Before this it fell through to the
-  // exact same shape as an armed strike fighter (drawAttackPlane) - the
-  // one gap ART-1's own ask specifically called out ("recon (unarmed,
-  // light) vs strike fighter/bomber (armed, heavier)... distinct read").
-  function drawReconPlane(r) {
-    ctx.beginPath();
-    ctx.moveTo(r * 1.5, 0);
-    ctx.lineTo(r * 0.6, -r * 0.16);
-    ctx.lineTo(-r * 1.3, -r * 0.12);
-    ctx.lineTo(-r * 1.55, 0);
-    ctx.lineTo(-r * 1.3, r * 0.12);
-    ctx.lineTo(r * 0.6, r * 0.16);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(r * 0.05, -r * 0.12);
-    ctx.lineTo(-r * 0.2, -r * 1.7);
-    ctx.lineTo(-r * 0.5, -r * 1.65);
-    ctx.lineTo(-r * 0.35, -r * 0.1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(r * 0.05, r * 0.12);
-    ctx.lineTo(-r * 0.2, r * 1.7);
-    ctx.lineTo(-r * 0.5, r * 1.65);
-    ctx.lineTo(-r * 0.35, r * 0.1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(-r * 1.1, 0);
-    ctx.lineTo(-r * 1.4, -r * 0.3);
-    ctx.lineTo(-r * 1.25, 0);
-    ctx.closePath();
-    ctx.fill();
-    // sensor pod under the nose - the "equipment, not ordnance" tell
-    ctx.beginPath();
-    ctx.arc(r * 0.7, r * 0.05, r * 0.14, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.fill();
-  }
 
   // ART-1: a distinct armed silhouette for STRIKE FIGHTER, built on the
   // shared attack-plane base (drawAttackPlane, still used unchanged for
@@ -5402,7 +4668,6 @@
   function drawPlaneIcon(r, planeKind) {
     if (planeKind === 'strikeBomber') drawStrikeBomber(r);
     else if (planeKind === 'heavyBomber') drawHeavyBomber(r);
-    else if (planeKind === 'reconPlane') drawReconPlane(r);
     else drawStrikeFighter(r); // strikeFighter, interceptorJet
   }
 
@@ -5445,8 +4710,6 @@
       drawMediumMissile(r); // ART-2
     } else if (typeKey === 'large') {
       drawHeavyMissile(r); // ART-2
-    } else if (typeKey === 'drone' || typeKey === 'attackDrone') {
-      drawDrone(r, typeKey === 'attackDrone');
     } else if (typeKey === 'plane') {
       drawPlaneIcon(r, planeKind);
     } else {
@@ -5518,26 +4781,13 @@
     // new counters-only jam, distinct from the point-defense jam above -
     // both can be up at once and both should read clearly.
     if (alive && omegaCountersJamTimer > 0) drawJamIndicator(sx, nodeO.y, halfDraw + 18, '#ff2ea6');
-    // LRNA-172: a shield ring while the forward defenses stand.
-    const guarded = alive && forwardDefensesStanding() > 0;
-    if (guarded) {
-      ctx.save();
-      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 420);
-      ctx.strokeStyle = '#35e6ff';
-      ctx.lineWidth = 3;
-      ctx.globalAlpha = 0.25 + pulse * 0.25;
-      ctx.beginPath();
-      ctx.arc(sx, nodeO.y, halfDraw + 30, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
     ctx.fillStyle = alive ? nodeO.color : '#a55';
     ctx.font = '12px "Courier New", ui-monospace, monospace';
     ctx.textAlign = 'center';
     const jamLabel = empGlobalJamTimer > 0 && omegaCountersJamTimer > 0 ? ' [JAMMED / COUNTERS JAMMED]'
       : empGlobalJamTimer > 0 ? ' [JAMMED]'
       : omegaCountersJamTimer > 0 ? ' [COUNTERS JAMMED]' : '';
-    ctx.fillText(alive ? `${nodeO.name}${guarded ? ' [GUARDED]' : ''}${jamLabel}` : nodeO.name, sx, nodeO.y + halfDraw + 16);
+    ctx.fillText(alive ? `${nodeO.name}${jamLabel}` : nodeO.name, sx, nodeO.y + halfDraw + 16);
   }
 
   const FIELD_MARKER_OFFSET = 26;
@@ -5677,115 +4927,7 @@
     ctx.fillText(label, sx, sy + 20);
   }
 
-  // ---- Recon zone marker (LRNA-080): a scannable region boundary shown
-  // BEFORE discovery - the player knows *where* to send a drone/recon
-  // plane without knowing *what's* hidden there yet (the node itself
-  // stays fully invisible per drawAntiPlaneNode below, same hidden-until-
-  // discovered rule as LRNA-039/LRNA-117). Disappears once its node is
-  // found, since the real node marker takes over from there.
-  // ART-5: reticle-corner-bracket + traveling sensor-sweep treatment,
-  // replacing the plain dashed rectangle - reads as "an active scan
-  // target," not just an outlined area, while still only ever drawing
-  // from the zone's own bounds (zoneStart/zoneEnd, already generic -
-  // see LRNA-080's own test for that). No new signal derived from the
-  // hidden node's real position inside the zone - same hard constraint
-  // as LRNA-039/LRNA-112/LRNA-117.
-  function drawReconZone(sd) {
-    if (sd.discovered) return;
-    const sx0 = sd.zoneStart - camX, sx1 = sd.zoneEnd - camX;
-    if (sx1 < -20 || sx0 > vw() + 20) return;
-    const top = vh() / 2 - 220, bottom = vh() / 2 + 220;
-    const w = sx1 - sx0, bracket = Math.min(18, w / 4);
-    ctx.save();
-    ctx.strokeStyle = '#9fffcf88';
-    ctx.lineWidth = 1.5;
-    // 4 corner reticle brackets instead of a full rectangle outline.
-    const corners = [
-      [sx0, top, 1, 1], [sx1, top, -1, 1],
-      [sx0, bottom, 1, -1], [sx1, bottom, -1, -1],
-    ];
-    for (const [cx, cy, dx, dy] of corners) {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy + bracket * dy);
-      ctx.lineTo(cx, cy);
-      ctx.lineTo(cx + bracket * dx, cy);
-      ctx.stroke();
-    }
-    // faint boundary lines so the zone's extent still reads at a glance
-    // between the corner brackets.
-    ctx.globalAlpha = 0.25;
-    ctx.beginPath();
-    ctx.moveTo(sx0, top); ctx.lineTo(sx0, bottom);
-    ctx.moveTo(sx1, top); ctx.lineTo(sx1, bottom);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    // traveling sweep line, bouncing back and forth across the zone -
-    // purely decorative (wall-clock phase), sells "actively scanning."
-    const period = 2600;
-    const t = (performance.now() % period) / period;
-    const sweepFrac = t < 0.5 ? t * 2 : 2 - t * 2; // 0 -> 1 -> 0
-    const sweepX = sx0 + sweepFrac * w;
-    const grad = ctx.createLinearGradient(sweepX - 24, 0, sweepX + 24, 0);
-    grad.addColorStop(0, 'rgba(159,255,207,0)');
-    grad.addColorStop(0.5, 'rgba(159,255,207,0.5)');
-    grad.addColorStop(1, 'rgba(159,255,207,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(Math.max(sx0, sweepX - 24), top, Math.min(48, sx1 - Math.max(sx0, sweepX - 24)), bottom - top);
-    ctx.strokeStyle = '#9fffcfcc';
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(performance.now() / 200);
-    ctx.beginPath();
-    ctx.moveTo(sweepX, top); ctx.lineTo(sweepX, bottom);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = '#9fffcfcc';
-    ctx.font = '9px "Courier New", ui-monospace, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('RECON ZONE — UNSCANNED', (sx0 + sx1) / 2, top - 8);
-    ctx.restore();
-  }
 
-  // ---- AntiPlane lane defense (LRNA-039): hidden until discovered by a
-  // recon DRONE, so it draws nothing at all before that - a small angular
-  // radar/turret silhouette, distinct from the AM-battery family, once
-  // revealed.
-  function drawAntiPlaneNode(ap) {
-    if (!ap.discovered) return;
-    const sx = ap.x - camX;
-    if (sx < -40 || sx > vw() + 40) return;
-    const sy = ap.y;
-    const c = ap.destroyed ? '#5a5a5a' : ap.color;
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.globalAlpha = ap.destroyed ? 0.35 : 1;
-    ctx.fillStyle = c;
-    ctx.beginPath();
-    ctx.moveTo(-8, 7); ctx.lineTo(8, 7); ctx.lineTo(0, -9);
-    ctx.closePath();
-    ctx.fill();
-    if (!ap.destroyed) {
-      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 220 + ap.x);
-      ctx.beginPath();
-      ctx.arc(0, -9, 2, 0, Math.PI * 2);
-      ctx.shadowColor = c;
-      ctx.shadowBlur = 3 + pulse * 4;
-      ctx.globalAlpha = 0.6 + pulse * 0.4;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-    ctx.restore();
-    if (ap.maxHealth != null && !ap.destroyed) { // LRNA-167: SEEK AND DESTROY nodes take several hits now
-      const w = 22;
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(sx - w / 2, sy - FIELD_MARKER_OFFSET, w, 3);
-      ctx.fillStyle = c;
-      ctx.fillRect(sx - w / 2, sy - FIELD_MARKER_OFFSET, w * Math.max(0, ap.health / ap.maxHealth), 3);
-    }
-    ctx.fillStyle = c;
-    ctx.font = '8px "Courier New", ui-monospace, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(ap.destroyed ? `${ap.name} [DESTROYED]` : `${ap.name} [HOSTILE]`, sx, sy + 22);
-  }
 
   function drawAmNode(n) {
     const sx = n.x - camX;
@@ -5870,75 +5012,8 @@
   // silhouette (distinct from the AM batteries' tripod turret) so the 3
   // chosen defenses read clearly on the corridor. Counter Battery gets a
   // dashed ring that solidifies/fades with its on/off duty cycle.
-  // Satellite (LRNA-077/#434): a ground uplink dish at its slot, plus a
-  // satellite silhouette drawn high in the sky above the same x - the
-  // "reveals the whole map" effect made visible, not just a stat.
-  function drawSatelliteLoadoutNode(n) {
-    const sx = n.x - camX;
-    if (sx < -60 || sx > vw() + 60) return;
-    const sy = n.y;
-
-    // sky satellite: two solar panels + a small body, high above the corridor
-    const skyY = sy - 220;
-    ctx.save();
-    ctx.translate(sx, skyY);
-    ctx.globalAlpha = 0.85;
-    ctx.fillStyle = n.color;
-    ctx.fillRect(-2.5, -2.5, 5, 5);
-    ctx.fillStyle = 'rgba(53,230,255,0.4)';
-    ctx.fillRect(-11, -1.5, 7, 3);
-    ctx.fillRect(4, -1.5, 7, 3);
-    ctx.strokeStyle = n.color;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(-11, 0); ctx.moveTo(4, 0); ctx.lineTo(11, 0); ctx.stroke();
-    // downlink beam to its ground station
-    ctx.globalAlpha = 0.18;
-    ctx.setLineDash([2, 4]);
-    ctx.beginPath(); ctx.moveTo(0, 3); ctx.lineTo(0, sy - skyY - 3); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.strokeStyle = n.color;
-    ctx.globalAlpha = 0.25;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 4]);
-    ctx.beginPath();
-    ctx.arc(0, 0, 15, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
-
-    // ground uplink dish
-    ctx.fillStyle = n.color;
-    ctx.fillRect(-2, -2, 4, 8);
-    ctx.save();
-    ctx.rotate(-0.5);
-    ctx.beginPath();
-    ctx.ellipse(0, -10, 8, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260 + n.x);
-    ctx.beginPath();
-    ctx.arc(0, -10, 1.2, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.shadowColor = n.color;
-    ctx.shadowBlur = 3 + pulse * 4;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.restore();
-
-    ctx.fillStyle = n.color;
-    ctx.globalAlpha = 0.85;
-    ctx.font = '7px "Courier New", ui-monospace, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(n.name, sx, sy + 16);
-    ctx.globalAlpha = 1;
-  }
 
   function drawLoadoutNode(n) {
-    if (n.def.vision) { drawSatelliteLoadoutNode(n); return; }
     const sx = n.x - camX;
     if (sx < -30 || sx > vw() + 30) return;
     const sy = n.y;
@@ -6396,9 +5471,6 @@
     for (const t of fieldTargets) drawFieldTarget(t);
     for (const n of amNodes) drawAmNode(n);
     for (const n of loadoutNodes) drawLoadoutNode(n);
-    for (const sd of seekDestroyNodes) drawReconZone(sd); // LRNA-080: zone boundary, drawn under the node itself
-    for (const ap of antiPlaneNodes) drawAntiPlaneNode(ap);
-    for (const sd of seekDestroyNodes) drawAntiPlaneNode(sd);
 
     const selTarget = getTarget(selectedTargetId);
     if (selTarget && !selTarget.destroyed && !(selTarget.id === 'O' && omegaHealth <= 0)) {
@@ -6486,23 +5558,6 @@
         ctx.restore();
       }
 
-      // LRNA-112: show the drone's own discovery detection radius as it
-      // flies, so the player can gauge how close they need to fly to find
-      // a hidden node - without drawing anything around the hidden nodes
-      // themselves, which would reveal their position and defeat the
-      // "hidden until discovered" premise (LRNA-039).
-      if (m.typeKey === 'drone') {
-        ctx.save();
-        ctx.beginPath();
-        ctx.setLineDash([5, 5]);
-        ctx.arc(sx, sy, ANTIPLANE_DISCOVERY_RANGE, 0, Math.PI * 2);
-        ctx.strokeStyle = '#9fffcf55';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-      }
-
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.font = '10px "Courier New", ui-monospace, monospace';
       ctx.textAlign = 'center';
@@ -6577,17 +5632,6 @@
     }
     ctx.restore();
 
-    // ART-5: the opening-unlock screen flash, drawn in screen space
-    // (outside the ctx.save()/ctx.scale(ZOOM) camera block above) so it
-    // covers the true viewport regardless of zoom/shake - a full-canvas
-    // fill decaying from unlockFlashTimer, the "systems coming online"
-    // beat's visual centerpiece alongside the camera jolt and the
-    // staggered button glow triggered alongside it.
-    if (unlockFlashTimer > 0) {
-      const t = unlockFlashTimer / UNLOCK_FLASH_DURATION;
-      ctx.fillStyle = `rgba(123,255,160,${t * 0.3})`;
-      ctx.fillRect(0, 0, W, H);
-    }
   }
 
   function drawMinimap() {
@@ -6627,8 +5671,7 @@
   }
 
   // LRNA-161: drawMinimap()'s dot style, scoped to what matters for
-  // intercepting: inbound enemy strikes, the counters aimed at them, and
-  // discovered AntiPlane nodes. Uses missionMapPct() rather than
+  // intercepting: inbound enemy strikes and the counters aimed at them. Uses missionMapPct() rather than
   // x / MAP_W so each dot sits under the matching point of the zone strip.
   function drawCounterLane() {
     const w = counterLaneCanvas.width, h = counterLaneCanvas.height;
@@ -6642,9 +5685,6 @@
     clctx.fillRect(w - 3, 3, 3, h - 6);
     const px = (x) => missionMapPct(x) / 100 * w;
     const dot = (x, color) => { clctx.fillStyle = color; clctx.fillRect(Math.round(px(x)) - 1, h / 2 - 1, 3, 3); };
-    for (const ap of antiPlaneNodes) {
-      if (ap.discovered) dot(ap.x, ap.destroyed ? 'rgba(110,110,110,0.5)' : '#ff5a36');
-    }
     const inboundIds = new Set();
     for (const m of missiles) {
       if (m.typeKey !== 'enemyStrike') continue;
@@ -6698,12 +5738,6 @@
 
   const loadoutSelectEls = Array.from(document.querySelectorAll('.loadoutSelect'));
   const startGameBtnEl = document.getElementById('startGameBtn');
-  const satelliteWarningEl = document.getElementById('satelliteWarning');
-  function updateSatelliteWarning() {
-    if (!satelliteWarningEl) return;
-    const count = loadout.filter(k => k === 'satellite').length;
-    satelliteWarningEl.classList.toggle('hidden', count < 2);
-  }
   loadoutSelectEls.forEach(sel => {
     sel.innerHTML = Object.values(LOADOUT_NODE_TYPES)
       .map(def => `<option value="${def.key}">${def.label}</option>`) // ART-11: role shows under the select
@@ -6711,20 +5745,12 @@
     const slot = parseInt(sel.dataset.slot, 10);
     sel.value = loadout[slot];
     sel.addEventListener('change', () => {
-      // Prevent duplicate satellite selection (LRNA-124)
-      if (sel.value === 'satellite' && loadout.some((k, i) => i !== slot && k === 'satellite')) {
-        alert('Satellite can only be selected once');
-        sel.value = loadout[slot];
-        return;
-      }
       loadout[slot] = sel.value;
       saveLoadout();
-      updateSatelliteWarning();
       renderMenuHome(); // ART-11
       sfxUi();
     });
   });
-  updateSatelliteWarning();
   startGameBtnEl.addEventListener('click', () => {
     if (running) return;
     activeMission = null; // LRNA-174: the endless mode
@@ -6813,7 +5839,7 @@
     camX = Math.max(camMin(), Math.min(camMax(), camStartX - (e.clientX - dragStartX) / ZOOM));
   });
   // LRNA-172: tapping a target on the battlefield picks it - Omega, a
-  // field target, or a discovered forward defense - no trip into STATS.
+  // or a field target - no trip into STATS.
   function hitTestTarget(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const wx = (clientX - rect.left) / ZOOM + camX;
@@ -6823,7 +5849,6 @@
       const d = Math.hypot(t.x - wx, t.y - wy);
       if (d < radius && d < bestDist) { best = t; bestDist = d; }
     };
-    for (const n of allHuntableNodes()) if (n.discovered && !n.destroyed) consider(n, 45);
     for (const t of fieldTargets) if (!t.destroyed) consider(t, 35);
     if (omegaHealth > 0) consider(nodeO, OMEGA_RES * OMEGA_PX_SCALE / 2);
     return best;
@@ -6893,7 +5918,6 @@
     if (paused) return; // LRNA-119
     const cost = TYPES[typeKey].cost;
     const pillar = ABILITY_PILLARS[typeKey];
-    if (openingLocked && pillar === 'attack') return; // LRNA-080: intel/counter tools still work (recon needs to fly)
     const dest = getTarget(selectedTargetId) || nodeO;
     if (shotsRemaining <= 0 || activeCount('A') >= MAX_ACTIVE || tokens[pillar] < cost) return;
     const now = performance.now();
@@ -6918,7 +5942,7 @@
   // into each pillar group from PLANE_TYPES, same pattern the loadout
   // picker uses to build its <select> options from LOADOUT_NODE_TYPES.
   const planeButtonEls = {};
-  for (const pillar of ['attack', 'counter', 'intel']) {
+  for (const pillar of TOKEN_KEYS) {
     const container = document.getElementById(`planeButtons-${pillar}`);
     if (!container) continue;
     for (const def of Object.values(PLANE_TYPES)) {
@@ -6946,28 +5970,6 @@
       const def = PLANE_TYPES[key];
       const slot = planeSlots[key];
       const etaEl = btn.querySelector('.btnEta');
-      // LRNA-117: Recon Plane always force-discovers the next undiscovered
-      // hidden node (deterministic order, not player-chosen - see
-      // resolvePlaneOutboundJob), so once every hidden node is already
-      // found there's nothing left for it to do. Without this, players
-      // could keep sending it out and burning INTEL for a sortie that
-      // silently finds nothing.
-      if (key === 'reconPlane' && slot.state === 'ready' && !allHuntableNodes().some(n => !n.discovered && !n.destroyed)) {
-        btn.disabled = true;
-        btn.classList.remove('away');
-        etaEl.classList.remove('rearming');
-        etaEl.textContent = 'ALL LOCATED';
-        continue;
-      }
-      // LRNA-080: attack-pillar planes stay grounded during the
-      // recon-gated opening; intel/counter planes (recon) still fly.
-      if (key !== 'reconPlane' && def.pillar === 'attack' && openingLocked && slot.state === 'ready') {
-        btn.disabled = true;
-        btn.classList.remove('away');
-        etaEl.classList.remove('rearming');
-        etaEl.textContent = 'RECON REQUIRED';
-        continue;
-      }
       if (slot.state === 'ready') {
         btn.disabled = tokens[def.pillar] < def.cost;
         btn.classList.remove('away');
@@ -7016,7 +6018,7 @@
     if (!running) return;
     const dot = e.target.closest('.laneDot');
     if (!dot) return;
-    trackRadarContact(dot.dataset.contact, dot.dataset.kind);
+    trackRadarContact(dot.dataset.contact);
   });
   // A tap on the panel's empty space (not its header, a lane dot or a
   // list row) goes to the battlefield under it: on a phone the collapsed
@@ -7063,15 +6065,14 @@
     followId = incomingAlertTargetId;
   });
 
-  // ---- keyboard shortcuts (LRNA-074/#431): 1-7 map to the 7 ability-bar
-  // buttons in reading order (ATTACK group, then COUNTER, then INTEL).
+  // ---- keyboard shortcuts (LRNA-074/#431): 1-6 map to the 6 ability-bar
+  // buttons in reading order (ATTACK group, then COUNTER).
   // CLUSTER/EMP removed for now (direct request), so ATTACK only
   // contributes FAST/MEDIUM/LARGE here.
-  const SHORTCUT_KEYS = ['1', '2', '3', '4', '5', '6', '7'];
+  const SHORTCUT_KEYS = ['1', '2', '3', '4', '5', '6'];
   const shortcutButtons = [
     ...launchButtons.filter(b => ['fast', 'medium', 'large'].includes(b.dataset.type)),
     counterMissileBtnEl, counterPlanesBtnEl, emergencyBtnEl,
-    ...launchButtons.filter(b => b.dataset.type === 'drone'),
   ];
   window.addEventListener('keydown', (e) => {
     if (!running) return;
@@ -7123,8 +6124,6 @@
       get loadoutNodes() { return loadoutNodes; },
       get amNodes() { return amNodes; },
       get fieldTargets() { return fieldTargets; },
-      get antiPlaneNodes() { return antiPlaneNodes; },
-      get seekDestroyNodes() { return seekDestroyNodes; },
       get nodeA() { return nodeA; },
       get nodeO() { return nodeO; },
       get tokens() { return tokens; },
@@ -7140,8 +6139,6 @@
       get masterGainValue() { return masterGain ? masterGain.gain.value : null; },
       get MASTER_VOLUME() { return MASTER_VOLUME; },
       get UI_DISABLED_TYPES() { return UI_DISABLED_TYPES; },
-      get openingLocked() { return openingLocked; },
-      forceOpeningUnlock() { openingLocked = false; updateOpeningLockUi(); },
       get missionMapOpen() { return missionMapOpen; },
       get gameMenuOpen() { return gameMenuOpen; }, // ART-14
       openMissionMap: () => openMissionMap(),
@@ -7151,7 +6148,6 @@
       get camShakeTimer() { return camShakeTimer; },
       get followId() { return followId; },
       setFollowId(id) { followId = id; },
-      checkOpeningUnlock: () => checkOpeningUnlock(),
       updateTurnHud: () => updateTurnHud(),
       updatePlaneButtons: () => updatePlaneButtons(),
       omegaCounterCandidates: (includePlanes) => omegaCounterCandidates(includePlanes),
@@ -7159,7 +6155,6 @@
       get CONTACTS_RENDER_INTERVAL() { return CONTACTS_RENDER_INTERVAL; },
       trySaveStorage: (key, value) => trySaveStorage(key, value),
       get TYPES() { return TYPES; },
-      fireAttackDrone: (apId) => fireAttackDrone(apId),
       fireCounterMissile: () => fireCounterMissile(),
       get counterAmmo() { return counterAmmo; },
       get TOKEN_PASSIVE_RATE() { return TOKEN_PASSIVE_RATE; },
@@ -7170,19 +6165,17 @@
       attemptFire: (typeKey) => attemptFire(typeKey),
       get waveState() { return waveState; },
       // LRNA-172/173
-      get forwardDefensesStanding() { return forwardDefensesStanding(); },
       get selectedTargetId() { return selectedTargetId; },
       get camX() { return camX; },
       setCamX(v) { followId = null; camX = v; },
       get ZOOM() { return ZOOM; },
-      clearForwardDefenses() { for (const n of allHuntableNodes()) { n.discovered = true; n.destroyed = true; } updateObjectiveHud(); },
       updateObjectiveHud: () => updateObjectiveHud(),
       // LRNA-174
       get MISSIONS() { return MISSIONS; },
       get activeMission() { return activeMission; },
       get missionStats() { return missionStats; },
       startMission: (id) => startMission(id),
-      damageNode(id, dmg) { const n = allHuntableNodes().find(x => x.id === id); return n ? applyDamage(n, n.x, 0, dmg) : null; },
+      damageNode(id, dmg) { const n = fieldTargets.find(x => x.id === id); return n ? applyDamage(n, n.x, 0, dmg) : null; }, // LRNA-180: field targets
 
       // -- deterministic scenario control --
       freezeWaves() { waveState = 'break'; waveBreakTimer = 1e9; },

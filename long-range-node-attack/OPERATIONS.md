@@ -1,7 +1,7 @@
 # Long Range Node Attack: hosting, deploys and rebuilding from scratch
 
 Everything needed to run, host, deploy or remake this game, in one place.
-Last brought up to date 2026-09-30 (game at LRNA-170).
+Last brought up to date 2026-10-03 (game at LRNA-180).
 
 ## Where everything lives
 
@@ -37,7 +37,7 @@ Tests:
 cd long-range-node-attack
 npm ci
 npx playwright install chromium    # skip where Chromium is preinstalled
-npm test                           # 64 tests as of LRNA-170
+npm test                           # 69 tests as of LRNA-180
 ```
 Tests drive the game through `window.__TEST__`, which only exists with
 `?test=1` in the URL (or `localStorage.lrna_test_mode = '1'`).
@@ -172,14 +172,20 @@ full before an update from a new conversation.
    every decision and why, and the tests pin the behavior. The development
    repo is LongRange (`main`); Alert only carries the deploy copy.
 
-## State as of 2026-09-30
+## State as of 2026-10-03
 
 - All Long Range tickets are done or closed; no open GitHub issues.
 - Recent behavior worth knowing: counters are limited per game (10 counter
   missiles, 10 counter planes, 5 emergency counters, the same for Omega);
   each game starts at 500/500/500 tokens with 20/s passive income and hits
-  refunding a quarter of their damage; opening STATS pauses the battle;
-  Siege Mode is gone; discovered hidden nodes are attacked from TARGETS.
+  refunding a quarter of their damage; Siege Mode is gone.
+- 2026-10-03: the menus were rebuilt (ART epic 2: home with PLAY and
+  MISSIONS, setup, missions, how to play, an in-game MENU that pauses,
+  shared result screens), and recon was removed entirely (LRNA-180): no
+  opening lock, DRONE, RECON PLANE, INTEL currency, hidden nodes, forward
+  defenses or Satellite. PLAY starts the fight at once with two
+  currencies (ATTACK, COUNTER). Six missions, the first three built on
+  the field targets. Next up: ART epic 3, the in-game GUI redesign.
 - Connor's server (192.168.1.36) is down, and the NixonExpress hosting was
   down on 2026-09-30, so the game now ships as the standalone installer,
   which doesn't depend on either server.
