@@ -2883,6 +2883,7 @@
       dodgesLeft: def.dodge ? 1 : 0,
     };
     missiles.push(plane);
+    followMissile(plane.id, false); // ART-20: the newest shot
     slot.state = 'flying';
     spawnLaunchFx(nodeA.x, nodeA.y + lane, def.color, key);
     updateHud();
@@ -3263,23 +3264,52 @@
     requestAnimationFrame(loop);
   }
 
+  // ---- ART-20: the camera follows the action. Unless you've moved it by
+  // hand in the last CAM_MANUAL_HOLD seconds, it follows the most urgent
+  // inbound threat (inside CAM_THREAT_WINDOW of impact), otherwise your
+  // newest shot in flight; with nothing in the air it holds still. A
+  // missile you picked yourself (tapped, a strip dot, the incoming
+  // warning) stays followed until it's gone.
+  const CAM_MANUAL_HOLD = 4;
+  const CAM_THREAT_WINDOW = 8;
+  let camManualTimer = 0;
+  let followByUser = false;
+  function noteManualCamera() { camManualTimer = CAM_MANUAL_HOLD; followId = null; followByUser = false; }
+  function followMissile(id, byUser) { followId = id; followByUser = !!byUser; camManualTimer = 0; }
+  const isOwnShot = (m) => m.originId === 'A' && m.typeKey !== 'counter';
+  function directCamera(dt) {
+    if (camManualTimer > 0) { camManualTimer = Math.max(0, camManualTimer - dt); return; }
+    if (followByUser && followId && missiles.some(m => m.id === followId)) return;
+    followByUser = false;
+    const threat = findInboundEnemyMissiles()[0];
+    if (threat && threat.totalSeconds - threat.age <= CAM_THREAT_WINDOW) { followId = threat.id; return; }
+    if (followId && missiles.some(m => m.id === followId && isOwnShot(m))) return;
+    const own = missiles.filter(isOwnShot);
+    followId = own.length ? own[own.length - 1].id : null;
+  }
+
   const keys = {};
   function update(dt) {
     const panSpeed = 700 / ZOOM;
     const panning = keys['ArrowLeft'] || keys['a'] || keys['A'] || keys['ArrowRight'] || keys['d'] || keys['D'];
     if (panning) {
-      followId = null;
+      noteManualCamera(); // ART-20
       if (keys['ArrowLeft'] || keys['a'] || keys['A']) camX -= panSpeed * dt;
       if (keys['ArrowRight'] || keys['d'] || keys['D']) camX += panSpeed * dt;
       camX = Math.max(camMin(), Math.min(camMax(), camX));
-    } else if (followId) {
+    } else {
+      directCamera(dt);
+    }
+    if (!panning && followId) {
       const fm = missiles.find(mm => mm.id === followId);
       if (fm) {
         // match the missile's own speed first so fast shots don't outrun a fixed-rate
         // lerp; the correction term only mops up the residual (launch snap, curvature).
+        // ART-20: a long hop to a new subject eases over ~1s instead of snapping.
         const targetCam = Math.max(camMin(), Math.min(camMax(), fm.x - vw() / 2));
-        camX += (fm.vx || 0) * dt;
-        camX += (targetCam - camX) * Math.min(1, dt * 6);
+        const far = Math.abs(targetCam - camX) > vw() * 0.75;
+        if (!far) camX += (fm.vx || 0) * dt;
+        camX += (targetCam - camX) * Math.min(1, dt * (far ? 3 : 6));
         camX = Math.max(camMin(), Math.min(camMax(), camX));
       } else {
         followId = null;
@@ -5204,7 +5234,7 @@
     if (!dragging) return;
     if (!dragConfirmed && Math.hypot(e.clientX - pointerDownX, e.clientY - pointerDownY) > CLICK_MOVE_THRESHOLD) {
       dragConfirmed = true;
-      followId = null; // a real drag breaks camera-follow lock, same as before
+      noteManualCamera(); // a real drag breaks camera-follow lock (ART-20: and holds the auto camera off)
     }
     camX = Math.max(camMin(), Math.min(camMax(), camStartX - (e.clientX - dragStartX) / ZOOM));
   });
@@ -5233,8 +5263,7 @@
   }
   function handleBattlefieldTap(clientX, clientY, missileRadius) {
     const hit = hitTestMissile(clientX, clientY, missileRadius);
-    if (hit) { followId = hit.id; return; }
-    followId = null;
+    if (hit) { followMissile(hit.id, true); return; }
     selectTarget(hitTestTarget(clientX, clientY));
   }
   window.addEventListener('mouseup', (e) => {
@@ -5255,7 +5284,7 @@
     if (!dragging || !e.touches.length) return;
     if (!dragConfirmed && Math.hypot(e.touches[0].clientX - pointerDownX, e.touches[0].clientY - pointerDownY) > CLICK_MOVE_THRESHOLD) {
       dragConfirmed = true;
-      followId = null;
+      noteManualCamera();
     }
     camX = Math.max(camMin(), Math.min(camMax(), camStartX - (e.touches[0].clientX - dragStartX) / ZOOM));
   }, { passive: true });
@@ -5274,8 +5303,8 @@
     const px = (e.clientX - rect.left) * (MW / rect.width);
     let best = null, bestD = 9;
     for (const { m, x } of minimapDots()) { const d = Math.abs(x - px); if (d < bestD) { best = m; bestD = d; } }
-    if (best) { followId = best.id; return; }
-    followId = null;
+    if (best) { followMissile(best.id, true); return; }
+    noteManualCamera();
     const frac = (e.clientX - rect.left) / rect.width;
     camX = Math.max(camMin(), Math.min(camMax(), frac * MAP_W - vw() / 2));
   });
@@ -5301,7 +5330,7 @@
     const m = launchAttack(nodeA, dest, typeKey);
     shotsRemaining -= 1;
     if (shotsRemaining <= 0) turnCooldown = TURN_COOLDOWN;
-    followId = m.id;
+    followMissile(m.id, false); // ART-20: firing hands the camera back to the action
     triggerCamShake(CAM_SHAKE_LAUNCH_MAG, CAM_SHAKE_LAUNCH_DURATION); // LRNA-086: boost-window launch shake, the newly-followed shot is always still boosting right here
     updateTurnHud();
   }
@@ -5477,7 +5506,7 @@
   incomingAlertEl.addEventListener('click', () => {
     if (!running || !incomingAlertTargetId) return;
     if (!missiles.some(m => m.id === incomingAlertTargetId)) return;
-    followId = incomingAlertTargetId;
+    followMissile(incomingAlertTargetId, true);
   });
 
   // ---- keyboard shortcuts (LRNA-074/#431): 1-3 fire the missiles and 4
@@ -5579,7 +5608,9 @@
       // LRNA-172/173
       get selectedTargetId() { return selectedTargetId; },
       get camX() { return camX; },
-      setCamX(v) { followId = null; camX = v; },
+      setCamX(v) { noteManualCamera(); camX = v; }, // a manual camera move (ART-20)
+      get camManualTimer() { return camManualTimer; },
+      get followByUser() { return followByUser; },
       get ZOOM() { return ZOOM; },
       updateObjectiveHud: () => updateObjectiveHud(),
       // LRNA-174

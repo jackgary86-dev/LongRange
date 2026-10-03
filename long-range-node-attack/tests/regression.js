@@ -1685,7 +1685,8 @@ test('LRNA-180: PLAY starts the fight at once - attacks fire and Wave 1 launches
       const menuText = document.getElementById('overlay').textContent + document.getElementById('bottomBar').textContent;
       return {
         fired, plane: !!plane,
-        inbound: T.missiles.filter((m) => m.typeKey === 'enemyStrike').length,
+        // counted at launch: the ground defenses can already have shot the first one down
+        inbound: T.waveStrikesLaunched,
         gone: ['[data-type="drone"]', '[data-plane="reconPlane"]', '[data-pillar="intel"]', '#openingLockedBanner', '#tokenIntel',
           '#omegaGuardStatus', '#missionMapZones', '#satelliteWarning', '.loadoutSelect option[value="satellite"]']
           .filter((sel) => document.querySelector(sel)),
@@ -1906,6 +1907,77 @@ test('ART-21: the target label opens a short list; picking one targets it and ST
     assert(!after.shown, 'and closes the list');
     assert(after.label.startsWith('TARGET: ') && !after.label.includes('NODE OMEGA'), `the label follows: ${after.label}`);
     assert(escClosed && !paused, 'Esc closes the list without opening the menu');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('ART-20: the camera follows your newest shot, then the most urgent threat, and back', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.disableOmegaCounters(); T.neutralizeAutoDefense();
+      T.tokens.attack = 5000;
+      const plane = T.firePlane('strikeBomber');
+      T.tickUpdate(0.05);
+      const onShot = T.followId === plane.id;
+      const threat = T.launchAttack(T.nodeO, T.nodeA, 'enemyStrike', T.ENEMY_STRIKE_SIZES.medium);
+      threat.defended = true;
+      threat.age = threat.totalSeconds - 12; // not urgent yet
+      T.tickUpdate(0.05);
+      const stillShot = T.followId === plane.id;
+      threat.age = threat.totalSeconds - 6;   // inside 8s of impact
+      T.tickUpdate(0.05);
+      const onThreat = T.followId === threat.id;
+      for (let i = 0; i < 40; i++) T.tickUpdate(0.05); // let the camera catch up
+      const camNearThreat = Math.abs((T.camX + innerWidth / T.ZOOM / 2) - threat.x) < innerWidth / T.ZOOM;
+      T.removeMissile(threat.id);
+      T.tickUpdate(0.05);
+      return { onShot, stillShot, onThreat, camNearThreat, backToShot: T.followId === plane.id };
+    });
+    assert(r.onShot, 'launching follows the new shot');
+    assert(r.stillShot, 'a far-off threat does not steal the camera');
+    assert(r.onThreat, 'a threat inside 8s of impact takes the camera');
+    assert(r.camNearThreat, 'and the camera actually gets there');
+    assert(r.backToShot, 'once it is gone the camera goes back to your shot');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('ART-20: a manual move holds the camera for 4s; a missile you picked stays followed', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.disableOmegaCounters(); T.neutralizeAutoDefense();
+      T.tokens.attack = 5000;
+      T.firePlane('strikeFighter');
+      T.setCamX(4000); // like a drag
+      for (let i = 0; i < 40; i++) T.tickUpdate(0.05); // 2s
+      const held = { follow: T.followId, camX: T.camX };
+      for (let i = 0; i < 50; i++) T.tickUpdate(0.05); // 2.5s more: past the hold
+      const resumed = T.followId;
+      // a missile picked by hand outranks an urgent threat
+      const mine = T.launchAttack(T.nodeA, T.nodeO, 'large');
+      return { held, resumed, mineId: mine.id };
+    });
+    const strip = await page.evaluate((id) => {
+      const T = window.__TEST__;
+      const m = T.missiles.find((x) => x.id === id); m.x = 9000;
+      const rect = document.getElementById('minimap').getBoundingClientRect();
+      return { x: rect.left + rect.width * 0.5, y: rect.top + rect.height / 2 };
+    }, r.mineId);
+    await page.mouse.click(strip.x, strip.y);
+    const picked = await page.evaluate((id) => {
+      const T = window.__TEST__;
+      const threat = T.launchAttack(T.nodeO, T.nodeA, 'enemyStrike', T.ENEMY_STRIKE_SIZES.medium);
+      threat.defended = true; threat.age = threat.totalSeconds - 4;
+      T.tickUpdate(0.05);
+      return { follow: T.followId, byUser: T.followByUser, id };
+    }, r.mineId);
+    assertEqual(r.held.follow, null, 'nothing is followed during the hold');
+    assertEqual(r.held.camX, 4000, 'and the camera stays where you put it');
+    assert(r.resumed, 'after 4s the camera follows the action again');
+    assertEqual(picked.follow, picked.id, 'the missile you picked stays followed, even with a threat about to land');
+    assert(picked.byUser, 'marked as your pick');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });

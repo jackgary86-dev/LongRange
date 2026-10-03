@@ -754,10 +754,20 @@ Tickets:
   counters, and the camera box. Tap a dot to follow it, elsewhere to move
   the camera. The Radar Lane panel, zone strip and counter lane are gone
   (their 5 tests with them; 4 new ART tests added).
-- **ART-20** — OPEN — Camera follows the action. Side-scrolling stays,
+- **ART-20** — DONE — Camera follows the action. Side-scrolling stays,
   but the camera eases to your newest shot and to the most urgent
   incoming threat; a manual drag takes over for a few seconds, then
   following resumes.
+  *Done:* firing (a missile or a plane) follows the new shot; an inbound
+  threat within 8s of impact takes the camera (so you can see what to
+  counter); when it's gone the camera returns to your newest shot, and
+  with nothing in the air it holds still. A drag, arrow keys or a tap on
+  empty strip holds the auto camera off for 4s. A missile you pick
+  yourself (tap it, its strip dot, or the incoming warning) stays
+  followed until it's gone, even over an urgent threat. Long hops ease
+  over about a second. 2 new tests; the LRNA-180 start test now counts
+  Omega's launches, since the ground defenses can shoot its first strike
+  down within 2s. 70/70.
 - **ART-21** — DONE — Targeting. Tap any enemy on the field to target it
   (Omega by default), with a clear reticle on the current target; a short
   list opens from the target label for picking one that's off screen.
