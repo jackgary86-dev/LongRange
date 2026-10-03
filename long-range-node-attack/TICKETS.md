@@ -373,6 +373,58 @@ never pixels) passed unmodified through every one of them.
 
 ---
 
+## OPEN — ART epic 2: modern menus (2026-10-03)
+
+Request: "Start an Art Epic to modernize this launch page - make it
+cleaner with less buttons", then "this art epic should extend into the
+game menu as well." Today's start screen (measured): 13 controls (3
+difficulty buttons, 3 loadout dropdowns, PLAY ENDLESS, 6 mission cards),
+a long instructions paragraph that is out of date (it still mentions the
+Operations Center and a top-left Emergency Counter), a row of type chips,
+a feature line and an ENTRANCE address box. The live game HUD shows
+through behind it. It's 1304 px tall on a 1280x800 screen and 1968 px on
+a phone. In-game, STATS/PAUSE/MUTE float as three separate buttons, and
+the result screen only has RETURN TO START.
+
+Goal: one clean visual system for every menu, with one obvious next
+action per screen. Gameplay screens (battlefield, ability bar) are out of
+scope except where they open a menu.
+
+- **ART-9** — OPEN — Menu design system. Shared tokens for every menu:
+  color roles (background panel, text, muted, accent, danger), one type
+  scale, spacing, one button style (primary / secondary / quiet) and one
+  panel style. A solid backdrop behind menus so the game HUD doesn't show
+  through. Everything below uses it.
+- **ART-10** — OPEN — Start screen: title and two buttons. Title, best
+  wave, **PLAY** (endless) and **MISSIONS**; quiet links for SETUP and
+  HOW TO PLAY. Everything else moves off this screen: the instructions
+  paragraph, chips, feature line and ENTRANCE box go (the address is
+  already in the HUD, LRNA-170). Fits one screen on a phone with no
+  scrolling.
+- **ART-11** — OPEN — Setup screen. Difficulty (one segmented control)
+  and the 3-slot corridor loadout (one card per slot showing the node's
+  icon and one-line role, instead of long dropdown text). The start screen
+  shows the current choice as one summary line ("NORMAL · GML / MG AA /
+  CTR BTY").
+- **ART-12** — OPEN — Missions screen. Its own screen with a back button:
+  mission cards with name, goal, stars and best time; locked/unlocked
+  state ready for LRNA-175.
+- **ART-13** — OPEN — How to play. A short, current replacement for the
+  instructions paragraph: the three steps (find, clear the forward
+  defenses, hit Omega), the three currencies, and countering. A few lines
+  each, not a wall of text.
+- **ART-14** — OPEN — In-game menu. STATS / PAUSE / MUTE become one menu
+  button; opening it pauses the battle and shows RESUME, STATS, SOUND
+  on/off, RESTART and QUIT TO MENU. Keyboard: Esc opens and closes it.
+- **ART-15** — OPEN — Result screens. Mission complete / failed and the
+  endless run's end share one layout: big title, stars or wave, 3-4 stat
+  lines, and the actions that make sense (RETRY, NEXT MISSION, MENU)
+  instead of only RETURN TO START.
+
+Order: ART-9 first (everything uses it), then ART-10 + ART-11 together
+(they split one screen), then ART-12, ART-14, ART-15, ART-13. Each keeps
+the regression suite green and gets a desktop and phone screenshot check.
+
 ## OPEN — Player feedback (2026-10-03)
 
 Asked directly what to improve. Answers, in the owner's words where given:
