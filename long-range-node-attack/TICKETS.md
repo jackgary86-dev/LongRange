@@ -614,8 +614,40 @@ missions.
 - **LRNA-176** — OPEN — Omega boss phases. Omega changes tactics at
   75/50/25% health (e.g. faster strikes, a shield burst, launching its own
   planes), announced on screen, so a fight builds instead of repeating.
-- **LRNA-177** — OPEN — More weapons and units, each with a clear counter.
+- **LRNA-177** — DONE (2026-10-03, missiles) — More weapons and units, each with a clear counter.
   Comes after LRNA-175 so new ones arrive as unlocks.
+  - Asked: "Proceed adding missile types." Three new missiles, each an
+    ARMORY unlock with its own counter:
+    - **DECOY** (60 ATTACK, 12s, key 7; 10 merit, no prerequisite) - no
+      warhead. Omega's automatic defenses and its Emergency Counter
+      fire at it like a real one. Counter: Omega's radar sees through
+      it - 70% of decoys with both radar nodes up, 35% with one. A seen
+      decoy is ignored. It ends in a "DECOY" marker, no damage.
+    - **GHOST** (400 ATTACK, 16s, 250 damage, key 8; 30 merit, needs
+      DECOY) - Omega's automatic defenses never engage it. Counter:
+      Omega's Emergency Counter still can, in the last 5 seconds - so
+      ghosts pay off once decoys have drained Omega's 15.
+    - **BUNKER BUSTER** (350 ATTACK, 24s, key 9; 20 merit, needs LONG
+      RANGE) - 600 to a radar or missile node (one hit kills a 400 HP
+      node), only 200 to Omega. Counter: slow and big - every defense
+      hits it 1.3x as often.
+  - The bar now holds up to 11 attack buttons: on desktop they shrink to
+    fit (one row at 1280px), on a phone the row scrolls sideways past 8.
+    Each has its icon, cost and details; HOW TO PLAY mentions keys 5-9.
+  - Simulator: two new opt-in plans (`buster-nodes`, `decoy-ghost`), 144
+    games. Normal: buster-nodes lasts longest (11:01 median) but kills
+    Omega less (1.7 vs 2.9 for fast-nodes, first kill 4:52); decoy-ghost
+    9:10 and 2.5 kills, and is the best plan found on Hard (12/12 kill
+    Omega, 6:22). So the new missiles are real choices, none dominant.
+  - Tests (4 new): DECOY (draws fire unless seen, Emergency Counter only
+    goes for unseen ones, no damage), GHOST (auto-defense skips it,
+    Emergency Counter doesn't), BUNKER BUSTER (one-hit node kill, 1.3x
+    easier to hit), ARMORY order. 91/91.
+  - Units (new planes or defenses) weren't part of this pass - split out
+    as LRNA-191.
+- **LRNA-191** — OPEN — More units, each with a clear counter: new strike
+  planes or corridor defenses as ARMORY unlocks (LRNA-177's missile half
+  is done).
 - **LRNA-178** — OPEN — 2-player on the LAN: one player is the Strike
   Platform, the other plays Omega, on two devices. Needs a relay for the
   two browsers to talk through; Arcade 3000 already has one for Mega

@@ -33,7 +33,7 @@ function assertEqual(actual, expected, msg) {
 // LRNA-175: every unlockable item, which the suite gets by default so the
 // older tests can fire any weapon; pass { unlocks: 'starter' } to play as
 // a fresh player, or an array of keys for a partial set.
-const ALL_UNLOCKS = ['large', 'cluster', 'emp', 'strikeFighter', 'strikeBomber', 'heavyBomber', 'gu', 'base'];
+const ALL_UNLOCKS = ['large', 'cluster', 'emp', 'decoy', 'ghost', 'buster', 'strikeFighter', 'strikeBomber', 'heavyBomber', 'gu', 'base'];
 async function withGame(fn, { viewport, skipStart, unlocks = 'all', merit = 0 } = {}) {
   const browser = await chromium.launch({
     executablePath,

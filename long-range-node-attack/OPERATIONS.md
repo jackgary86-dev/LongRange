@@ -37,7 +37,7 @@ Tests:
 cd long-range-node-attack
 npm ci
 npx playwright install chromium    # skip where Chromium is preinstalled
-npm test                           # 87 tests as of LRNA-175
+npm test                           # 91 tests as of LRNA-177
 ```
 Tests drive the game through `window.__TEST__`, which only exists with
 `?test=1` in the URL (or `localStorage.lrna_test_mode = '1'`).
@@ -48,6 +48,7 @@ node tools/simulate.js 6 15 results.json   # games per setup, minutes per game
 SIM_DIFFICULTIES=normal SIM_STRATEGIES=omega,missile-first SIM_SKILLS=sharp \
   SIM_GAME=/path/to/modified/index.html node tools/simulate.js 8 15 whatif.json
 SIM_UNLOCKS=starter node tools/simulate.js 4 15 fresh.json   # a fresh player's kit (LRNA-175)
+SIM_STRATEGIES=fast-nodes,buster-nodes,decoy-ghost node tools/simulate.js 6 15 new.json   # LRNA-177 missiles
 ```
 The simulator and the test suite play with everything unlocked unless
 told otherwise; unlocks are saved per browser in `lrna_unlocks_v1`.

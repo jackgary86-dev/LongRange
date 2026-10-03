@@ -830,10 +830,119 @@ test('LRNA-143/175: CLUSTER and EMP are back on the bar once unlocked, on keys 5
     await page.waitForTimeout(100);
     const fired = await page.evaluate(() => window.__TEST__.missiles.filter((m) => m.originId === 'A').map((m) => m.typeKey));
     assert(r.cluster && r.emp, 'both buttons show when unlocked');
-    assertEqual(r.visible, 8, 'all 3 missiles, CLUSTER, EMP and the 3 planes');
+    assertEqual(r.visible, 11, 'all 3 missiles, CLUSTER, EMP, the 3 LRNA-177 missiles and the 3 planes');
     assert(fired.includes('cluster') && fired.includes('emp'), 'keys 5 and 6 fire them: ' + fired);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
+});
+
+test('LRNA-177: DECOY has no warhead and draws Omega\'s fire unless its radar sees through it', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      const real = Math.random;
+      Math.random = () => 0.9; // above DECOY_SEEN[2] = 0.7: not seen through
+      const fooled = T.launchAttack(T.nodeA, T.nodeO, 'decoy');
+      Math.random = () => 0.1; // seen through
+      const seen = T.launchAttack(T.nodeA, T.nodeO, 'decoy');
+      Math.random = real;
+      fooled.age = seen.age = 2;
+      T.tickUpdate(0.05);
+      const engaged = { fooled: !!fooled.defended, seen: !!seen.defended };
+      // in Omega's Emergency Counter window: only the fooling one is a target
+      fooled.age = seen.age = fooled.totalSeconds - 3;
+      const ec = T.findOmegaEmergencyTarget();
+      T.clearMissiles();
+      const d = T.launchAttack(T.nodeA, T.nodeO, 'decoy');
+      const hp = T.omegaHealth;
+      d.age = d.totalSeconds;
+      T.tickUpdate(0.05);
+      return { engaged, ecTarget: ec && (ec.id === fooled.id ? 'fooled' : ec.id === seen.id ? 'seen' : 'other'),
+        flags: [fooled.decoySeen, seen.decoySeen], hpBefore: hp, hpAfter: T.omegaHealth,
+        gone: !T.missiles.some((m) => m.id === d.id), decoyText: T.floatingTexts.some((f) => f.text === 'DECOY') };
+    });
+    assertEqual(JSON.stringify(r.flags), '[false,true]', 'the radar roll decides which decoys are seen');
+    assert(r.engaged.fooled, "Omega's defenses fire at a decoy they don't see through");
+    assert(!r.engaged.seen, 'a seen decoy is ignored');
+    assertEqual(r.ecTarget, 'fooled', "Omega's Emergency Counter goes for the fooling decoy only");
+    assertEqual(r.hpAfter, r.hpBefore, 'a decoy does no damage');
+    assert(r.gone && r.decoyText, 'it ends with a DECOY marker');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-177: GHOST slips past Omega\'s automatic defenses but not its Emergency Counter', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      const g = T.launchAttack(T.nodeA, T.nodeO, 'ghost');
+      const m = T.launchAttack(T.nodeA, T.nodeO, 'medium');
+      g.age = m.age = 2;
+      T.tickUpdate(0.05);
+      const auto = { ghost: !!g.defended, medium: !!m.defended };
+      T.clearMissiles();
+      const g2 = T.launchAttack(T.nodeA, T.nodeO, 'ghost');
+      g2.age = g2.totalSeconds - 3;
+      const ec = T.findOmegaEmergencyTarget();
+      return { auto, ec: ec && ec.id === g2.id };
+    });
+    assert(!r.auto.ghost, 'the automatic defenses never engage a GHOST');
+    assert(r.auto.medium, '...but do engage a MEDIUM fired alongside it');
+    assert(r.ec, "Omega's Emergency Counter can take it in the last 5 seconds");
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-177: BUNKER BUSTER kills a node in one hit and is easier to shoot down', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      const node = T.fieldTargets.find((t) => t.baseNode && t.kind === 'radarNode');
+      const real = Math.random;
+      Math.random = () => 0.01; // a sure hit
+      const b = T.launchAttack(T.nodeA, node, 'buster');
+      b.age = b.totalSeconds;
+      T.tickUpdate(0.05);
+      Math.random = real;
+      // hit chance of the same counter against each, at the same speed: count
+      // the rolls (0.00..0.99) that succeed
+      const rate = (type) => {
+        T.clearMissiles();
+        const m = T.launchAttack(T.nodeA, T.nodeO, type);
+        m.vx = 1e6; // same (capped) speed factor for both
+        let n = 0;
+        for (let i = 0; i < 100; i++) {
+          Math.random = () => i / 100;
+          const c = T.fireCounter({ id: 'test', x: 0, y: 0, hitChance: 0.5 }, m.id, 'test');
+          if (c.seekSuccess) n += 1;
+        }
+        Math.random = real;
+        return n;
+      };
+      return { destroyed: node.destroyed, buster: rate('buster'), medium: rate('medium') };
+    });
+    assert(r.destroyed, 'one BUNKER BUSTER hit destroys a 400 HP node');
+    assert(Math.abs(r.buster - r.medium * 1.3) <= 1.5, `1.3x easier to hit: buster ${r.buster} vs medium ${r.medium}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-177: the three new missiles are ARMORY unlocks (DECOY, then GHOST; BUSTER after LONG RANGE)', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#armoryBtn');
+    const state = (k) => page.evaluate((k) => document.querySelector(`.unlockBtn[data-unlock="${k}"] .uState`).textContent, k);
+    const before = { ghost: await state('ghost'), buster: await state('buster'), decoy: await state('decoy') };
+    await page.click('.unlockBtn[data-unlock="decoy"]');
+    const ghostAfter = await state('ghost');
+    assertEqual(before.decoy, 'UNLOCK · 10 MERIT', 'DECOY is open to everyone');
+    assertEqual(before.ghost, 'NEEDS DECOY', 'GHOST needs DECOY');
+    assertEqual(before.buster, 'NEEDS LONG RANGE', 'BUNKER BUSTER needs LONG RANGE');
+    assertEqual(ghostAfter, 'UNLOCK · 30 MERIT', 'GHOST opens once DECOY is bought');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { unlocks: 'starter', merit: 40, skipStart: true });
 });
 
 test('LRNA-175: a fresh player starts with FAST, MEDIUM and the 3 starter defenses only', async () => {
@@ -1245,7 +1354,7 @@ test('LRNA-156/ART-14: Esc closes STATS and resumes; a pause made outside STATS 
   });
 });
 
-test('LRNA-168/ART-18/175: on a phone all eight attack buttons share one row, the counter spans the width, and the bar stays slim', async () => {
+test('LRNA-168/ART-18/175/177: on a phone all the attack buttons share one row, the counter spans the width, and the bar stays slim', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {
       const rect = (el) => el.getBoundingClientRect();
@@ -1255,8 +1364,8 @@ test('LRNA-168/ART-18/175: on a phone all eight attack buttons share one row, th
         attackRows: new Set(tops).size, attackButtons: tops.length, emWidth: em.width, scrollWidth: document.documentElement.scrollWidth };
     });
     assert(r.barHeight < r.viewport * 0.28, `the bottom bar should take under 28% of an 844px phone screen (was ~40%): ${r.barHeight}px`);
-    assertEqual(r.attackButtons, 8, 'ATTACK has its 5 missiles and 3 planes (all unlocked, LRNA-175)');
-    assertEqual(r.attackRows, 1, 'all eight in one row');
+    assertEqual(r.attackButtons, 11, 'ATTACK has its 8 missiles and 3 planes (all unlocked, LRNA-175/177)');
+    assertEqual(r.attackRows, 1, 'all in one row (it scrolls sideways past 8)');
     assert(r.emWidth > 300, `EMERGENCY spans the width: ${r.emWidth}px`);
     assert(r.scrollWidth <= 390, `no sideways scroll: ${r.scrollWidth}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
@@ -1961,11 +2070,11 @@ test('ART-18: desktop bar - one row of icon buttons with cost, a cooldown fill, 
         bar: document.getElementById('bottomBar').offsetHeight,
       };
     });
-    assertEqual(r.count, 9, 'eight attack buttons (all unlocked, LRNA-175) and the counter');
+    assertEqual(r.count, 12, 'eleven attack buttons (all unlocked, LRNA-175/177) and the counter');
     assertEqual(r.tops, 1, 'all in one row');
-    assertEqual(r.icons, 9, 'every button has an icon');
-    assertEqual(r.costs.join(','), '100,300,500,750,500,150,350,550', 'each attack button shows its cost');
-    assertEqual(r.tips, 9, 'every button carries its details');
+    assertEqual(r.icons, 12, 'every button has an icon');
+    assertEqual(r.costs.join(','), '100,300,500,750,500,60,400,350,150,350,550', 'each attack button shows its cost');
+    assertEqual(r.tips, 12, 'every button carries its details');
     assert(r.cd > 0 && r.cd <= 1 && /REARM/.test(r.fighterEta), `a rearming plane shows a cooldown fill: ${r.cd} ${r.fighterEta}`);
     assert(r.bar < 800 * 0.22, `the bar is slim: ${r.bar}px`);
     // long-press: the details show and the weapon doesn't fire

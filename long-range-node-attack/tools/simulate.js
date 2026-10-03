@@ -19,13 +19,14 @@ const OUT = process.argv[4] || null;
 // filters for what-if runs: SIM_STRATEGIES=omega,nodes-first SIM_DIFFICULTIES=normal SIM_SKILLS=sharp
 // and SIM_GAME=path/to/a/modified/index.html
 const pickList = (env, all) => (process.env[env] ? process.env[env].split(',') : all);
+// buster-nodes / decoy-ghost are opt-in (LRNA-177): SIM_STRATEGIES=fast-nodes,buster-nodes,decoy-ghost
 const STRATEGIES = pickList('SIM_STRATEGIES', ['omega', 'fast-spam', 'radar-first', 'missile-first', 'nodes-first', 'fast-nodes']);
 const DIFFICULTIES = pickList('SIM_DIFFICULTIES', ['easy', 'normal', 'hard']);
 const ALL_SKILLS = { sharp: 1.0, casual: 0.35 }; // chance per decision to react with the Emergency Counter
 const SKILLS = Object.fromEntries(pickList('SIM_SKILLS', Object.keys(ALL_SKILLS)).map((k) => [k, ALL_SKILLS[k]]));
 // LRNA-175: SIM_UNLOCKS=starter plays as a fresh player (FAST, MEDIUM and the
 // starter defenses only); the default is everything unlocked
-const UNLOCKS = process.env.SIM_UNLOCKS === 'starter' ? [] : ['large', 'cluster', 'emp', 'strikeFighter', 'strikeBomber', 'heavyBomber', 'gu', 'base'];
+const UNLOCKS = process.env.SIM_UNLOCKS === 'starter' ? [] : ['large', 'cluster', 'emp', 'decoy', 'ghost', 'buster', 'strikeFighter', 'strikeBomber', 'heavyBomber', 'gu', 'base'];
 const GAME = 'file://' + path.resolve(process.env.SIM_GAME || path.join(__dirname, '..', 'index.html')) + '?test=1';
 
 // runs inside the page: one whole game
@@ -62,12 +63,18 @@ async function playGame({ strategy, reflex, minutes }) {
       if (strategy === 'radar-first' && standing(om, 'radarNode')) want = 'radarNode';
       if (strategy === 'missile-first' && standing(om, 'missileNode')) want = 'missileNode';
       if (strategy === 'nodes-first') want = standing(om, 'radarNode') ? 'radarNode' : standing(om, 'missileNode') ? 'missileNode' : 'O';
-      if (strategy === 'fast-nodes') want = standing(om, 'missileNode') ? 'missileNode' : standing(om, 'radarNode') ? 'radarNode' : 'O';
+      if (strategy === 'fast-nodes' || strategy === 'buster-nodes' || strategy === 'decoy-ghost') want = standing(om, 'missileNode') ? 'missileNode' : standing(om, 'radarNode') ? 'radarNode' : 'O';
       const cur = T.getTarget(T.selectedTargetId);
       const curKind = !cur || cur.id === 'O' ? 'O' : cur.kind;
       if (curKind !== want) pick(want);
       // 3. fire: planes when ready, then the biggest missile affordable (fast-spam: only FAST)
-      if (strategy === 'fast-nodes' && want !== 'O') {
+      if (strategy === 'buster-nodes' && want !== 'O') {
+        T.attemptFire(T.tokens.attack >= 350 ? 'buster' : 'fast'); // LRNA-177: one BUNKER BUSTER per node
+      } else if (strategy === 'decoy-ghost' && want === 'O') {
+        // LRNA-177: decoys to drain Omega's Emergency Counters, then ghosts
+        for (const k of ['heavyBomber', 'strikeBomber', 'strikeFighter']) if (T.planeSlots[k].state === 'ready') T.firePlane(k);
+        T.attemptFire(T.omegaCounterAmmo.emergency > 3 ? 'decoy' : T.tokens.attack >= 400 ? 'ghost' : 'medium');
+      } else if ((strategy === 'fast-nodes' || strategy === 'decoy-ghost') && want !== 'O') {
         T.attemptFire('fast'); // LRNA-190: FAST at the nodes, planes and heavy missiles at Omega
       } else if (strategy !== 'fast-spam') {
         for (const k of ['heavyBomber', 'strikeBomber', 'strikeFighter']) if (T.isUnlocked(k) && T.planeSlots[k].state === 'ready') T.firePlane(k);

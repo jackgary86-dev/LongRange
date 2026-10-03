@@ -367,6 +367,11 @@
   }
   #btnTip[hidden] { display: none; }
   .launchBtn[hidden] { display: none; } /* LRNA-175: not unlocked yet */
+  /* LRNA-177: up to 11 attack buttons - they shrink to fit, then the row scrolls */
+  .abilityGroup[data-pillar="attack"] { flex: 0 1 auto; }
+  #planeButtons-attack { overflow-x: auto; scrollbar-width: none; }
+  #planeButtons-attack::-webkit-scrollbar { display: none; }
+  #planeButtons-attack .launchBtn { flex: 0 1 88px; min-width: 58px; }
 
 
   /* ---- ART epic 2 (ART-9): the menu design system. Tactical/military,
@@ -619,6 +624,9 @@
     #abilityGroups { flex-direction: column; gap: 5px; }
     .abilityGroupButtons { gap: 4px; }
     .abilityGroup[data-pillar="attack"] .abilityGroupButtons { display: grid; grid-template-columns: repeat(var(--attackCols, 6), minmax(0, 1fr)); } /* LRNA-175: set from what's unlocked */
+    /* LRNA-177: past 8 buttons the phone row scrolls sideways instead of shrinking further */
+    .abilityGroup[data-pillar="attack"] .abilityGroupButtons.scrolls { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 46px; }
+    #planeButtons-attack .launchBtn { min-width: 0; }
     .launchBtn { width: auto; min-width: 0; min-height: 54px; padding: 9px 1px 3px; }
     .btnIcon { width: 28px; height: 14px; }
     .btnLabel { font-size: 9px; letter-spacing: 0.04em; }
@@ -762,6 +770,18 @@
               <span class="btnKey">6</span><span class="btnLabel">EMP</span>
               <span class="btnDmg">500</span><span class="btnEta">18s</span>
             </button>
+            <button class="launchBtn" data-type="decoy" hidden>
+              <span class="btnKey">7</span><span class="btnLabel">DECOY</span>
+              <span class="btnDmg">60</span><span class="btnEta">12s</span>
+            </button>
+            <button class="launchBtn" data-type="ghost" hidden>
+              <span class="btnKey">8</span><span class="btnLabel">GHOST</span>
+              <span class="btnDmg">400</span><span class="btnEta">16s</span>
+            </button>
+            <button class="launchBtn" data-type="buster" hidden>
+              <span class="btnKey">9</span><span class="btnLabel">BUSTER</span>
+              <span class="btnDmg">350</span><span class="btnEta">24s</span>
+            </button>
           </div>
         </div>
         <!-- LRNA-181: one counter - EMERGENCY COUNTER, 15 per game (LRNA-185) -->
@@ -862,10 +882,10 @@
         <p class="howText"><strong>CURRENCY</strong> &mdash; <span style="color:#ff5a36">ATTACK</span> pays for warheads and strike planes. It trickles in, and hits pay back part of their cost.</p>
       </div>
       <div class="mPanel">
-        <p class="howText"><strong>ARMORY</strong> &mdash; you start with FAST and MEDIUM. Waves cleared, Omega kills and mission stars earn MERIT between games; spend it in the ARMORY on LONG RANGE, CLUSTER, EMP, strike planes and more defenses.</p>
+        <p class="howText"><strong>ARMORY</strong> &mdash; you start with FAST and MEDIUM. Waves cleared, Omega kills and mission stars earn MERIT between games; spend it in the ARMORY on more missiles, strike planes and defenses.</p>
       </div>
       <div class="mPanel">
-        <p class="howText"><strong>CONTROLS</strong> &mdash; drag or arrow keys to look around, tap a missile to follow it, keys 1-3 fire missiles, 4 fires the Emergency Counter, 5 and 6 fire CLUSTER and EMP once unlocked, R restarts.</p>
+        <p class="howText"><strong>CONTROLS</strong> &mdash; drag or arrow keys to look around, tap a missile to follow it, keys 1-3 and 5-9 fire missiles, 4 fires the Emergency Counter, R restarts.</p>
       </div>
     </section>
   </div>
@@ -1644,6 +1664,18 @@
     // engagement and flak) for EMP_JAM_DURATION seconds instead, opening a
     // window to land a real strike unopposed.
     emp:     { label: 'EMP',         names: ['STORM', 'PULSE', 'SURGE', 'ARC'],        eta: 18, dmg: 200,  radius: 7, color: '#fff066', peak: 260, cost: 500 },
+    // LRNA-177: three more missiles, each with a clear counter.
+    // DECOY: no warhead. Omega's defenses shoot at it like a real one, using
+    // up their shots and Emergency Counters. Counter: Omega's radar sees
+    // through it (DECOY_SEEN by radar nodes standing).
+    decoy:   { label: 'DECOY',       names: ['ECHO', 'MIRAGE', 'PHANTOM', 'SHADE'],    eta: 12, dmg: 0,    radius: 5, color: '#cfcbb3', peak: 170, cost: 60,  burn: 5, decoy: true },
+    // GHOST: Omega's automatic defenses never see it. Counter: Omega's
+    // Emergency Counter still can, in the last 5 seconds.
+    ghost:   { label: 'GHOST',       names: ['WRAITH', 'SPECTRE', 'SHADOW', 'VEIL'],   eta: 16, dmg: 250,  radius: 6, color: '#93a3a8', peak: 210, cost: 400, burn: 8, ghost: true },
+    // BUNKER BUSTER: x3 against Omega's radar and missile nodes (600, kills
+    // a 400 HP node in one hit), weak against Omega. Counter: slow and big,
+    // so Omega's defenses hit it more often (BUSTER_EASY_HIT).
+    buster:  { label: 'BUNKER BUSTER', names: ['DRILL', 'AUGER', 'PICK', 'SPADE'],     eta: 24, dmg: 200,  radius: 8, color: '#bfae86', peak: 250, cost: 350, burn: 12, nodeMult: 3, easyTarget: true },
     // Omega's own offensive strike on the Strike Platform - not player-selectable
     // (no launch button), scaled for nodeA's 0-PLAYER_MAX_HEALTH regenerating
     // health, not the player's node-count/health-pool damage tiers above.
@@ -1761,7 +1793,11 @@
   // LRNA-190: FAST's job - a cheap, quick precision shot that hits the
   // nodes hard (4x: 200 a hit, two FASTs kill a 400 HP node for 200 ATTACK)
   const FAST_NODE_BONUS = 4;
-  function fastNodeBonus(m, dest) { return m.typeKey === 'fast' && m.originId === 'A' && dest && dest.baseNode ? FAST_NODE_BONUS : 1; }
+  // LRNA-177: BUNKER BUSTER x3 against the nodes too
+  function nodeBonus(m, dest) {
+    if (m.originId !== 'A' || !dest || !dest.baseNode) return 1;
+    return m.typeKey === 'fast' ? FAST_NODE_BONUS : (TYPES[m.typeKey] && TYPES[m.typeKey].nodeMult) || 1;
+  }
   const NODE_STRIKE_SHARE = 0.35;        // share of Omega's strikes sent at your nodes (LRNA-187: was 0.25)
   const PLAYER_NODE_HP = 60;             // LRNA-187: your nodes (Omega's stay at 400 vs your heavier weapons)
   function makeBaseNodes(faction, x0, x1, colors) {
@@ -1832,6 +1868,9 @@
   // LRNA-186: Omega's radar also guides its own strikes - each radar lost
   // makes them miss more (85% hit with both, 70% with one, 50% blind), and
   // costs it RADAR_COUNTER_LOSS of its Emergency Counters on the spot.
+  // LRNA-177: chance Omega's radar sees a DECOY for what it is (0, 1, 2 radars)
+  const DECOY_SEEN = [0, 0.35, 0.7];
+  const BUSTER_EASY_HIT = 1.3; // Omega's defenses vs a BUNKER BUSTER
   const OMEGA_AIM = [0.5 / 0.85, 0.7 / 0.85, 1];
   const RADAR_COUNTER_LOSS = 4;
   function omegaAim() { return OMEGA_AIM[standing(omegaNodes(), 'radarNode')]; }
@@ -1889,6 +1928,9 @@
     { key: 'strikeFighter', kind: 'PLANE', cost: 15, needs: 'large' },
     { key: 'strikeBomber', kind: 'PLANE', cost: 25, needs: 'strikeFighter' },
     { key: 'heavyBomber', kind: 'PLANE', cost: 35, needs: 'strikeBomber' },
+    { key: 'decoy', kind: 'MISSILE', cost: 10 }, // LRNA-177
+    { key: 'buster', kind: 'MISSILE', cost: 20, needs: 'large' },
+    { key: 'ghost', kind: 'MISSILE', cost: 30, needs: 'decoy' },
     { key: 'gu', kind: 'DEFENSE', cost: 10 },
     { key: 'base', kind: 'DEFENSE', cost: 15 },
   ];
@@ -2457,6 +2499,7 @@
   };
   const ABILITY_PILLARS = {
     fast: 'attack', medium: 'attack', large: 'attack', cluster: 'attack', emp: 'attack',
+    decoy: 'attack', ghost: 'attack', buster: 'attack', // LRNA-177
   };
 
   // ---- PLANE ARSENAL (LRNA-078, issue #435, LRNA-047's "Plane Class"):
@@ -2774,6 +2817,8 @@
       smokeTimer: 0,
       weavePhase: Math.random() * Math.PI * 2,
     };
+    if (t.decoy) missile.decoySeen = Math.random() < DECOY_SEEN[standing(omegaNodes(), 'radarNode')]; // LRNA-177
+    if (t.ghost) missile.ghost = true;
     if (WEAVE_ELIGIBLE[typeKey]) {
       missile.pathProfile = PLANE_PATHS[(Math.random() * PLANE_PATHS.length) | 0];
     }
@@ -2805,6 +2850,7 @@
     const lane = (Math.random() - 0.5) * LANE_SPAN;
     let baseHitChance = origin.hitChance != null ? origin.hitChance : COUNTER.hitChance;
     if (origin.id === 'O' || origin.faction === 'enemy') baseHitChance *= omegaSight(); // LRNA-182
+    if (target.easyTarget || (TYPES[target.typeKey] && TYPES[target.typeKey].easyTarget)) baseHitChance *= BUSTER_EASY_HIT; // LRNA-177
     const hitChance = Math.min(0.92, baseHitChance * speedInterceptFactor(target.vx));
     const success = Math.random() < hitChance;
     // Planes (LRNA-078/#435) fly at a constant, much slower speed than a
@@ -2992,6 +3038,7 @@
     let best = null, bestRemaining = Infinity;
     for (const m of missiles) {
       if (m.originId !== 'A' || m.typeKey === 'counter') continue;
+      if (m.decoySeen) continue; // LRNA-177: its radar saw through this decoy
       if ((m.omegaEmergencyUsed || 0) >= EMERGENCY_MAX_PER_TARGET) continue;
       if (missiles.some(c => c.typeKey === 'counter' && c.source === 'omegaEmergency' && c.seekTargetId === m.id)) continue;
       const remaining = m.totalSeconds - m.age;
@@ -3612,7 +3659,7 @@
       // filter concept at all), which was shooting planes down almost
       // immediately after launch, well before they could ever reach
       // their target.
-      if (m.typeKey !== 'counter' && m.typeKey !== 'plane' && !m.defended && m.age > 1.1) {
+      if (m.typeKey !== 'counter' && m.typeKey !== 'plane' && !m.defended && m.age > 1.1 && !m.ghost && !m.decoySeen) { // LRNA-177
         const defender = getDefender(m.destId);
         if (defender && activeCount(defender.id) < DEFENSE_ENGAGE_CAP) {
           m.defended = true;
@@ -3875,6 +3922,13 @@
         // missile, a counter, etc.) would still take a "ghost hit" -
         // awarding rewards and re-triggering destroy logic on a corpse.
         const targetAlive = !!dest && !dest.destroyed && !(dest.id === 'O' && omegaHealth <= 0);
+        if (m.typeKey === 'decoy') { // LRNA-177: no warhead - it only had to draw fire
+          spawnBurst(m.x, vh() / 2 + m.laneY, '#cfcbb3', 10);
+          spawnFloatText(m.x, vh() / 2 + m.laneY - 30, 'DECOY', '#cfcbb3', 22);
+          if (followId === m.id) followId = null;
+          toRemove.add(m.id);
+          continue;
+        }
         const hit = targetAlive && Math.random() < HIT_CHANCE * (m.originId === 'O' ? omegaAim() : 1); // LRNA-186
         if (hit) {
           const isPlayerShot = m.originId === 'A';
@@ -3914,12 +3968,12 @@
               if (applyDamage(dest, jx, jLaneY, perHit)) justDestroyed = true;
             }
           } else {
-            const blastScale = m.typeKey === 'large' ? 2.6 : m.typeKey === 'medium' ? 1.7 : 1;
+            const blastScale = m.typeKey === 'large' ? 2.6 : m.typeKey === 'medium' || m.typeKey === 'buster' || m.typeKey === 'ghost' ? 1.7 : 1;
             spawnExplosion(m.x, dest.y + m.laneY, m.color, blastScale, m.sizeKey || m.typeKey);
             spawnScorch(m.x, 24 + 22 * blastScale, m.color + '55');
-            justDestroyed = applyDamage(dest, m.x, m.laneY, m.dmg * fastNodeBonus(m, dest));
+            justDestroyed = applyDamage(dest, m.x, m.laneY, m.dmg * nodeBonus(m, dest));
           }
-          impactFeedback(dest, m.x, dest.y + m.laneY, m.dmg * fastNodeBonus(m, dest), m.typeKey === 'emp' ? 1 : m.splitCount > 0 ? 1.7
+          impactFeedback(dest, m.x, dest.y + m.laneY, m.dmg * nodeBonus(m, dest), m.typeKey === 'emp' ? 1 : m.splitCount > 0 ? 1.7
             : m.typeKey === 'large' ? 2.6 : m.typeKey === 'medium' ? 1.7 : (m.sizeKey === 'large' ? 2 : m.sizeKey === 'medium' ? 1.4 : 1), isPlayerShot);
           if (justDestroyed && isPlayerShot) {
             retargetAfterKill(dest); // LRNA-183
@@ -4349,6 +4403,7 @@
     ctx.save();
     ctx.translate(x, y);
     if (angle) ctx.rotate(angle);
+    if (typeKey === 'ghost') ctx.globalAlpha *= 0.45; // LRNA-177: stealth
     ctx.fillStyle = color;
     // ART-16: a soft drop shadow (sun from the upper left) instead of a neon glow
     ctx.shadowColor = 'rgba(12,14,8,0.55)';
@@ -4381,11 +4436,11 @@
       }
     } else if (typeKey === 'emp') {
       drawEmpOrb(r); // ART-2: non-kinetic energy weapon, not another explosive body
-    } else if (typeKey === 'fast') {
+    } else if (typeKey === 'fast' || typeKey === 'decoy') {
       drawFastMissile(r); // ART-2
-    } else if (typeKey === 'medium') {
+    } else if (typeKey === 'medium' || typeKey === 'ghost') {
       drawMediumMissile(r); // ART-2
-    } else if (typeKey === 'large') {
+    } else if (typeKey === 'large' || typeKey === 'buster') {
       drawHeavyMissile(r); // ART-2
     } else if (typeKey === 'plane') {
       drawPlaneIcon(r, planeKind);
@@ -5733,6 +5788,9 @@
     heavyBomber: '<path d="M31 8 24 6.3 13 0H8l6 6.3H5L2 3H0l1.5 5L0 13h2l3-3.3h9l-6 6.3h5l11-6.3z"/><path d="M11 3.2h3v1.6h-3zM11 11.2h3v1.6h-3z"/>',
     cluster: '<path d="M2 8 5 5h14l5 3-5 3H5z"/><circle cx="26" cy="4" r="2"/><circle cx="29" cy="8" r="2"/><circle cx="26" cy="12" r="2"/>',
     emp: '<path d="M2 8 5 5h16l6 3-6 3H5z"/><path d="M27 1l-3 6h3l-3 8 7-9h-3l2-5z"/>',
+    decoy: '<path d="M3 8 6 5.5h17l6 2.5-6 2.5H6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.5"/>',
+    ghost: '<path d="M2 8 5 5h18l7 3-7 3H5z" opacity="0.5"/><path d="M2 3.5h4l3 4.5-3 4.5H2z" opacity="0.5"/>',
+    buster: '<path d="M1 8 4 4h19l8 4-8 4H4z"/><path d="M27 6.5h4v3h-4z" fill="#000" opacity="0.35"/><path d="M1 2h5l3 6-3 6H1z"/>',
     emergency: '<circle cx="16" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.2 0h1.6v5h-1.6zM15.2 11h1.6v5h-1.6zM6 7.2h5v1.6H6zM21 7.2h5v1.6h-5z"/>',
   };
   const PLANE_SHORT = { strikeFighter: 'FIGHTER', strikeBomber: 'BOMBER', heavyBomber: 'HEAVY' };
@@ -5742,10 +5800,17 @@
     }
     if (details) { btn.title = details; btn.dataset.tip = details; }
   }
+  // LRNA-177: what the special missiles do, for their details and the ARMORY
+  const WEAPON_NOTES = {
+    decoy: "no warhead - Omega's defenses waste shots and Emergency Counters on it, unless its radar sees through it",
+    ghost: `${TYPES.ghost.dmg} damage - Omega's automatic defenses can't see it; only its Emergency Counter can, in the last 5s`,
+  };
   for (const b of document.querySelectorAll('.launchBtn[data-type]')) {
     const t = TYPES[b.dataset.type];
-    const extra = b.dataset.type === 'fast' ? ` (${t.dmg * FAST_NODE_BONUS} against radar and missile nodes)` : ''; // LRNA-190
-    decorateButton(b, b.dataset.type, `${t.label} - ${t.eta}s flight, ${t.dmg} damage${extra}, ${t.cost} ATTACK. 3 warheads, then a ${TURN_COOLDOWN}s reload.`);
+    const extra = b.dataset.type === 'fast' ? ` (${t.dmg * FAST_NODE_BONUS} against radar and missile nodes)` // LRNA-190
+      : t.nodeMult ? ` (${t.dmg * t.nodeMult} against radar and missile nodes; slow, so easier to shoot down)` : '';
+    const what = WEAPON_NOTES[b.dataset.type] || `${t.dmg} damage${extra}`; // LRNA-177
+    decorateButton(b, b.dataset.type, `${t.label} - ${t.eta}s flight, ${what}, ${t.cost} ATTACK. 3 warheads, then a ${TURN_COOLDOWN}s reload.`);
   }
   decorateButton(emergencyBtnEl, 'emergency', emergencyBtnEl.title);
   emergencyBtnEl.dataset.tip = emergencyBtnEl.title;
@@ -5834,7 +5899,9 @@
     let shown = 0;
     for (const b of launchButtons) { b.hidden = !isUnlocked(b.dataset.type); if (!b.hidden) shown += 1; }
     for (const [key, b] of Object.entries(planeButtonEls)) { b.hidden = !isUnlocked(key); if (!b.hidden) shown += 1; }
-    document.getElementById('planeButtons-attack').style.setProperty('--attackCols', shown);
+    const row = document.getElementById('planeButtons-attack');
+    row.style.setProperty('--attackCols', shown);
+    row.classList.toggle('scrolls', shown > 8); // LRNA-177
   }
   applyUnlocksToBar();
 
@@ -5844,6 +5911,9 @@
       const t = TYPES[key];
       const what = key === 'cluster' ? `Splits into ${t.splitCount} warheads, ${t.dmg} damage in all`
         : key === 'emp' ? `${t.dmg} damage, and blacks out all of Omega's defenses for ${EMP_JAM_DURATION}s`
+        : key === 'decoy' ? "No warhead. Omega's defenses waste shots and Emergency Counters on it. Counter: Omega's radar sees through some - fewer with its radar nodes down"
+        : key === 'ghost' ? `${t.dmg} damage, unseen by Omega's automatic defenses. Counter: Omega's Emergency Counter, in the last 5s`
+        : key === 'buster' ? `${t.dmg * t.nodeMult} damage to a radar or missile node (one hit kills it), ${t.dmg} to Omega. Counter: slow and big, so easier to shoot down`
         : `${t.dmg} damage`;
       return { label: t.label, desc: `${what}. ${t.eta}s flight, ${t.cost} ATTACK.` };
     }
@@ -5920,10 +5990,11 @@
   // the Emergency Counter (LRNA-181).
   // CLUSTER/EMP removed for now (direct request), so ATTACK only
   // contributes FAST/MEDIUM/LARGE here.
-  // LRNA-175: 5 and 6 fire CLUSTER and EMP once they're unlocked
-  const SHORTCUT_KEYS = ['1', '2', '3', '4', '5', '6'];
+  // LRNA-175: 5 and 6 fire CLUSTER and EMP once they're unlocked;
+  // LRNA-177: 7-9 DECOY, GHOST and BUNKER BUSTER
+  const SHORTCUT_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
   const byType = (k) => launchButtons.find(b => b.dataset.type === k);
-  const shortcutButtons = [byType('fast'), byType('medium'), byType('large'), emergencyBtnEl, byType('cluster'), byType('emp')];
+  const shortcutButtons = [byType('fast'), byType('medium'), byType('large'), emergencyBtnEl, byType('cluster'), byType('emp'), byType('decoy'), byType('ghost'), byType('buster')];
   window.addEventListener('keydown', (e) => {
     if (!running) return;
     // OS-level key-repeat while a shortcut is held would otherwise
