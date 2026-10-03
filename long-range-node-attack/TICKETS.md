@@ -816,6 +816,58 @@ Order: ART-19 + ART-17 + ART-18 together (the declutter, one layout
 pass), then ART-21, ART-20, ART-16, ART-22. Each keeps the suite green and
 gets desktop (1280x800) and phone (390x844) screenshot checks.
 
+## OPEN — LRNA-182: missile and radar nodes in front of each base (2026-10-03)
+
+Request: "Make a button to attack the nodes in front of the base - add
+buttons to attack Missile and Radar nodes - as missile nodes are
+destroyed you lose money earnings, and radar you can't see missiles
+coming in." Asked directly; the owner's answers: Omega's missile nodes
+feed its **waves**; its radar nodes feed its **defenses** (fewer radars,
+fewer intercepts); **both sides** get them; the buttons are **target
+buttons**.
+
+- **LRNA-182** — OPEN — Missile and radar nodes.
+
+  Each side gets a row of nodes in front of its base, visible from the
+  start (no recon - LRNA-180 stays):
+  - **Omega's missile nodes** (proposal: 3). Each one destroyed makes
+    Omega's waves smaller and slower (proposal: -20% strikes per wave and
+    +20% time between strikes each; all 3 gone = 40% of normal).
+  - **Omega's radar nodes** (proposal: 2). Each one destroyed cuts what
+    Omega's defenses can see: its Emergency Counter and flak lose a share
+    of their hit chance (proposal: -40% per radar; both gone = they can't
+    see your missiles at all).
+  - **Your missile nodes** (proposal: 3, between your platform and the
+    corridor). Omega's strikes can target them; each one lost cuts your
+    ATTACK income (proposal: -25% of the passive rate and hit refunds).
+  - **Your radar nodes** (proposal: 2). Each one lost blinds you a bit:
+    inbound threats show up later (proposal: on the strip, the incoming
+    warning and the Emergency Counter, a threat only appears once it's
+    within 60% / 30% of its flight; both gone = only in the last 5s).
+  - Omega's waves send some strikes at your nodes (proposal: 1 in 4)
+    instead of always at the platform.
+
+  **Buttons:** two target buttons on the bar, MISSILE NODES and RADAR
+  NODES, next to the target label. A tap aims your next shots at the
+  nearest standing enemy node of that kind (the reticle moves there);
+  they grey out when that kind is all destroyed. Tapping the nodes on the
+  field and the target list still work too.
+
+  **Show it:** each node as its own unit in the ART-16 style (a missile
+  battery with launch tubes, a radar mast with a dish), health bars, on
+  the strip, and their status on the HUD (Omega's under its bar, e.g.
+  MSL 2/3 · RDR 1/2; yours under yours). HOW TO PLAY gets a line on why
+  they matter.
+
+  Decide while doing it: the node counts and the percentages above, and
+  their health (proposal: 400 each, between a launcher and a sub-base).
+  Missions may add one (e.g. "Blind Omega: destroy both radar nodes").
+
+  Done when: both sides have both node kinds; destroying them changes
+  waves, defenses, income and threat visibility as above; the two buttons
+  work; tests cover each effect; the suite is green and installer, Alert
+  copy, demo and Pages are updated.
+
 ## OPEN — Counter Center Restructuring
 
 Direct request from a live design-review session (2026-09-29), working from
