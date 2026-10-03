@@ -373,6 +373,77 @@ never pixels) passed unmodified through every one of them.
 
 ---
 
+## OPEN — Player feedback (2026-10-03)
+
+Asked directly what to improve. Answers, in the owner's words where given:
+- Bothers most: difficulty is off, it's hard to understand ("what to do
+  first"), and it gets repetitive.
+- On difficulty and recon: "It seems like the recon phase is empty and
+  doesn't really make any difference - I need to be able to clearly select
+  my target to go after the Radar defense and attack nodes in front of the
+  base then attack the base."
+- Wants all four kinds of new content (missions, Omega boss phases, 2-player
+  on the LAN, more weapons and units); **missions with goals first**.
+- Progression: unlocks between games, of **new weapons** and **loadout
+  nodes**.
+- Presentation priority: **visual effects**.
+
+LRNA-172 is the foundation the rest build on: missions (LRNA-174) are
+built out of its objective chain, and unlocks (LRNA-175) are earned in
+missions.
+
+- **LRNA-172** — OPEN — Make recon matter: a clear find → clear the
+  defenses → hit the base chain. Today recon only lifts the opening lock;
+  what it finds (2 AntiPlane "radar" defenses, 3 SEEK AND DESTROY nodes)
+  doesn't change what the player does next, and targets are picked from a
+  list hidden in STATS. Proposed:
+  - **Forward defenses in front of the base:** the AntiPlane nodes become
+    the "radar defense" and the SEEK AND DESTROY attack/counter nodes the
+    "attack nodes", all placed between the field and Omega.
+  - **Omega is shielded** until the forward defenses are down (or reduced
+    damage while any stand), so the order is real: find them, kill them,
+    then the base.
+  - **Undiscovered defenses hurt:** radar defenses intercept more of your
+    shots and attack nodes strengthen Omega's strikes while they're up, so
+    finding them early pays off.
+  - **Clear target selection on the main screen:** tap a discovered node on
+    the battlefield or the lane strip to target it; the selected target is
+    highlighted and named on the launch bar (no trip into STATS).
+  - **Objective tracker** (also LRNA-173): "1. Find the radar defenses 0/2
+    · 2. Destroy the forward nodes 0/5 · 3. Attack Node Omega".
+  - Open questions: shield vs. damage reduction on Omega; whether the
+    chain restarts when Omega rebuilds (each rebuild re-arms new forward
+    defenses, which would also help "repetitive"); how many of each node.
+- **LRNA-173** — OPEN — First game: show what to do next. The objective
+  tracker from LRNA-172 plus a pulse on the one button that does the next
+  step (DRONE/RECON PLANE during recon, then the target and a weapon).
+  Answers "what to do first"; no separate tutorial screen.
+- **LRNA-174** — OPEN — Missions with goals (build first, after LRNA-172).
+  A mission list beside the endless mode: each mission a fixed layout,
+  objective (e.g. "destroy both radar defenses in 3 minutes", "survive 8
+  waves with no Emergency Counters", "kill Omega without losing a node")
+  and 1-3 stars. Open: how many missions to start with (proposal: 8), and
+  whether endless stays the default mode.
+- **LRNA-175** — OPEN — Unlocks between games: new weapons and loadout
+  nodes. Earn points from missions (stars) and endless runs; spend them to
+  unlock weapons (LONG RANGE, then CLUSTER and EMP back on the bar, then
+  attack planes) and loadout nodes (Satellite, Base, Ground Units). Every
+  game still starts fair within what's unlocked. Open: starting set
+  (proposal: FAST, MEDIUM, DRONE; GML and MG AA nodes), and costs.
+- **LRNA-176** — OPEN — Omega boss phases. Omega changes tactics at
+  75/50/25% health (e.g. faster strikes, a shield burst, launching its own
+  planes), announced on screen, so a fight builds instead of repeating.
+- **LRNA-177** — OPEN — More weapons and units, each with a clear counter.
+  Comes after LRNA-175 so new ones arrive as unlocks.
+- **LRNA-178** — OPEN — 2-player on the LAN: one player is the Strike
+  Platform, the other plays Omega, on two devices. Needs a relay for the
+  two browsers to talk through; Arcade 3000 already has one for Mega
+  Checkers (`Rooms`, `/api/hexsiege/rooms*`). Largest of the set.
+- **LRNA-179** — OPEN — Visual effects pass (the owner's presentation
+  priority): bigger, distinct explosions per weapon, Omega damage states
+  (smoke, fire, exposed core as health drops), and a clear "what hit what"
+  (interceptor trails that end in a visible kill).
+
 ## OPEN — Counter Center Restructuring
 
 Direct request from a live design-review session (2026-09-29), working from
