@@ -9,6 +9,12 @@
 // not 30 real ones.
 const { withGame, assert, assertEqual, test, run } = require('./lib');
 
+// ART-14: STATS and SOUND live in the in-game menu now; open it first.
+async function menuClick(page, id) {
+  if (!(await page.evaluate(() => window.__TEST__.gameMenuOpen))) await page.click('#menuBtn');
+  await page.click('#' + id);
+}
+
 function advance(T, seconds, step = 0.05) {
   const steps = Math.round(seconds / step);
   for (let i = 0; i < steps; i++) T.tickUpdate(step);
@@ -471,7 +477,7 @@ test('LRNA-117: Recon Plane button disables once every hidden node is already fo
   }); // NOT skipStart: antiPlaneNodes/seekDestroyNodes are only populated once the game actually starts
 });
 
-test('LRNA-119: pause button freezes real-time simulation and blocks actions', async () => {
+test('LRNA-119/ART-14: the in-game menu pause freezes real-time simulation and blocks actions', async () => {
   await withGame(async (page, errors) => {
     await page.evaluate(() => window.__TEST__.forceOpeningUnlock()); // LRNA-080: this test fires attack-pillar weapons directly
     // sanity: passive token income should accrue in real time before pausing
@@ -480,15 +486,13 @@ test('LRNA-119: pause button freezes real-time simulation and blocks actions', a
     const t1 = await page.evaluate(() => window.__TEST__.tokens.attack);
     assert(t1 > t0, 'tokens should accrue in real time while unpaused');
 
-    await page.click('#pauseBtn');
+    await page.click('#menuBtn'); // ART-14: the in-game menu is the pause
     const afterClick = await page.evaluate(() => ({
       paused: window.__TEST__.paused,
-      bannerHidden: document.getElementById('pausedBanner').classList.contains('hidden'),
-      btnLabel: document.getElementById('pauseBtn').textContent,
+      menuShown: !document.getElementById('gameMenu').classList.contains('hidden'),
     }));
-    assert(afterClick.paused, 'clicking PAUSE should actually pause the game');
-    assert(!afterClick.bannerHidden, 'PAUSED banner should be visible');
-    assertEqual(afterClick.btnLabel, 'RESUME', 'button should flip to RESUME while paused');
+    assert(afterClick.paused, 'opening the menu should actually pause the game');
+    assert(afterClick.menuShown, 'the PAUSED menu should be visible');
 
     const t2 = await page.evaluate(() => window.__TEST__.tokens.attack);
     await page.waitForTimeout(700);
@@ -504,15 +508,13 @@ test('LRNA-119: pause button freezes real-time simulation and blocks actions', a
     });
     assertEqual(firedWhilePaused, 0, 'attemptFire should refuse to launch anything while paused');
 
-    await page.click('#pauseBtn');
+    await page.click('#menuResume');
     const afterResume = await page.evaluate(() => ({
       paused: window.__TEST__.paused,
-      bannerHidden: document.getElementById('pausedBanner').classList.contains('hidden'),
-      btnLabel: document.getElementById('pauseBtn').textContent,
+      menuShown: !document.getElementById('gameMenu').classList.contains('hidden'),
     }));
     assert(!afterResume.paused, 'clicking RESUME should unpause');
-    assert(afterResume.bannerHidden, 'PAUSED banner should hide again');
-    assertEqual(afterResume.btnLabel, 'PAUSE');
+    assert(!afterResume.menuShown, 'the menu should close again');
 
     const firedAfterResume = await page.evaluate(() => {
       const T = window.__TEST__;
@@ -537,9 +539,9 @@ test('LRNA-120: mute button silences audio and persists across reload', async ()
     // tiny precision loss vs. the float64 MASTER_VOLUME constant - compare
     // with a tolerance instead of exact equality.
     assert(Math.abs(initial.gain - initial.volume) < 0.001, `audio should play at full volume when unmuted: ${initial.gain} vs ${initial.volume}`);
-    assertEqual(initial.label, 'MUTE');
+    assertEqual(initial.label, 'SOUND: ON');
 
-    await page.click('#muteBtn');
+    await menuClick(page, 'muteBtn');
     const afterMute = await page.evaluate(() => ({
       muted: window.__TEST__.muted,
       gain: window.__TEST__.masterGainValue,
@@ -547,7 +549,7 @@ test('LRNA-120: mute button silences audio and persists across reload', async ()
     }));
     assert(afterMute.muted, 'clicking MUTE should mute');
     assertEqual(afterMute.gain, 0, 'master gain should drop to 0 while muted');
-    assertEqual(afterMute.label, 'UNMUTE');
+    assertEqual(afterMute.label, 'SOUND: OFF');
 
     // the preference must survive a reload, and apply immediately to a
     // freshly-created audio context on the next game start - not just to
@@ -564,9 +566,9 @@ test('LRNA-120: mute button silences audio and persists across reload', async ()
       label: document.getElementById('muteBtn').textContent,
     }));
     assertEqual(afterReloadStart.gain, 0, 'a freshly created audio context should honor the persisted mute preference immediately');
-    assertEqual(afterReloadStart.label, 'UNMUTE');
+    assertEqual(afterReloadStart.label, 'SOUND: OFF');
 
-    await page.click('#muteBtn');
+    await menuClick(page, 'muteBtn');
     const afterUnmute = await page.evaluate(() => ({
       muted: window.__TEST__.muted,
       gain: window.__TEST__.masterGainValue,
@@ -1498,16 +1500,16 @@ test('LRNA-158: STATS button opens a pure reference window - GAME MODE/RUN STATS
     const beforeOpen = await page.evaluate(() => ({
       missionMapOpen: window.__TEST__.missionMapOpen,
     }));
-    await page.click('#statsBtn');
+    await menuClick(page, 'statsBtn');
     const afterOpen = await page.evaluate(() => ({
       missionMapOpen: window.__TEST__.missionMapOpen,
-      statsBtnHidden: document.getElementById('statsBtn').classList.contains('hidden'),
+      menuBtnHidden: document.getElementById('menuBtn').classList.contains('hidden'),
       noCounterSection: !document.getElementById('missionMapCounterSection'),
       noReconSection: !document.getElementById('missionMapReconSection'),
     }));
     assert(!beforeOpen.missionMapOpen, 'STATS should start closed');
     assert(afterOpen.missionMapOpen, 'the STATS button should open the window');
-    assert(afterOpen.statsBtnHidden, 'opening STATS should hide its own entry button behind it');
+    assert(afterOpen.menuBtnHidden, 'opening STATS should hide the MENU button behind it');
     assert(afterOpen.noCounterSection, 'the old COUNTER section should no longer exist anywhere - it moved to the bottom bar (direct-fire) entirely');
     assert(afterOpen.noReconSection, 'the old RECON section should no longer exist inside the window');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
@@ -1516,7 +1518,7 @@ test('LRNA-158: STATS button opens a pure reference window - GAME MODE/RUN STATS
 
 test('LRNA-156: opening STATS pauses the battle and closing it resumes', async () => {
   await withGame(async (page, errors) => {
-    await page.click('#statsBtn');
+    await menuClick(page, 'statsBtn');
     const open = await page.evaluate(async () => {
       const T = window.__TEST__;
       T.freezeWaves();
@@ -1527,40 +1529,28 @@ test('LRNA-156: opening STATS pauses the battle and closing it resumes', async (
       return {
         paused: T.paused,
         moved: m.x !== x0,
-        banner: !document.getElementById('pausedBanner').classList.contains('hidden'),
-        pauseLabel: document.getElementById('pauseBtn').textContent,
       };
     });
     await page.click('#missionMapClose');
-    const closed = await page.evaluate(() => ({
-      paused: window.__TEST__.paused,
-      banner: !document.getElementById('pausedBanner').classList.contains('hidden'),
-    }));
+    const closed = await page.evaluate(() => ({ paused: window.__TEST__.paused }));
     assert(open.paused, 'the battle should be paused while STATS is open');
     assert(!open.moved, 'an inbound strike should not move while STATS is open');
-    assert(open.banner && open.pauseLabel === 'RESUME', `the normal PAUSED banner and RESUME label should show: ${JSON.stringify(open)}`);
-    assert(!closed.paused && !closed.banner, 'closing STATS should resume the battle');
+    assert(!closed.paused, 'closing STATS should resume the battle');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
 
-test('LRNA-156: STATS only undoes its own pause - a manual pause or manual resume is left alone', async () => {
+test('LRNA-156/ART-14: Esc closes STATS and resumes; a pause made outside STATS is left alone', async () => {
   await withGame(async (page, errors) => {
-    // Already paused by the player before opening: stays paused after closing.
-    await page.click('#pauseBtn');
-    await page.click('#statsBtn');
+    await menuClick(page, 'statsBtn');
+    await page.keyboard.press('Escape');
+    const afterEsc = await page.evaluate(() => ({ open: window.__TEST__.missionMapOpen, paused: window.__TEST__.paused }));
+    // already paused some other way before STATS opens: closing it leaves that pause
+    await page.evaluate(() => { window.__TEST__.setPaused(true); document.getElementById('statsBtn').click(); });
     await page.click('#missionMapClose');
     const prePaused = await page.evaluate(() => window.__TEST__.paused);
-    await page.click('#pauseBtn'); // back to running
-    // Resumed by hand while STATS is up: closing doesn't change it.
-    await page.click('#statsBtn');
-    await page.evaluate(() => document.getElementById('pauseBtn').click());
-    const resumedWhileOpen = await page.evaluate(() => window.__TEST__.paused);
-    await page.click('#missionMapClose');
-    const afterClose = await page.evaluate(() => window.__TEST__.paused);
-    assert(prePaused, 'a pause the player made before opening STATS should survive closing it');
-    assert(!resumedWhileOpen, 'sanity check - RESUME should work while STATS is open');
-    assert(!afterClose, 'closing STATS after a manual resume should leave the battle running');
+    assert(!afterEsc.open && !afterEsc.paused, `Esc closes STATS and the battle runs again: ${JSON.stringify(afterEsc)}`);
+    assert(prePaused, 'a pause STATS did not make survives closing it');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
@@ -1568,7 +1558,7 @@ test('LRNA-156: STATS only undoes its own pause - a manual pause or manual resum
 test('LRNA-167: a discovered hidden node joins TARGETS and a missile aimed at it can destroy it', async () => {
   await withGame(async (page, errors) => {
     const listIds = () => page.evaluate(() => Array.from(document.querySelectorAll('#targetList .target-row')).map((r) => r.dataset.target));
-    await page.click('#statsBtn');
+    await menuClick(page, 'statsBtn');
     const beforeDiscovery = await listIds();
     await page.evaluate(() => {
       const T = window.__TEST__;
@@ -1649,7 +1639,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
         const rect = (id) => document.getElementById(id).getBoundingClientRect();
         const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
         const panels = Array.from(document.querySelectorAll('#hud .panel')).map((p) => p.getBoundingClientRect());
-        const covers = ['contacts', 'statsBtn', 'pauseBtn', 'muteBtn'].filter((id) => panels.some((p) => overlaps(rect(id), p)));
+        const covers = ['contacts', 'menuBtn'].filter((id) => panels.some((p) => overlaps(rect(id), p)));
         return { covers, omegaStatus: document.getElementById('omegaCounterStatus').textContent };
       });
       assertEqual(r.covers.length, 0, `these sit on top of the HUD panels: ${r.covers}`);
@@ -1984,7 +1974,7 @@ test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon l
 
 test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-dead duplicate control', async () => {
   await withGame(async (page, errors) => {
-    await page.click('#statsBtn');
+    await menuClick(page, 'statsBtn');
     const result = await page.evaluate(() => {
       const mm = document.getElementById('missionMapWindow');
       const inside = (id) => mm.contains(document.getElementById(id));
@@ -2364,6 +2354,113 @@ test('ART-12: home shows the mission stars total', async () => {
     await page.reload();
     await page.waitForTimeout(300);
     assertEqual(await page.$eval('#missionStarsTotal', (e) => e.textContent), '5/18', 'stars total');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('ART-14: one MENU button pauses the battle and holds RESUME, STATS, SOUND, RESTART and QUIT', async () => {
+  await withGame(async (page, errors) => {
+    const r0 = await page.evaluate(() => ({
+      oldGone: ['pauseBtn', 'pausedBanner'].every((id) => !document.getElementById(id)),
+      floating: ['statsBtn', 'muteBtn'].map((id) => !!document.getElementById(id).offsetParent),
+    }));
+    await page.keyboard.press('Escape');
+    const open = await page.evaluate(() => ({
+      menu: window.__TEST__.gameMenuOpen, paused: window.__TEST__.paused,
+      items: [...document.querySelectorAll('#gameMenu .mBtn')].map((b) => b.textContent),
+      title: document.getElementById('gameMenuTitle').textContent,
+    }));
+    await page.keyboard.press('Escape');
+    const closed = await page.evaluate(() => ({ menu: window.__TEST__.gameMenuOpen, paused: window.__TEST__.paused }));
+    // RESTART: a fresh run that isn't paused
+    await page.evaluate(() => { const T = window.__TEST__; T.tokens.attack = 1; });
+    await menuClick(page, 'menuRestart');
+    const restarted = await page.evaluate(() => ({ menu: window.__TEST__.gameMenuOpen, paused: window.__TEST__.paused,
+      running: window.__TEST__.running, attack: window.__TEST__.tokens.attack }));
+    await menuClick(page, 'menuQuit');
+    const quit = await page.evaluate(() => ({ running: window.__TEST__.running, paused: window.__TEST__.paused,
+      overlay: !document.getElementById('overlay').classList.contains('hidden'),
+      home: !document.getElementById('menuHome').hidden, menu: window.__TEST__.gameMenuOpen }));
+    assert(r0.oldGone, 'the separate PAUSE button and PAUSED banner are gone');
+    assert(r0.floating.every((v) => !v), 'STATS and SOUND no longer float over the battlefield');
+    assert(open.menu && open.paused, `Esc opens the menu and pauses: ${JSON.stringify(open)}`);
+    assertEqual(open.items.join(','), 'RESUME,STATS,SOUND: ON,RESTART,QUIT TO MENU', 'menu items');
+    assert(open.title.startsWith('ENDLESS · WAVE'), `the menu says what is being played: ${open.title}`);
+    assert(!closed.menu && !closed.paused, 'Esc again resumes');
+    assert(!restarted.menu && !restarted.paused && restarted.running && restarted.attack > 1, `RESTART starts a fresh run: ${JSON.stringify(restarted)}`);
+    assert(!quit.running && !quit.paused && quit.overlay && quit.home && !quit.menu, `QUIT goes to the home screen: ${JSON.stringify(quit)}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('ART-14: on a phone the MENU button stays clear of the HUD and the menu fits', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#menuBtn');
+    const r = await page.evaluate(() => {
+      const panel = document.querySelector('#gameMenu .gmPanel').getBoundingClientRect();
+      return { fits: panel.top >= 0 && panel.bottom <= innerHeight && panel.left >= 0 && panel.right <= innerWidth };
+    });
+    assert(r.fits, 'the menu panel fits on a 390x844 screen');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { viewport: { width: 390, height: 844 } });
+});
+
+test('ART-15: an endless run ends on one result layout with RETRY and MENU', async () => {
+  await withGame(async (page, errors) => {
+    await page.evaluate(() => { window.__TEST__.setPaused(false); });
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.triggerRunEnd();
+      const vis = (id) => !document.getElementById(id).hidden && !!document.getElementById(id).offsetParent;
+      return { kind: document.getElementById('resultKind').textContent, title: document.getElementById('waveResultTitle').textContent,
+        head: document.querySelector('#waveResultBody .rHead').textContent, rows: document.querySelectorAll('#waveResultBody dt').length,
+        retry: vis('resultRetry'), next: vis('resultNext'), menu: document.getElementById('waveResultClose').textContent };
+    });
+    await page.click('#resultRetry');
+    const again = await page.evaluate(() => ({ running: window.__TEST__.running, mission: window.__TEST__.activeMission,
+      result: !document.getElementById('waveResultScreen').classList.contains('hidden') }));
+    assertEqual(r.kind, 'ENDLESS', 'kind line');
+    assertEqual(r.title, 'STRIKE PLATFORM LOST', 'endless title');
+    assert(/^WAVE \d+$/.test(r.head), `the wave reached is the headline: ${r.head}`);
+    assert(r.rows >= 3 && r.rows <= 4, `3-4 stat lines: ${r.rows}`);
+    assert(r.retry && !r.next && r.menu === 'MENU', `RETRY and MENU, no NEXT MISSION: ${JSON.stringify(r)}`);
+    assert(again.running && !again.mission && !again.result, `RETRY starts a new endless run: ${JSON.stringify(again)}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('ART-15: a mission win offers NEXT MISSION, RETRY replays the same mission', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#missionsBtn');
+    await page.click('.missionBtn[data-mission="blind-the-radar"]');
+    await page.waitForTimeout(150);
+    const win = async () => page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.damageNode('ap0', 1000); T.damageNode('ap1', 1000); T.tickUpdate(0.05);
+      return { title: document.getElementById('waveResultTitle').textContent,
+        next: !document.getElementById('resultNext').hidden };
+    });
+    const first = await win();
+    await page.click('#resultRetry');
+    const retried = await page.evaluate(() => window.__TEST__.activeMission?.id);
+    await win();
+    await page.click('#resultNext');
+    const next = await page.evaluate(() => window.__TEST__.activeMission?.id);
+    // the last mission has no NEXT
+    await page.evaluate(() => { const T = window.__TEST__; T.missionStats.time = 0; });
+    await page.keyboard.press('Escape');
+    await page.click('#menuQuit');
+    await page.click('#missionsBtn');
+    await page.click('.missionBtn[data-mission="no-safety-net"]');
+    await page.waitForTimeout(150);
+    const last = await page.evaluate(() => { const T = window.__TEST__; T.missionStats.omegaKills = 1; T.tickUpdate(0.05);
+      return { title: document.getElementById('waveResultTitle').textContent, next: !document.getElementById('resultNext').hidden }; });
+    assertEqual(first.title, 'MISSION COMPLETE', 'won');
+    assert(first.next, 'NEXT MISSION shows after a win');
+    assertEqual(retried, 'blind-the-radar', 'RETRY replays the same mission');
+    assertEqual(next, 'break-the-line', 'NEXT MISSION starts mission 3');
+    assertEqual(last.title, 'MISSION COMPLETE', 'last mission won');
+    assert(!last.next, 'the last mission has no NEXT MISSION');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
 });

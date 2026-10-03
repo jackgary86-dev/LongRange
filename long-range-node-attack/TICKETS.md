@@ -373,7 +373,7 @@ never pixels) passed unmodified through every one of them.
 
 ---
 
-## IN PROGRESS — ART epic 2: modern menus (2026-10-03)
+## DONE — ART epic 2: modern menus (2026-10-03)
 
 Request: "Start an Art Epic to modernize this launch page - make it
 cleaner with less buttons", then "this art epic should extend into the
@@ -434,13 +434,23 @@ scope except where they open a menu.
   each, not a wall of text.
   *Done:* FIND / DESTROY / ATTACK steps, then DEFEND, CURRENCY and
   CONTROLS in a few lines each (under 1,400 characters, tested).
-- **ART-14** — OPEN — In-game menu. STATS / PAUSE / MUTE become one menu
+- **ART-14** — DONE — In-game menu. STATS / PAUSE / MUTE become one menu
   button; opening it pauses the battle and shows RESUME, STATS, SOUND
   on/off, RESTART and QUIT TO MENU. Keyboard: Esc opens and closes it.
-- **ART-15** — OPEN — Result screens. Mission complete / failed and the
+  *Done:* one `MENU` button where the three used to stack. The menu says
+  PAUSED and what is being played (mission name, or ENDLESS and the wave),
+  and holds RESUME, STATS, SOUND: ON/OFF, RESTART and QUIT TO MENU. Esc
+  opens and closes it, and also closes STATS. STATS opened from the menu
+  resumes the battle when closed. R restarts through the same path as
+  RESTART. The separate PAUSE button and PAUSED banner are gone.
+- **ART-15** — DONE — Result screens. Mission complete / failed and the
   endless run's end share one layout: big title, stars or wave, 3-4 stat
   lines, and the actions that make sense (RETRY, NEXT MISSION, MENU)
   instead of only RETURN TO START.
+  *Done:* one panel for both: MISSION or ENDLESS, the title (MISSION
+  COMPLETE / MISSION FAILED / STRIKE PLATFORM LOST), the stars or the wave
+  reached as the headline, a NEW BEST note, 3-4 stat rows, then RETRY,
+  NEXT MISSION (after a mission win, when there is a next one) and MENU.
 
 Decided directly (2026-10-03): a **tactical / military** look for the
 menus (muted greys and amber, thin lines, map-grid texture, like a

@@ -207,63 +207,6 @@
     margin-left: 4px;
   }
 
-  #statsBtn {
-    position: absolute;
-    top: 60px; left: 6px;
-    z-index: 3;
-    pointer-events: auto;
-    cursor: pointer;
-    background: rgba(3,12,7,0.7);
-    border: 1px solid var(--green-dim);
-    color: var(--green);
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    padding: 7px 10px;
-  }
-  #statsBtn:hover { background: rgba(53,230,255,0.12); }
-  #statsBtn.hidden { display: none; }
-
-  /* LRNA-119: an explicit pause the player controls, independent of the
-     browser's own tab-blur throttling of requestAnimationFrame. */
-  #pauseBtn {
-    position: absolute;
-    top: 98px; left: 6px;
-    z-index: 3;
-    pointer-events: auto;
-    cursor: pointer;
-    background: linear-gradient(180deg, rgba(53,230,255,0.06), rgba(3,12,7,0.75));
-    border: 1px solid var(--green-dim);
-    color: var(--green);
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    padding: 7px 10px;
-    transition: box-shadow 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
-  }
-  #pauseBtn:hover { background: rgba(53,230,255,0.12); box-shadow: 0 0 8px -2px var(--green); }
-  #pauseBtn.hidden { display: none; }
-  #pauseBtn.active { color: #fff066; border-color: #fff066; background: rgba(255,240,102,0.12); }
-
-  /* LRNA-120: mute toggle, same visual language as PAUSE right above it. */
-  #muteBtn {
-    position: absolute;
-    top: 136px; left: 6px;
-    z-index: 3;
-    pointer-events: auto;
-    cursor: pointer;
-    background: linear-gradient(180deg, rgba(53,230,255,0.06), rgba(3,12,7,0.75));
-    border: 1px solid var(--green-dim);
-    color: var(--green);
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    padding: 7px 10px;
-    transition: box-shadow 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
-  }
-  #muteBtn:hover { background: rgba(53,230,255,0.12); box-shadow: 0 0 8px -2px var(--green); }
-  #muteBtn.active { color: #ff8a5c; border-color: #ff8a5c; background: rgba(255,138,92,0.12); }
-
   /* LRNA-144: shown whenever a localStorage write throws (full/blocked
      storage) - progress silently failing to save used to have zero
      player-visible signal. */
@@ -285,19 +228,6 @@
   }
   #storageWarning.hidden { display: none; }
 
-  #pausedBanner {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 5;
-    pointer-events: none;
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 28px;
-    letter-spacing: 4px;
-    color: #fff066;
-    text-shadow: 0 0 12px rgba(255,240,102,0.6);
-  }
-  #pausedBanner.hidden { display: none; }
 
   /* LRNA-080: persistent, non-blocking (unlike PAUSED) reminder during
      the recon-gated opening - the player needs to keep looking at/
@@ -464,36 +394,6 @@
 
   #modeStatus { font-size: 9.5px; opacity: 0.75; margin-bottom: 6px; line-height: 1.4; }
 
-  /* Waves of Battle run-end screen (LRNA-072, issue #430) - the Strike
-     Platform falling always shows this. */
-  #waveResultScreen {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 11;
-    background: rgba(12,3,3,0.95);
-    border: 1px solid var(--red);
-    padding: 22px 30px;
-    text-align: center;
-    font-family: "Courier New", ui-monospace, monospace;
-    max-width: min(360px, calc(100vw - 24px));
-    backdrop-filter: blur(3px);
-  }
-  #waveResultScreen.hidden { display: none; }
-  #waveResultTitle { font-size: 20px; letter-spacing: 3px; margin-bottom: 10px; color: var(--red); }
-  #waveResultBody { font-size: 11px; opacity: 0.85; margin-bottom: 18px; line-height: 1.7; }
-  #waveResultClose {
-    pointer-events: auto;
-    cursor: pointer;
-    background: rgba(255,90,54,0.1);
-    border: 1px solid var(--red);
-    color: #fff;
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 11px;
-    letter-spacing: 1.5px;
-    padding: 9px 18px;
-  }
-  #waveResultClose:hover { background: rgba(255,90,54,0.22); }
 
   /* Mission Map (LRNA-084): replaces the old Counter Missile Intercept
      window (LRNA-051) and SEEK AND DESTROY window (LRNA-063) with the
@@ -744,9 +644,7 @@
      DOM or class changes, so the JS that wires these up by id/class/
      data-* attribute is completely untouched. */
   .launchBtn::before, .launchBtn::after,
-  .upgradeBtn::before, .upgradeBtn::after,
-  #pauseBtn::before, #pauseBtn::after,
-  #muteBtn::before, #muteBtn::after {
+  .upgradeBtn::before, .upgradeBtn::after {
     content: '';
     position: absolute;
     width: 6px; height: 6px;
@@ -755,11 +653,11 @@
     opacity: 0.5;
     pointer-events: none;
   }
-  .launchBtn::before, .upgradeBtn::before, #pauseBtn::before, #muteBtn::before {
+  .launchBtn::before, .upgradeBtn::before {
     top: -1px; left: -1px;
     border-width: 1px 0 0 1px;
   }
-  .launchBtn::after, .upgradeBtn::after, #pauseBtn::after, #muteBtn::after {
+  .launchBtn::after, .upgradeBtn::after {
     bottom: -1px; right: -1px;
     border-width: 0 1px 1px 0;
   }
@@ -872,7 +770,7 @@
      tokens, one button style (.mBtn / .mBtn.primary / .mLink) and one
      panel style (.mPanel). The backdrop is solid so the live game HUD no
      longer shows through. */
-  #overlay {
+  #overlay, #gameMenu, #waveResultScreen, #menuBtn {
     --m-bg: #0c0e0b;
     --m-panel: #141712;
     --m-line: #2f342a;
@@ -884,6 +782,8 @@
     --m-grid: rgba(227, 168, 56, 0.045);
     --m-display: "Arial Narrow", "Roboto Condensed", "Helvetica Neue", Arial, sans-serif;
     --m-mono: "Courier New", ui-monospace, monospace;
+  }
+  #overlay {
     position: absolute;
     inset: 0;
     z-index: 14; /* LRNA-163: above #bottomBar */
@@ -1014,6 +914,60 @@
     .mBtn, .missionBtn { transition: none; }
   }
 
+  /* ART-14: one MENU button in place of STATS / PAUSE / MUTE. Opening the
+     menu pauses the battle; it holds RESUME, STATS, SOUND, RESTART and
+     QUIT TO MENU. */
+  #menuBtn {
+    position: absolute;
+    top: 60px; left: 6px;
+    z-index: 3;
+    pointer-events: auto;
+    cursor: pointer;
+    background: rgba(12,14,11,0.82);
+    border: 1px solid var(--m-line-strong);
+    border-radius: 2px;
+    color: var(--m-text);
+    font-family: var(--m-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 8px 11px;
+  }
+  #menuBtn:hover { border-color: var(--m-accent); color: var(--m-accent); }
+  #menuBtn.hidden { display: none; }
+  /* ART-14 / ART-15: the pause menu and the result screen share one
+     full-screen dim backdrop with a centered tactical panel. */
+  #gameMenu, #waveResultScreen {
+    position: absolute;
+    inset: 0;
+    z-index: 15; /* above #bottomBar (13) */
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(6,8,5,0.74);
+    backdrop-filter: blur(2px);
+    color: var(--m-text);
+    font-family: var(--m-mono);
+  }
+  #gameMenu.hidden, #waveResultScreen.hidden { display: none; }
+  .gmPanel { width: min(340px, 100%); display: flex; flex-direction: column; gap: 14px; text-align: center; background: rgba(20,23,18,0.97); padding: 20px 18px; }
+  .gmTitle, #waveResultTitle { font-family: var(--m-display); font-weight: 700; font-size: 24px; letter-spacing: 0.14em; color: var(--m-text); }
+  .gmPanel .mBtn { min-height: 44px; font-size: 15px; }
+  .gmHint { font-size: 10px; letter-spacing: 0.2em; color: var(--m-muted); }
+  #waveResultTitle.won { color: var(--m-accent); }
+  .rHead { font-family: var(--m-display); font-weight: 700; font-size: 34px; letter-spacing: 0.12em; color: var(--m-accent); }
+  .rHead.small { font-size: 15px; letter-spacing: 0.08em; color: var(--m-text); }
+  .rSub { margin-top: 4px; font-size: 11px; color: var(--m-muted); letter-spacing: 0.08em; }
+  .rStats { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--m-line); text-align: left; font-size: 11px; }
+  .rStats dt { color: var(--m-muted); letter-spacing: 0.1em; }
+  .rStats dd { margin: 0; color: var(--m-text); text-align: right; }
+  .rActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .rActions .mBtn.primary { grid-column: 1 / -1; }
+  .rActions [hidden] { display: none; }
+  .rActions .mBtn { padding: 12px 8px; font-size: 14px; letter-spacing: 0.18em; white-space: nowrap; }
+  .rActions #resultNext[hidden] + #waveResultClose { grid-column: 1 / -1; }
+
   /* This block must stay LAST in the stylesheet: every rule inside it
      overrides a same-specificity (single-ID-selector) rule declared
      earlier above, and CSS breaks ties on source order - placed earlier,
@@ -1103,17 +1057,38 @@
   </div>
   <!-- LRNA-158: renamed from #opsCenterBtn/"COUNTER CENTER" - this now
        opens the STATS-only window, not an operations screen. -->
-  <button id="statsBtn">STATS</button>
-  <button id="pauseBtn">PAUSE</button>
-  <button id="muteBtn">MUTE</button>
-  <div id="pausedBanner" class="hidden">PAUSED</div>
+  <button id="menuBtn" aria-label="Menu">&#9776; MENU</button>
   <div id="openingLockedBanner" class="hidden">RECON REQUIRED — LOCATE A HIDDEN NODE TO BEGIN THE ASSAULT (send a DRONE or RECON PLANE)<div class="scanBar"></div></div>
   <div id="storageWarning" class="hidden">⚠ PROGRESS NOT SAVING — storage unavailable</div>
 
-  <div id="waveResultScreen" class="hidden">
-    <div id="waveResultTitle">MISSION FAILED</div>
-    <div id="waveResultBody"></div>
-    <button id="waveResultClose">RETURN TO START</button>
+  <!-- ART-14: the in-game menu. STATS and SOUND keep their old ids. -->
+  <div id="gameMenu" class="hidden" role="dialog" aria-label="Game menu">
+    <div class="gmPanel mPanel">
+      <div class="mEyebrow">PAUSED</div>
+      <div class="gmTitle" id="gameMenuTitle">ENDLESS</div>
+      <div class="mActions">
+        <button id="menuResume" class="mBtn primary">RESUME</button>
+        <button id="statsBtn" class="mBtn">STATS</button>
+        <button id="muteBtn" class="mBtn">SOUND: ON</button>
+        <button id="menuRestart" class="mBtn">RESTART</button>
+        <button id="menuQuit" class="mBtn">QUIT TO MENU</button>
+      </div>
+      <div class="gmHint">ESC TO RESUME</div>
+    </div>
+  </div>
+
+  <!-- ART-15: one result layout for missions and endless runs -->
+  <div id="waveResultScreen" class="hidden" role="dialog" aria-label="Result">
+    <div class="gmPanel mPanel">
+      <div class="mEyebrow" id="resultKind">ENDLESS</div>
+      <div id="waveResultTitle">MISSION FAILED</div>
+      <div id="waveResultBody"></div>
+      <div class="rActions">
+        <button id="resultRetry" class="mBtn primary">RETRY</button>
+        <button id="resultNext" class="mBtn" hidden>NEXT MISSION</button>
+        <button id="waveResultClose" class="mBtn">MENU</button>
+      </div>
+    </div>
   </div>
 
   <!-- LRNA-084: replaces the old separate Counter Window and SEEK AND
@@ -1377,25 +1352,16 @@
   // toggle this button's own hidden state, same as setOpsCenterOpen used
   // to for the panel it opened).
   const statsBtn = document.getElementById('statsBtn');
-  statsBtn.addEventListener('click', () => { sfxUi(); openMissionMap(); });
 
   // ---- LRNA-119: explicit pause/resume, independent of the browser's own
   // tab-blur throttling of requestAnimationFrame (see `paused` above -
   // deliberately its own flag, not reusing `running`, since `running`
   // false also means "game over").
-  const pauseBtnEl = document.getElementById('pauseBtn');
-  const pausedBannerEl = document.getElementById('pausedBanner');
+  // ART-14: pausing happens through the in-game menu (and STATS); the
+  // menu itself says PAUSED, so there is no separate button or banner.
   function setPaused(next) {
     paused = next;
-    pauseBtnEl.classList.toggle('active', paused);
-    pauseBtnEl.textContent = paused ? 'RESUME' : 'PAUSE';
-    pausedBannerEl.classList.toggle('hidden', !paused);
   }
-  pauseBtnEl.addEventListener('click', () => {
-    if (!running) return;
-    sfxUi();
-    setPaused(!paused);
-  });
 
   // ---- LRNA-120: mute toggle. Sound only ever plays through masterGain
   // (see initAudio), so muting is just zeroing that one gain node - no
@@ -1403,7 +1369,7 @@
   // created audioCtx: setMuted still records the preference, and initAudio
   // reads `muted` when it creates masterGain.
   const muteBtnEl = document.getElementById('muteBtn');
-  muteBtnEl.addEventListener('click', () => { setMuted(!muted); sfxUi(); });
+  muteBtnEl.addEventListener('click', () => { setMuted(!muted); sfxUi(); }); // ART-14: lives in the in-game menu
 
   const emergencyBtnEl = document.getElementById('emergencyBtn');
   const emergencyStatusEl = document.getElementById('emergencyStatus');
@@ -1483,14 +1449,14 @@
   function openMissionMap() {
     missionMapOpen = true;
     missionMapWindowEl.classList.remove('hidden');
-    statsBtn.classList.add('hidden');
+    menuBtnEl.classList.add('hidden');
     statsPausedGame = running && !paused;
     if (statsPausedGame) setPaused(true);
   }
   function closeMissionMap() {
     missionMapOpen = false;
     missionMapWindowEl.classList.add('hidden');
-    statsBtn.classList.remove('hidden');
+    menuBtnEl.classList.remove('hidden');
     if (statsPausedGame && paused) setPaused(false);
     statsPausedGame = false;
   }
@@ -1545,6 +1511,104 @@
     showMenu('home'); // ART-10
   });
 
+  // ---- ART-15: one result layout. RETRY replays the same mission (or a
+  // fresh endless run), NEXT MISSION shows after a mission win when there
+  // is one, MENU goes home.
+  let lastResultMissionId = null;
+  function showResult({ kind, title, won, head, sub, rows, missionId }) {
+    lastResultMissionId = missionId || null;
+    document.getElementById('resultKind').textContent = kind;
+    const titleEl = document.getElementById('waveResultTitle');
+    titleEl.textContent = title;
+    titleEl.classList.toggle('won', !!won);
+    waveResultBodyEl.innerHTML =
+      `<div class="rHead${head.length > 12 ? ' small' : ''}">${head}</div>` +
+      (sub ? `<div class="rSub">${sub}</div>` : '') +
+      `<dl class="rStats">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
+    const idx = MISSIONS.findIndex(m => m.id === missionId);
+    document.getElementById('resultNext').hidden = !(won && idx >= 0 && idx < MISSIONS.length - 1);
+    waveResultEl.classList.remove('hidden');
+    document.getElementById('resultRetry').focus({ preventScroll: true });
+  }
+  document.getElementById('resultRetry').addEventListener('click', () => {
+    waveResultEl.classList.add('hidden');
+    sfxUi();
+    if (lastResultMissionId) startMission(lastResultMissionId);
+    else { activeMission = null; startDemo(); }
+  });
+  document.getElementById('resultNext').addEventListener('click', () => {
+    const idx = MISSIONS.findIndex(m => m.id === lastResultMissionId);
+    const next = MISSIONS[idx + 1];
+    if (!next) return;
+    waveResultEl.classList.add('hidden');
+    sfxUi();
+    startMission(next.id);
+  });
+
+  // ---- ART-14: the in-game menu. Opening it pauses the battle (only a
+  // pause it started is undone on RESUME); STATS hands its pause on to
+  // the STATS window, which resumes when closed.
+  const menuBtnEl = document.getElementById('menuBtn');
+  const gameMenuEl = document.getElementById('gameMenu');
+  let gameMenuOpen = false;
+  let menuPausedGame = false;
+  function openGameMenu() {
+    if (!running || gameMenuOpen) return;
+    if (missionMapOpen) closeMissionMap();
+    gameMenuOpen = true;
+    menuPausedGame = !paused;
+    setPaused(true);
+    document.getElementById('gameMenuTitle').textContent =
+      activeMission ? activeMission.name : `ENDLESS · WAVE ${currentWave}`;
+    gameMenuEl.classList.remove('hidden');
+    menuBtnEl.classList.add('hidden');
+    document.getElementById('menuResume').focus({ preventScroll: true });
+  }
+  function closeGameMenu(resume = true) {
+    if (!gameMenuOpen) return;
+    gameMenuOpen = false;
+    gameMenuEl.classList.add('hidden');
+    menuBtnEl.classList.remove('hidden');
+    if (resume && menuPausedGame) setPaused(false);
+    menuPausedGame = false;
+  }
+  function restartRun() {
+    if (!running) return;
+    closeGameMenu(false);
+    if (missionMapOpen) closeMissionMap();
+    reset();
+    if (activeMission) applyMissionSetup(activeMission);
+    setPaused(false);
+  }
+  function quitToMenu() {
+    closeGameMenu(false);
+    if (missionMapOpen) closeMissionMap();
+    running = false;
+    setPaused(false);
+    activeMission = null;
+    waveResultEl.classList.add('hidden');
+    overlay.classList.remove('hidden');
+    renderBestWaveLabel();
+    showMenu('home');
+  }
+  menuBtnEl.addEventListener('click', () => { sfxUi(); openGameMenu(); });
+  document.getElementById('menuResume').addEventListener('click', () => { sfxUi(); closeGameMenu(); });
+  statsBtn.addEventListener('click', () => {
+    sfxUi();
+    const fromMenu = gameMenuOpen && menuPausedGame;
+    closeGameMenu(false);
+    openMissionMap();
+    if (fromMenu) statsPausedGame = true; // closing STATS resumes the battle
+  });
+  document.getElementById('menuRestart').addEventListener('click', () => { sfxUi(); restartRun(); });
+  document.getElementById('menuQuit').addEventListener('click', () => { sfxUi(); quitToMenu(); });
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !running) return;
+    if (missionMapOpen) closeMissionMap();
+    else if (gameMenuOpen) closeGameMenu();
+    else openGameMenu();
+  });
+
   let W, H, MW, MH;
   // #bottomBar is an opaque panel absolutely positioned over the bottom of
   // the canvas (not a letterboxed-off strip) - on wide/short PC windows it
@@ -1565,7 +1629,7 @@
   function layoutTopStack() {
     const top = hudEl.offsetHeight + 6;
     contactsEl.style.top = top + 'px';
-    [statsBtn, pauseBtnEl, muteBtnEl, storageWarningEl].forEach((el, i) => { el.style.top = (top + i * 38) + 'px'; });
+    [menuBtnEl, storageWarningEl].forEach((el, i) => { el.style.top = (top + i * 38) + 'px'; });
     // phones: the banner sits just above the lanes, clear of the Radar
     // Lane and of the Strike Platform on the centerline
     const mobile = isMobileViewport();
@@ -2719,16 +2783,18 @@
     if (won) {
       stars = m.stars(st);
       const best = loadMissionStars();
-      if (stars > (best[m.id] || 0)) { best[m.id] = stars; saveMissionStars(best); bestNote = '<br>New best!'; }
+      if (stars > (best[m.id] || 0)) { best[m.id] = stars; saveMissionStars(best); bestNote = 'new'; }
     }
-    document.getElementById('waveResultTitle').textContent = won ? 'MISSION COMPLETE' : 'MISSION FAILED';
-    waveResultBodyEl.innerHTML = `
-      ${m.name}<br>
-      ${won ? `<span style="color:#ffe066;font-size:20px;letter-spacing:4px">${starText(stars)}</span><br>` : `${reason}<br>`}
-      Time: ${fmtTime(st.time)}${m.limit ? ` of ${fmtTime(m.limit)}` : ''}<br>
-      Warheads fired: ${stats.fired.toLocaleString()}${bestNote}
-    `;
-    waveResultEl.classList.remove('hidden');
+    showResult({
+      kind: 'MISSION', title: won ? 'MISSION COMPLETE' : 'MISSION FAILED', won, missionId: m.id,
+      head: won ? starText(stars) : reason,
+      sub: m.name + (bestNote ? ' · NEW BEST' : ''),
+      rows: [
+        ['TIME', `${fmtTime(st.time)}${m.limit ? ` / ${fmtTime(m.limit)}` : ''}`],
+        ['RADAR DEFENSES', st.radarKills], ['NODES DESTROYED', st.nodeKills],
+        ['WARHEADS FIRED', stats.fired.toLocaleString()],
+      ],
+    });
     activeMission = null;
     renderMissionList();
   }
@@ -2820,18 +2886,20 @@
   function triggerRunEnd() {
     if (activeMission) { endMission(false, 'The Strike Platform was destroyed.'); return; } // LRNA-174
     running = false;
-    setPaused(false); // LRNA-119: game over shouldn't leave the PAUSED banner up
-    if (currentWave > bestWave) bestWave = currentWave;
+    setPaused(false);
+    const newBest = currentWave > bestWave;
+    if (newBest) bestWave = currentWave;
     saveBestWave();
     postArcadeScore(currentWave); // this mode's existing score is "waves survived" (LRNA-072)
-    document.getElementById('waveResultTitle').textContent = 'MISSION FAILED'; // LRNA-174 reuses this screen
-    waveResultBodyEl.innerHTML = `
-      SURVIVED WAVE <strong>${currentWave}</strong><br>
-      Best wave: ${bestWave}<br>
-      Warheads fired: ${stats.fired.toLocaleString()}<br>
-      Enemy shots intercepted: ${stats.intercepts.toLocaleString()}
-    `;
-    waveResultEl.classList.remove('hidden');
+    showResult({
+      kind: 'ENDLESS', title: 'STRIKE PLATFORM LOST', won: false,
+      head: `WAVE ${currentWave}`, sub: newBest ? 'NEW BEST' : `BEST WAVE ${bestWave}`,
+      rows: [
+        ['WARHEADS FIRED', stats.fired.toLocaleString()],
+        ['ENEMY SHOTS INTERCEPTED', stats.intercepts.toLocaleString()],
+        ['DIFFICULTY', DIFFICULTIES[difficulty].label],
+      ],
+    });
   }
 
   // LRNA-139: was capped at 0.85 - by wave ~17 Omega's counter-hit-chance
@@ -4062,7 +4130,7 @@
     muted = next;
     saveMuted();
     if (masterGain) masterGain.gain.value = muted ? 0 : MASTER_VOLUME;
-    muteBtnEl.textContent = muted ? 'UNMUTE' : 'MUTE';
+    muteBtnEl.textContent = muted ? 'SOUND: OFF' : 'SOUND: ON';
     muteBtnEl.classList.toggle('active', muted);
   }
   setMuted(muted); // sync the button label/style to the persisted preference on load
@@ -6816,7 +6884,7 @@
   window.addEventListener('keydown', (e) => {
     if (!running) return;
     keys[e.key] = true;
-    if (e.key === 'r' || e.key === 'R') { reset(); if (activeMission) applyMissionSetup(activeMission); }
+    if (e.key === 'r' || e.key === 'R') restartRun(); // ART-14: same as the menu's RESTART
   });
   window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
@@ -7066,6 +7134,7 @@
       get running() { return running; },
       get paused() { return paused; },
       setPaused: (v) => setPaused(v),
+      triggerRunEnd: () => triggerRunEnd(), // ART-15
       get muted() { return muted; },
       setMuted: (v) => setMuted(v),
       get masterGainValue() { return masterGain ? masterGain.gain.value : null; },
@@ -7074,6 +7143,7 @@
       get openingLocked() { return openingLocked; },
       forceOpeningUnlock() { openingLocked = false; updateOpeningLockUi(); },
       get missionMapOpen() { return missionMapOpen; },
+      get gameMenuOpen() { return gameMenuOpen; }, // ART-14
       openMissionMap: () => openMissionMap(),
       closeMissionMap: () => closeMissionMap(),
       missionMapPct: (x) => missionMapPct(x),
