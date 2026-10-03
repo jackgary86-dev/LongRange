@@ -873,31 +873,6 @@ test('LRNA-144: a failed localStorage write surfaces a visible warning instead o
   });
 });
 
-test('LRNA-146: contact list refreshes at 20fps instead of the old 5fps', async () => {
-  await withGame(async (page, errors) => {
-    const interval = await page.evaluate(() => window.__TEST__.CONTACTS_RENDER_INTERVAL);
-    assertEqual(interval, 0.05, 'render interval should be 0.05s (20fps), not the old 0.2s (5fps)');
-
-    const result = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.clearMissiles();
-      // settle the render countdown into a steady state first (the very
-      // first tick always renders immediately regardless of interval, so
-      // it proves nothing on its own about how *often* it re-renders).
-      T.tickUpdate(0.1);
-      document.getElementById('contactList').innerHTML = ''; // clear out the settled render
-      T.launchEnemyStrike(T.nodeO, T.nodeA);
-      // one more tick, well under the old 0.2s interval but past the new
-      // 0.05s one - only the new interval would re-render in time to
-      // pick up this contact.
-      T.tickUpdate(0.06);
-      return document.getElementById('contactList').innerHTML;
-    });
-    assert(result.length > 0, 'contact list should reflect the new inbound strike within 0.06s of the previous render');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
 test('LRNA-149/181: Emergency Counter always shows its terms, even with no target', async () => {
   await withGame(async (page, errors) => {
     const idle = await page.evaluate(() => {
@@ -994,32 +969,6 @@ test('LRNA-151: point-defense jam and counters jam show separate HUD indicators'
   });
 });
 
-test('LRNA-152: radar contact list shows an overflow indicator past 20 items', async () => {
-  await withGame(async (page, errors) => {
-    const under = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.freezeWaves();
-      for (let i = 0; i < 5; i++) T.launchEnemyStrike(T.nodeO, T.nodeA);
-      T.tickUpdate(0.05);
-      return document.getElementById('contactList').innerHTML;
-    });
-    assert(!under.includes('more contacts'), 'no overflow indicator should show with only 5 contacts');
-
-    const over = await page.evaluate(() => {
-      const T = window.__TEST__;
-      for (let i = 0; i < 20; i++) T.launchEnemyStrike(T.nodeO, T.nodeA);
-      T.tickUpdate(0.05);
-      return {
-        html: document.getElementById('contactList').innerHTML,
-        rowCount: document.querySelectorAll('#contactList .contact-row').length,
-      };
-    });
-    assert(over.html.includes('more contacts not shown'), `25 contacts should show an overflow indicator: missing from html`);
-    assertEqual(over.rowCount, 20, 'should still render exactly the first 20 rows, not more');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
 test('LRNA-126-adjacent: a missile that tunnels past its 14-unit hit radius in one tick still resolves', async () => {
   // Found by chance while chasing LRNA-137 test flakiness: a fast enough
   // missile can move more than the 14-unit hit radius in a single tick
@@ -1103,49 +1052,6 @@ test('LRNA-049: Base loadout node fires a volley at every inbound threat at once
   }, { skipStart: true });
 });
 
-test('LRNA-161: the Counter Lane lines up with the zone strip and dots each inbound strike at its position', async () => {
-  await withGame(async (page, errors) => {
-    await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.freezeWaves();
-      T.clearMissiles();
-      T.neutralizeAutoDefense();
-      T.disableOmegaCounters();
-      T.launchEnemyStrike(T.nodeO, T.nodeA);
-    });
-    await page.waitForTimeout(150); // let the rAF loop draw a few frames
-    const r = await page.evaluate(() => {
-      const T = window.__TEST__;
-      const c = document.getElementById('counterLaneCanvas');
-      const track = document.getElementById('missionMapStripTrack').getBoundingClientRect();
-      const lane = c.getBoundingClientRect();
-      const ctx = c.getContext('2d');
-      const y = Math.floor(c.height / 2);
-      const maxAlphaAround = (px) => {
-        let best = 0;
-        for (let x = Math.max(0, px - 5); x <= Math.min(c.width - 1, px + 5); x++) best = Math.max(best, ctx.getImageData(x, y, 1, 1).data[3]);
-        return best;
-      };
-      const strike = T.missiles.find((m) => m.typeKey === 'enemyStrike');
-      const pct = (strike.x - T.nodeA.x) / (T.nodeO.x - T.nodeA.x);
-      const strikePx = Math.round(pct * c.width);
-      const emptyPx = Math.round((pct > 0.5 ? 0.25 : 0.75) * c.width);
-      return {
-        size: [c.width, c.height],
-        leftDiff: Math.abs(lane.left - track.left),
-        widthDiff: Math.abs(lane.width - track.width),
-        atStrike: maxAlphaAround(strikePx),
-        atEmpty: maxAlphaAround(emptyPx),
-      };
-    });
-    assert(r.size[0] > 0 && r.size[1] > 0, `the lane canvas should have a real drawing size: ${r.size}`);
-    assert(r.leftDiff <= 1 && r.widthDiff <= 1, `the lane should span exactly the zone strip's track (left off by ${r.leftDiff}px, width off by ${r.widthDiff}px)`);
-    assert(r.atStrike > 200, `an opaque dot should be drawn at the inbound strike's position (alpha ${r.atStrike})`);
-    assert(r.atEmpty < 128, `nothing but the faint center line should be drawn where there's no contact (alpha ${r.atEmpty})`);
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
-});
-
 test('LRNA-158: STATS button opens a pure reference window - GAME MODE/RUN STATS/TARGETS only, no COUNTER or RECON content', async () => {
   // Supersedes the old LRNA-084/154 versions of this test: #opsCenterBtn
   // is #statsBtn now, and the window it opens dropped COUNTER/RECON
@@ -1209,23 +1115,19 @@ test('LRNA-156/ART-14: Esc closes STATS and resumes; a pause made outside STATS 
   });
 });
 
-test('LRNA-168: on a phone the ability bar is a compact 3-column grid and leaves room for the battlefield', async () => {
+test('LRNA-168/ART-18: on a phone the six attack buttons share one row, the counter spans the width, and the bar stays slim', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {
       const rect = (el) => el.getBoundingClientRect();
-      const attack = document.querySelector('.abilityGroup[data-pillar="attack"]');
-      const tops = Array.from(attack.querySelectorAll('.launchBtn')).map((b) => Math.round(rect(b).top));
-      return {
-        barHeight: document.getElementById('bottomBar').offsetHeight,
-        viewport: window.innerHeight,
-        attackRows: new Set(tops).size,
-        attackButtons: tops.length,
-        scrollWidth: document.documentElement.scrollWidth,
-      };
+      const tops = Array.from(document.querySelectorAll('.abilityGroup[data-pillar="attack"] .launchBtn')).map((b) => Math.round(rect(b).top));
+      const em = rect(document.getElementById('emergencyBtn'));
+      return { barHeight: document.getElementById('bottomBar').offsetHeight, viewport: window.innerHeight,
+        attackRows: new Set(tops).size, attackButtons: tops.length, emWidth: em.width, scrollWidth: document.documentElement.scrollWidth };
     });
-    assert(r.barHeight < r.viewport * 0.45, `the bottom bar should take under 45% of an 844px phone screen: ${r.barHeight}px`);
-    assertEqual(r.attackButtons, 6, 'ATTACK should have its 3 missiles and 3 planes');
-    assertEqual(r.attackRows, 2, 'ATTACK\'s 6 buttons should sit in 2 rows of 3');
+    assert(r.barHeight < r.viewport * 0.28, `the bottom bar should take under 28% of an 844px phone screen (was ~40%): ${r.barHeight}px`);
+    assertEqual(r.attackButtons, 6, 'ATTACK has its 3 missiles and 3 planes');
+    assertEqual(r.attackRows, 1, 'all six in one row');
+    assert(r.emWidth > 300, `EMERGENCY spans the width: ${r.emWidth}px`);
     assert(r.scrollWidth <= 390, `no sideways scroll: ${r.scrollWidth}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { viewport: { width: 390, height: 844 } });
@@ -1238,7 +1140,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
         const rect = (id) => document.getElementById(id).getBoundingClientRect();
         const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
         const panels = Array.from(document.querySelectorAll('#hud .panel')).map((p) => p.getBoundingClientRect());
-        const covers = ['contacts', 'menuBtn'].filter((id) => panels.some((p) => overlaps(rect(id), p)));
+        const covers = ['menuBtn'].filter((id) => panels.some((p) => overlaps(rect(id), p)));
         return { covers, omegaStatus: document.getElementById('omegaCounterStatus').textContent };
       });
       assertEqual(r.covers.length, 0, `these sit on top of the HUD panels: ${r.covers}`);
@@ -1276,7 +1178,7 @@ test('LRNA-170: the HUD shows the address the game was opened from', async () =>
   }, { skipStart: true });
 });
 
-test('LRNA-172: on a phone the contact list starts collapsed and a tap on a field target still targets it', async () => {
+test('LRNA-172: on a phone a tap on a field target targets it', async () => {
   await withGame(async (page, errors) => {
     const pos = await page.evaluate(() => {
       const T = window.__TEST__;
@@ -1284,39 +1186,11 @@ test('LRNA-172: on a phone the contact list starts collapsed and a tap on a fiel
       const node = T.fieldTargets.find((t) => !t.destroyed);
       T.setCamX(node.x - (window.innerWidth / T.ZOOM) / 2);
       const rect = document.getElementById('game').getBoundingClientRect();
-      return { x: rect.left + (node.x - T.camX) * T.ZOOM, y: rect.top + node.y * T.ZOOM, id: node.id,
-        listShown: !!document.getElementById('contactList').offsetParent };
+      return { x: rect.left + (node.x - T.camX) * T.ZOOM, y: rect.top + node.y * T.ZOOM, id: node.id };
     });
     await page.mouse.click(pos.x, pos.y);
     const sel = await page.evaluate(() => window.__TEST__.selectedTargetId);
-    await page.click('#contacts h3');
-    const opened = await page.evaluate(() => !!document.getElementById('contactList').offsetParent);
-    assert(!pos.listShown, 'the contact list starts collapsed on a phone');
     assertEqual(sel, pos.id, 'tapping the field target targets it');
-    assert(opened, 'tapping RADAR LANE opens the list');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  }, { viewport: { width: 390, height: 844 } });
-});
-
-test('LRNA-172: a tap on the RADAR LANE panel\'s empty space reaches a target under it', async () => {
-  await withGame(async (page, errors) => {
-    const pos = await page.evaluate(() => {
-      const T = window.__TEST__;
-      T.freezeWaves(); T.clearMissiles();
-      const node = T.fieldTargets.find((t) => !t.destroyed);
-      const panel = document.getElementById('contacts').getBoundingClientRect();
-      const rect = document.getElementById('game').getBoundingClientRect();
-      // put the node under the panel's bottom-left padding, clear of its header and lane dots
-      const sx = panel.left + 4, sy = panel.bottom - 3;
-      T.setCamX(node.x - (sx - rect.left) / T.ZOOM);
-      node.y = (sy - rect.top) / T.ZOOM;
-      const el = document.elementFromPoint(sx, sy);
-      return { x: sx, y: sy, id: node.id, onPanel: document.getElementById('contacts').contains(el) };
-    });
-    await page.mouse.click(pos.x, pos.y);
-    const sel = await page.evaluate(() => window.__TEST__.selectedTargetId);
-    assert(pos.onPanel, 'the tap point is on the panel');
-    assertEqual(sel, pos.id, 'the tap still targets what is under the panel');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { viewport: { width: 390, height: 844 } });
 });
@@ -1389,26 +1263,6 @@ test('LRNA-174: mission setups - HOLD THE LINE, NO SAFETY NET has no Emergency C
     assertEqual(endless.hud, 'DESTROY NODE OMEGA', `endless shows its one-line objective: ${endless.hud}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
-});
-
-test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon lists', async () => {
-  await withGame(async (page, errors) => {
-    const r = await page.evaluate(() => {
-      const T = window.__TEST__;
-      const bar = document.getElementById('counterOpsBar');
-      return {
-        children: Array.from(bar.children).map((el) => el.id),
-        goneIds: ['counterOpsBarRecon', 'missionMapReconStatus', 'missionMapReconList', 'knownThreatsList']
-          .filter((id) => document.getElementById(id)),
-        attackDroneButtons: bar.querySelectorAll('[data-sd], [data-ap]').length,
-      };
-    });
-    await page.waitForTimeout(100); // a few frames of the render loop
-    assertEqual(JSON.stringify(r.children), JSON.stringify(['missionMapStrip', 'counterLaneRow']), 'the bar should contain just the zone strip and the Counter Lane');
-    assertEqual(r.goneIds.length, 0, `these recon elements should no longer exist: ${r.goneIds}`);
-    assertEqual(r.attackDroneButtons, 0, 'no per-node Attack Drone buttons should render in the bar');
-    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
-  });
 });
 
 test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-dead duplicate control', async () => {
@@ -1921,6 +1775,108 @@ test('LRNA-181: one counter button - EMERGENCY COUNTER - on key 4, no COUNTER cu
     assertEqual(r.gone.length, 0, `removed counters left over: ${r.gone}`);
     assertEqual(r.tokens.join(','), 'attack', 'ATTACK is the only currency');
     assertEqual(fired, 1, 'key 4 fires the Emergency Counter');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+  test(`ART-17: two big health bars in the top corners and one incoming warning at ${viewport.width}px`, async () => {
+    await withGame(async (page, errors) => {
+      const r = await page.evaluate(() => {
+        const T = window.__TEST__;
+        T.freezeWaves(); T.clearMissiles();
+        const m = T.launchEnemyStrike(T.nodeO, T.nodeA); m.age = m.totalSeconds - 4;
+        T.tickUpdate(0.05);
+        const box = (id) => document.getElementById(id).getBoundingClientRect();
+        const hud = document.getElementById('hud');
+        return {
+          a: box('aBar'), o: box('oBar'), alert: box('incomingAlert'),
+          alertText: document.getElementById('incomingAlert').textContent,
+          alertClass: document.getElementById('incomingAlert').className,
+          clutter: ['aImpacts', 'oImpacts', 'tokenHud', 'tokenAttack', 'centerLabel'].filter((id) => document.getElementById(id)),
+          hostInMenu: document.getElementById('gameMenu').contains(document.getElementById('hudHost')),
+          hudHeight: hud.offsetHeight, vw: innerWidth,
+        };
+      });
+      const size = `${viewport.width}px`;
+      assert(r.a.left < 20 && r.a.top < 60, `${size}: your bar sits top-left: ${JSON.stringify(r.a)}`);
+      assert(r.o.right > r.vw - 20 && r.o.top < 60, `${size}: Omega's bar sits top-right: ${JSON.stringify(r.o)}`);
+      assert(r.a.height >= 10 && r.a.width >= 150, `${size}: the bars are big: ${r.a.width}x${r.a.height}`);
+      assert(Math.abs((r.alert.left + r.alert.right) / 2 - r.vw / 2) < 30, `${size}: the warning is centered`);
+      assert(/IMPACT 0:0[34]/.test(r.alertText) && /red/.test(r.alertClass), `${size}: it shows time to impact, red under 5s: ${r.alertText} ${r.alertClass}`);
+      assertEqual(r.clutter.length, 0, `${size}: HUD clutter left: ${r.clutter}`);
+      assert(r.hostInMenu, 'the served-from address moved into the in-game menu');
+      assert(r.hudHeight < 120, `${size}: the HUD stays short: ${r.hudHeight}px`);
+      assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+    }, { viewport });
+  });
+}
+
+test('ART-18: desktop bar - one row of icon buttons with cost, a cooldown fill, and details on long-press', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.tokens.attack = 5000;
+      const btns = [...document.querySelectorAll('#abilityGroups .launchBtn, #emergencyBtn')];
+      T.firePlane('strikeFighter');
+      for (let i = 0; i < 260; i++) T.tickUpdate(0.05); // 10s flight done, now rearming
+      T.updatePlaneButtons();
+      const fighter = document.querySelector('[data-plane="strikeFighter"]');
+      return {
+        count: btns.length,
+        tops: new Set(btns.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+        icons: btns.filter((b) => b.querySelector('svg.btnIcon')).length,
+        costs: [...document.querySelectorAll('#abilityGroups .launchBtn .btnDmg')].map((e) => e.textContent),
+        tips: btns.filter((b) => b.dataset.tip && b.title).length,
+        cd: parseFloat(fighter.style.getPropertyValue('--cd')), fighterEta: fighter.querySelector('.btnEta').textContent,
+        bar: document.getElementById('bottomBar').offsetHeight,
+      };
+    });
+    assertEqual(r.count, 7, 'six attack buttons and the counter');
+    assertEqual(r.tops, 1, 'all in one row');
+    assertEqual(r.icons, 7, 'every button has an icon');
+    assertEqual(r.costs.join(','), '100,300,500,150,350,550', 'each attack button shows its cost');
+    assertEqual(r.tips, 7, 'every button carries its details');
+    assert(r.cd > 0 && r.cd <= 1 && /REARM/.test(r.fighterEta), `a rearming plane shows a cooldown fill: ${r.cd} ${r.fighterEta}`);
+    assert(r.bar < 800 * 0.22, `the bar is slim: ${r.bar}px`);
+    // long-press: the details show and the weapon doesn't fire
+    const before = await page.evaluate(() => window.__TEST__.missiles.filter((m) => m.typeKey === 'fast').length);
+    await page.evaluate(() => document.querySelector('.launchBtn[data-type="fast"]').dispatchEvent(new Event('touchstart', { bubbles: true })));
+    await page.waitForTimeout(550);
+    const tip = await page.evaluate(() => ({ shown: !document.getElementById('btnTip').hidden, text: document.getElementById('btnTip').textContent }));
+    await page.evaluate(() => document.querySelector('.launchBtn[data-type="fast"]').click());
+    const after = await page.evaluate(() => window.__TEST__.missiles.filter((m) => m.typeKey === 'fast').length);
+    assert(tip.shown && /FAST/.test(tip.text) && /flight/.test(tip.text), `long-press shows the details: ${JSON.stringify(tip)}`);
+    assertEqual(after, before, 'the click after a long-press does not fire');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('ART-19: one strip replaces the four - tap a dot to follow it, anywhere else to move the camera', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.tokens.attack = 5000;
+      const m = T.launchAttack(T.nodeA, T.nodeO, 'large');
+      m.x = 9000;
+      T.setFollowId(null);
+      const strip = document.getElementById('minimap').getBoundingClientRect();
+      return {
+        gone: ['contacts', 'counterOpsBar', 'counterLaneCanvas', 'missionMapStrip', 'radarLaneTrack'].filter((id) => document.getElementById(id)),
+        strips: document.querySelectorAll('#minimap').length,
+        id: m.id, dotX: strip.left + strip.width * (9000 / 18000), y: strip.top + strip.height / 2,
+        emptyX: strip.left + strip.width * 0.9,
+      };
+    });
+    await page.mouse.click(r.dotX, r.y);
+    const followed = await page.evaluate(() => window.__TEST__.followId);
+    await page.mouse.click(r.emptyX, r.y);
+    const after = await page.evaluate(() => ({ follow: window.__TEST__.followId, camX: window.__TEST__.camX }));
+    assertEqual(r.gone.length, 0, `old strips left over: ${r.gone}`);
+    assertEqual(r.strips, 1, 'one strip');
+    assertEqual(followed, r.id, 'tapping the dot follows that missile');
+    assertEqual(after.follow, null, 'tapping empty strip stops following');
+    assert(after.camX > 18000 * 0.6, `and moves the camera there: ${after.camX}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });

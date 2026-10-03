@@ -685,7 +685,7 @@ the same** 10.
   Missile / Counter Planes button tests removed, one new LRNA-181 test.
   68/68.
 
-## OPEN — ART epic 3: in-game GUI redesign (2026-10-03)
+## IN PROGRESS — ART epic 3: in-game GUI redesign (2026-10-03)
 
 Request: "completely redesign the GUI of the game to work better and play
 better and look better." Asked directly; the owner's answers:
@@ -718,21 +718,42 @@ Tickets:
   shaded silhouettes for infantry, vehicles, launchers, sub-bases, the
   defense nodes, every missile and every plane. Omega's damage shows on
   the bunker itself.
-- **ART-17** — OPEN — HUD. Two big health bars in the top corners (your
+- **ART-17** — DONE — HUD. Two big health bars in the top corners (your
   Strike Platform left, Omega right) and one incoming warning with time
   to impact. Everything else in the HUD goes or moves (currency moves
   onto the bottom bar, the objective line becomes small or optional). Uses
   the ART-9 tokens so the battle matches the menus.
-- **ART-18** — OPEN — Compact bottom bar. One slim row of big icon
+  *Done:* olive (yours) and red (Omega) 14px bars with quarter ticks and
+  big numbers in the top corners; the incoming warning centered between
+  them (muted when clear, amber inside 20s, red and pulsing inside 5s),
+  the wave and objective on one small line under it. Omega's counter
+  stock and jam timers sit as small tags under its bar. IMPACTS moved to
+  STATS, the currency chips to the bar, and the served-from address into
+  the in-game menu. 79px tall on desktop, 105px on a phone.
+- **ART-18** — DONE — Compact bottom bar. One slim row of big icon
   buttons (attack weapons, then counters) with cost and ammo on each
   button and a cooldown fill; details on hover (desktop) or long-press
   (phone). One currency readout per group. Replaces the three labelled
   groups, the WARHEADS header line and the text-heavy buttons. Fits a
   phone in portrait without covering the battlefield.
-- **ART-19** — OPEN — One strip. The minimap, zone strip, counter lane
+  *Done:* FAST, MEDIUM, LONG, FIGHTER, BOMBER, HEAVY and EMERGENCY as
+  66px icon buttons (side-profile silhouettes drawn in SVG), each with
+  its cost, flight time or state (AWAY, REARM), key and ammo; an amber
+  fill rises while a weapon reloads or rearms. One line above shows the
+  target and warhead pips. Details on hover, or a long-press on a phone
+  (which doesn't fire). Phones: the six attack buttons in one row and
+  EMERGENCY full width under them. 153px tall on desktop (was ~330),
+  202px on a phone (was ~330).
+- **ART-19** — DONE — One strip. The minimap, zone strip, counter lane
   and Radar Lane panel become a single thin strip: both bases, your
   shots, incoming threats (with the nearest highlighted), the camera's
   view box; tap or drag it to move the camera.
+  *Done:* one 30px strip on top of the bar: bases, installations, ground
+  defenses, your shots (followed one ringed white), threats as red
+  arrowheads (the nearest amber, ringed, with its time to impact),
+  counters, and the camera box. Tap a dot to follow it, elsewhere to move
+  the camera. The Radar Lane panel, zone strip and counter lane are gone
+  (their 5 tests with them; 4 new ART tests added).
 - **ART-20** — OPEN — Camera follows the action. Side-scrolling stays,
   but the camera eases to your newest shot and to the most urgent
   incoming threat; a manual drag takes over for a few seconds, then

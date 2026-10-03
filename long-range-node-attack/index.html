@@ -33,172 +33,75 @@
   }
   canvas.dragging { cursor: grabbing; }
 
+  /* ART-17: the in-game HUD. Two big health bars in the top corners
+     (your Strike Platform left, Omega right), the incoming warning in the
+     middle with the wave line under it. Same ART-9 tokens as the menus. */
   #hud {
     position: absolute;
     top: env(safe-area-inset-top, 0px);
     left: 0; right: 0;
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
     align-items: start;
-    gap: 8px 14px;
-    padding: 10px 14px;
+    gap: 6px 16px;
+    padding: 10px 14px 12px;
     pointer-events: none;
-    text-shadow: 0 0 6px rgba(53,230,255,0.5);
-    font-size: 12px;
-    letter-spacing: 0.5px;
+    font-family: var(--m-mono);
+    color: var(--m-text);
+    background: linear-gradient(180deg, rgba(10,12,9,0.88) 0%, rgba(10,12,9,0.55) 70%, rgba(10,12,9,0) 100%);
   }
-  .panel { line-height: 1.55; min-width: 0; }
-  .panel.right { text-align: right; }
-  .barOuter { width: 150px; max-width: 100%; height: 9px; border: 1px solid var(--green-dim); margin-top: 3px; }
-  .panel.right .barOuter { margin-left: auto; }
-  /* Omega counters jam countdown (LRNA-075/#432) */
-  #omegaJamStatus {
-    margin-top: 3px;
-    font-size: 9.5px;
-    letter-spacing: 1px;
-    color: #ff2ea6;
-    animation: omegaJamPulse 0.9s infinite;
+  .hpPanel { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .hpPanel.right { align-items: flex-end; text-align: right; }
+  .hpHead { display: flex; align-items: baseline; gap: 10px; width: min(340px, 100%); justify-content: space-between; }
+  .hpName { font-family: var(--m-display); font-weight: 700; font-size: 12px; letter-spacing: 0.18em; color: var(--m-muted); white-space: nowrap; }
+  .hpNum { font-family: var(--m-display); font-weight: 700; font-size: 22px; line-height: 1; color: var(--m-text); font-variant-numeric: tabular-nums; }
+  .hpBar {
+    width: min(340px, 100%); height: 14px;
+    background: rgba(0,0,0,0.55);
+    border: 1px solid var(--m-line-strong);
+    position: relative; overflow: hidden;
   }
-  #omegaJamStatus.hidden { display: none; }
-  /* LRNA-151: point-defense jam (empGlobalJamTimer) is a separate timer
-     from the counters-only jam above (omegaCountersJamTimer) - a
-     distinct color/label so the player can tell which defenses are
-     actually down instead of one HUD line silently covering both. */
-  #pointDefenseJamStatus {
-    margin-top: 3px;
-    font-size: 9.5px;
-    letter-spacing: 1px;
-    color: #ffa500;
-    animation: omegaJamPulse 0.9s infinite;
+  .hpBar::after { /* quarter ticks */
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(0,0,0,0.6) calc(25% - 1px) 25%);
   }
-  #pointDefenseJamStatus.hidden { display: none; }
+  .hpFill { height: 100%; width: 100%; background: #9db35e; transition: width 0.25s linear, background 0.3s; }
+  .hpPanel.right .hpBar { display: flex; justify-content: flex-end; }
+  #oBar { background: #c8553d; }
+  .hpFill.low { background: #d0573c; animation: omegaJamPulse 0.9s infinite; }
+  #oBar.low { background: #e07a3f; }
+  .hpTags { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: flex-end; font-size: 9.5px; letter-spacing: 0.12em; }
+  /* Omega's counter stock (LRNA-116/165/181) and its two jam timers (LRNA-075/151) */
+  #omegaCounterStatus { color: var(--m-muted); }
+  #omegaCounterStatus .ready { color: var(--m-text); }
+  #omegaCounterStatus .out { color: #d0573c; }
+  #pointDefenseJamStatus { color: #e3a838; animation: omegaJamPulse 0.9s infinite; }
+  #omegaJamStatus { color: #e3a838; animation: omegaJamPulse 0.9s infinite; }
+  #pointDefenseJamStatus.hidden, #omegaJamStatus.hidden { display: none; }
   @keyframes omegaJamPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-  /* LRNA-116: Omega's own Counter Missile/Planes readiness, so the player
-     can predict when Omega will stop defending rather than it firing
-     silently with no visible state. */
-  #omegaCounterStatus {
-    margin-top: 3px;
-    font-size: 9px;
-    letter-spacing: 0.5px;
-    color: #ff8fc7;
-    opacity: 0.85;
+  #hudCenter { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+  /* ART-17: the one incoming warning - time to impact of the nearest threat */
+  #incomingAlert {
+    pointer-events: auto;
+    font-family: var(--m-display); font-weight: 700;
+    font-size: 13px; letter-spacing: 0.14em;
+    padding: 6px 14px;
+    border: 1px solid var(--m-line);
+    background: rgba(10,12,9,0.7);
+    color: var(--m-muted);
+    white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+    cursor: default;
   }
-  #omegaCounterStatus .ready { color: #7bffa0; }
-  #omegaCounterStatus .out { color: #ff5a36; opacity: 0.7; } /* LRNA-165: none left this game */
-  .barInner { height: 100%; width: 100%; transition: width 0.2s linear, background 0.3s; }
-
-  #centerLabel {
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 10.5px;
-    color: var(--cyan);
-    letter-spacing: 2px;
-    text-align: center;
-    white-space: nowrap;
-    align-self: center;
-  }
-  #centerLabel .url { color: #fff; }
-  #tokenHud {
-    display: inline-flex;
-    gap: 8px;
-    margin-top: 4px;
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 11px;
-    letter-spacing: 0.5px;
-    transition: transform 0.15s;
-  }
-  #tokenHud.pulse { transform: scale(1.15); }
-  .tokenChip { text-shadow: 0 0 8px currentColor; white-space: nowrap; }
-  #waveHud {
-    display: inline-block;
-    margin-top: 2px;
-    color: var(--green);
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-  }
-  #waveHud.break { color: #7bffa0; }
-  /* LRNA-173/180: one short line - the wave, or the mission's goal */
-  #objectiveHud { display: inline-block; margin-top: 2px; color: #9fffcf; font-size: 9.5px; letter-spacing: 1px; }
-  #waveHud.elite { color: #ff2ea6; animation: omegaJamPulse 0.9s infinite; }
-
-  /* Radar Lane (LRNA-076, issue #433): absorbs the old ACTIVE CONTACTS
-     panel - a 0-1000 distance scale (0 = Strike Platform, 1000 = Node
-     Omega) instead of raw map coordinates, a thin lane strip with one
-     dot per contact above the list. Counter Measures Zone (LRNA-046's
-     other half) is explicitly dropped - no auto-play on the player's
-     side, per direct request (LRNA-064). */
-  #contacts {
-    position: absolute;
-    top: 60px; right: 6px;
-    width: min(250px, calc(100vw - 12px));
-    max-height: 30vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    background: rgba(3,12,7,0.6);
-    border: 1px solid var(--green-dim);
-    padding: 6px 8px;
-    font-size: 10px;
-    backdrop-filter: blur(2px);
-  }
-  #contacts h3 {
-    margin: 0 0 6px 0;
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 10.5px;
-    letter-spacing: 2px;
-    color: var(--cyan);
-    border-bottom: 1px solid var(--green-dim);
-    padding-bottom: 4px;
-    pointer-events: none;
-    flex: none;
-  }
-  #radarLaneTrack {
-    position: relative;
-    flex: none;
-    height: 14px;
-    margin-bottom: 6px;
-    background: rgba(0,0,0,0.35);
-    border: 1px solid var(--green-dim);
-    border-radius: 2px;
-  }
-  .laneDot {
-    position: absolute;
-    top: 50%; width: 5px; height: 5px;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    cursor: pointer;
-    box-shadow: 0 0 4px currentColor;
-  }
-  .laneDot.tracked { width: 7px; height: 7px; outline: 1px solid #fff; }
-  #contactList { overflow-y: auto; }
-  .contact-row {
-    display: flex; flex-direction: column; gap: 1px; padding: 3px 2px;
-    cursor: pointer; border-radius: 2px;
-  }
-  .contact-row:hover { background: rgba(255,255,255,0.08); }
-  .contact-row.tracked { background: rgba(53,230,255,0.16); outline: 1px solid var(--green); }
-  .contact-overflow {
-    padding: 4px 2px; font-size: 8.5px; letter-spacing: 0.5px;
-    opacity: 0.7; text-align: center; font-style: italic;
-  }
-  .contact-row-main { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .contact-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-  .contact-sub {
-    padding-left: 14px;
-    font-size: 8.5px;
-    opacity: 0.7;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .contact-role {
-    font-size: 8.5px;
-    letter-spacing: 0.5px;
-    border: 1px solid currentColor;
-    padding: 0 3px;
-    margin-left: 4px;
-  }
+  #incomingAlert.hasThreat { cursor: pointer; }
+  #incomingAlert.green { color: var(--m-muted); border-color: var(--m-line); }
+  #incomingAlert.hasThreat.green { color: var(--m-text); border-color: var(--m-line-strong); }
+  #incomingAlert.yellow { color: #e3a838; border-color: #e3a838; background: rgba(227,168,56,0.1); }
+  #incomingAlert.red { color: #fff; border-color: #d0573c; background: rgba(208,87,60,0.55); animation: incomingPulse 0.5s infinite; }
+  @keyframes incomingPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+  #hudLine { font-size: 10px; letter-spacing: 0.14em; color: var(--m-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  #waveHud.break { color: #9db35e; }
+  #waveHud.elite { color: #e3a838; animation: omegaJamPulse 0.9s infinite; }
+  #objectiveHud { color: var(--m-text); }
 
   /* LRNA-144: shown whenever a localStorage write throws (full/blocked
      storage) - progress silently failing to save used to have zero
@@ -223,30 +126,7 @@
 
 
 
-  /* Emergency Counter (LRNA-074/#431): moved out of its old floating
-     top-left HUD position into the COUNTER ability group, styled like
-     every other launch-bar button now instead of a standalone floater. */
-  #emergencyBtn {
-    position: relative; /* anchors .btnKey/.ammoLeft to this button */
-    flex: 1 1 110px;
-    max-width: 170px;
-    min-width: 84px;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid var(--red);
-    color: var(--red);
-    font-family: "Courier New", ui-monospace, monospace;
-    padding: 8px 6px;
-    cursor: pointer;
-    text-align: center;
-    transition: transform 0.08s, background 0.15s, opacity 0.15s;
-  }
-  #emergencyBtn:hover:not(:disabled) { background: rgba(255,90,54,0.18); }
-  #emergencyBtn:disabled { opacity: 0.35; cursor: default; border-color: var(--green-dim); color: var(--green-dim); }
-  #emergencyBtn.ready { animation: emergencyPulse 1.1s infinite; }
-  @keyframes emergencyPulse {
-    0%, 100% { box-shadow: 0 0 0 rgba(255,90,54,0); }
-    50% { box-shadow: 0 0 10px rgba(255,90,54,0.85); }
-  }
+  /* Emergency Counter (LRNA-074/#431): styled with the other bar buttons (ART-18, below) */
 
   /* LRNA-154: #opsCenterPanel is gone - its sections (GAME MODE, RUN
      STATS, TARGETS, REACTOR UPGRADES) moved into #missionMapWindow,
@@ -398,267 +278,93 @@
      of how many targets happen to be alive right now. */
   #targetListScroll { max-height: 220px; overflow-y: auto; }
 
-  /* The top-down zone strip: Strike Platform on the left, Node Omega on
-     the right, and the live inbound threat placed along it by real
-     world-x position (same nodeA.x..nodeO.x span the battlefield itself
-     uses). LRNA-180 removed the recon zones and node markers it held. */
-  /* ART-7: the zone strip restyled as a real top-down map lane rather
-     than a flat grey bar - same soft-glow-corridor language the
-     battlefield canvas itself uses (ART-3's drawn corridor), distance
-     ticks for a real map/scale cue, and a scanline texture matching
-     every other panel this epic has touched. */
-  /* LRNA-158: the strip's own outer layout, now inside the persistent
-     #counterOpsBar instead of a centered card in a full-screen window -
-     full width, no more max-width/auto-centering. */
-  #missionMapStrip { display: flex; align-items: center; gap: 10px; }
-  .missionMapStripEnd {
-    font-size: 8.5px; letter-spacing: 1px; opacity: 0.9; width: 70px; flex-shrink: 0;
-    text-align: center; line-height: 1.3; position: relative; padding-top: 14px;
-  }
-  .missionMapStripEnd::before {
-    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%) rotate(45deg);
-    width: 8px; height: 8px; border: 1.5px solid currentColor; opacity: 0.8;
-  }
-  #missionMapStrip .missionMapStripEnd:first-child { color: var(--green); }
-  #missionMapStrip .missionMapStripEnd:last-child { color: var(--amber); }
-  /* LRNA-161: same 70px end columns and gap as #missionMapStrip, so the
-     canvas spans exactly the zone strip's track width. */
-  #counterLaneRow { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
-  .counterLaneEnd {
-    font-size: 8px; letter-spacing: 1px; opacity: 0.7; width: 70px; flex-shrink: 0;
-    text-align: center; line-height: 1.3;
-  }
-  #counterLaneCanvas {
-    display: block; flex: 1; min-width: 0; height: 18px;
-    border: 1px solid #345; background: rgba(3,12,7,0.6);
-  }
-  #missionMapStripTrack {
-    position: relative; flex: 1; height: 26px;
-    background:
-      repeating-linear-gradient(180deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
-      repeating-linear-gradient(90deg, rgba(143,107,255,0.12) 0, rgba(143,107,255,0.12) 1px, transparent 1px, transparent 40px),
-      linear-gradient(180deg, rgba(3,12,7,0.4), rgba(3,12,7,0.75));
-    border: 1px solid #345;
-  }
-  /* the corridor centerline glow, same visual language as the
-     battlefield's own drawn corridor (ART-3) - the strip *is* that
-     corridor, top-down. */
-  #missionMapStripTrack::before {
-    content: ''; position: absolute; left: 0; right: 0; top: 50%;
-    height: 6px; transform: translateY(-50%);
-    background: linear-gradient(90deg, rgba(143,107,255,0), rgba(143,107,255,0.25), rgba(143,107,255,0));
-  }
-  @keyframes missionMapPulse {
-    0% { transform: scale(0.6); opacity: 0.9; }
-    100% { transform: scale(1.8); opacity: 0; }
-  }
-  /* a directional chevron instead of the old plain rotated square -
-     inbound threats always travel Omega -> Strike Platform (right to
-     left on this strip), so the chevron points left and trails a short
-     glowing tail behind it. */
-  #missionMapThreatMarker {
-    position: absolute; top: 50%; width: 12px; height: 10px;
-    transform: translate(-50%, -50%);
-    background: #ffe066;
-    clip-path: polygon(0% 50%, 100% 0%, 100% 100%);
-    box-shadow: 0 0 8px 1px #ffe066aa;
-    animation: missionMapThreatPulse 0.7s ease-in-out infinite;
-  }
-  #missionMapThreatMarker::after {
-    content: ''; position: absolute; top: 50%; left: 100%; width: 22px; height: 1px;
-    transform: translateY(-50%);
-    background: linear-gradient(90deg, #ffe06699, transparent);
-  }
-  @keyframes missionMapThreatPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-  #missionMapThreatMarker.hidden { display: none; }
 
-  #targetLabel {
-    text-align: center;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    margin-bottom: 5px;
-  }
-
+  /* ART-19: the one strip - both bases, your shots, incoming threats
+     (nearest ringed), counters and the camera's view. Tap a dot to follow
+     it, anywhere else to move the camera. */
   #minimapWrap {
-    height: 28px;
-    background: rgba(3,12,7,0.78);
-    border-top: 1px solid var(--green-dim);
+    height: 30px;
+    background: #101310;
+    border-top: 1px solid var(--m-line-strong);
+    border-bottom: 1px solid var(--m-line);
   }
   #minimap { width: 100%; height: 100%; display: block; cursor: pointer; }
-
-  /* LRNA-158: the "Counter Operations bar" - always visible on Main
-     View, positioned directly above #bottomBar. `bottom` is set by JS
-     (resize(), using the same bottomBarPx measurement vh() relies on)
-     rather than a static value here, since the bar it sits above
-     varies in real height by breakpoint/content. */
-  #counterOpsBar {
-    position: absolute;
-    left: 0; right: 0;
-    z-index: 3;
-    background: rgba(3,12,7,0.85);
-    border-top: 1px solid var(--green-dim);
-    padding: 10px 16px;
-    max-height: 40vh;
-    overflow-y: auto;
-  }
 
   #bottomBar {
     position: absolute;
     left: 0; right: 0; bottom: 0;
-    /* LRNA-084: above #missionMapWindow's z-index (12) - that overlay is
-       full-screen now (it used to be a small centered card neither of
-       the windows it replaced actually overlapped this bar with), so
-       the ability bar needs to explicitly out-rank it to stay visible
-       and clickable while Mission Map is open. */
+    /* LRNA-084: above #missionMapWindow's z-index (12) */
     z-index: 13;
+    font-family: var(--m-mono);
+    color: var(--m-text);
   }
+  /* ART-18: the compact bottom bar - one slim row of big icon buttons,
+     cost and ammo on each, a cooldown fill, details on hover (desktop)
+     or long-press (phone). */
   #launchBar {
-    background: rgba(3,12,7,0.88);
-    border-top: 1px solid var(--green-dim);
+    background: rgba(14,16,12,0.96);
     padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 0px));
   }
-  #launchBarHeader {
-    text-align: center;
-    font-size: 9.5px;
-    color: var(--green-dim);
-    letter-spacing: 1px;
-    margin-bottom: 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  #barInfo {
+    display: flex; justify-content: center; align-items: baseline; gap: 18px;
+    font-size: 10px; letter-spacing: 0.14em; color: var(--m-muted);
+    margin-bottom: 6px; white-space: nowrap; overflow: hidden;
   }
-  #launchBarHeader .hot { color: #ffe066; }
-  #launchButtons {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    flex-wrap: wrap;
+  #targetLabel { color: var(--m-text) !important; overflow: hidden; text-overflow: ellipsis; }
+  #launchBarHeader { overflow: hidden; text-overflow: ellipsis; }
+  #launchBarHeader .hot { color: #e3a838; }
+  #launchBarHeader .pips { letter-spacing: 0.25em; color: #e3a838; }
+  #abilityGroups { display: flex; gap: 14px; justify-content: center; align-items: stretch; }
+  .abilityGroup { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .abilityGroupHeader {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px; height: 18px; box-sizing: border-box;
+    font-family: var(--m-display); font-weight: 700;
+    font-size: 10px; letter-spacing: 0.22em; color: var(--m-muted);
+    padding: 0 2px 2px; border-bottom: 1px solid var(--m-line);
   }
-  .launchBtn {
-    flex: 1 1 110px;
-    max-width: 170px;
-    min-width: 84px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.35) 40%);
-    border: 1px solid var(--btncolor);
-    color: var(--btncolor);
-    font-family: "Courier New", ui-monospace, monospace;
-    padding: 8px 6px;
+  .abilityGroupCount { font-family: var(--m-mono); font-weight: 400; font-size: 12px; letter-spacing: 0.05em; color: #e3a838; transition: transform 0.15s; }
+  .abilityGroupCount.pulse { transform: scale(1.15); }
+  .abilityGroupButtons { display: flex; gap: 6px; }
+  .launchBtn, #emergencyBtn {
+    position: relative;
+    width: 88px; min-height: 66px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    padding: 6px 4px 5px;
+    font-family: var(--m-mono);
+    color: var(--m-text);
+    background: linear-gradient(to top, rgba(227,168,56,0.28) calc(var(--cd, 0) * 100%), transparent 0), #1a1e17;
+    border: 1px solid var(--m-line-strong);
+    border-radius: 2px;
     cursor: pointer;
-    text-align: center;
-    transition: transform 0.08s, background 0.15s, opacity 0.15s, box-shadow 0.15s;
-    box-shadow: inset 0 0 14px -8px var(--btncolor);
+    transition: border-color 0.12s, background-color 0.12s, opacity 0.15s;
+    -webkit-touch-callout: none; user-select: none;
   }
-  .launchBtn:hover:not(:disabled) { box-shadow: inset 0 0 18px -6px var(--btncolor), 0 0 8px -2px var(--btncolor); }
-  .launchBtn:active { transform: scale(0.96); background: rgba(255,255,255,0.1); }
-  .launchBtn:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
-  /* ART-4: a small HUD corner-bracket accent (instrument-panel/targeting-
-     reticle feel) on every button family - pure ::before/::after, no
-     DOM or class changes, so the JS that wires these up by id/class/
-     data-* attribute is completely untouched. */
-  .launchBtn::before, .launchBtn::after,
-  .upgradeBtn::before, .upgradeBtn::after {
-    content: '';
-    position: absolute;
-    width: 6px; height: 6px;
-    border-color: currentColor;
-    border-style: solid;
-    opacity: 0.5;
+  .launchBtn:hover:not(:disabled), #emergencyBtn:hover:not(:disabled) { border-color: #e3a838; }
+  .launchBtn:active:not(:disabled), #emergencyBtn:active:not(:disabled) { transform: translateY(1px); }
+  .launchBtn:disabled, #emergencyBtn:disabled { opacity: 0.42; cursor: default; }
+  .btnIcon { width: 34px; height: 17px; fill: currentColor; opacity: 0.9; flex: none; }
+  .btnLabel { font-family: var(--m-display); font-weight: 700; font-size: 11px; letter-spacing: 0.12em; white-space: nowrap; }
+  .btnDmg { font-size: 10px; color: #e3a838; white-space: nowrap; }
+  .btnEta { font-size: 8.5px; letter-spacing: 0.06em; color: var(--m-muted); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .btnKey { position: absolute; top: 2px; right: 4px; font-size: 8px; color: var(--m-muted); }
+  .ammoLeft { position: absolute; top: 2px; left: 4px; font-size: 8px; letter-spacing: 0.04em; color: #e3a838; }
+  .ammoLeft.empty { color: #d0573c; }
+  .planeBtn.away { opacity: 0.55; }
+  .planeBtn .btnEta.rearming { color: #e3a838; }
+  /* the one counter: wide, and it lights up while a threat is in its window */
+  #emergencyBtn { width: 150px; }
+  #emergencyBtn.ready { border-color: #d0573c; background: linear-gradient(to top, rgba(227,168,56,0.28) calc(var(--cd, 0) * 100%), transparent 0), rgba(208,87,60,0.35); animation: incomingPulse 0.8s infinite; }
+  /* long-press details on touch screens (hover shows the same text via title) */
+  #btnTip {
+    position: absolute; z-index: 16; left: 50%; transform: translateX(-50%);
+    max-width: calc(100vw - 24px);
+    padding: 7px 11px;
+    font-family: var(--m-mono); font-size: 11px; letter-spacing: 0.06em; line-height: 1.45;
+    color: #dcd8c4; background: #141712; border: 1px solid #e3a838;
     pointer-events: none;
   }
-  .launchBtn::before, .upgradeBtn::before {
-    top: -1px; left: -1px;
-    border-width: 1px 0 0 1px;
-  }
-  .launchBtn::after, .upgradeBtn::after {
-    bottom: -1px; right: -1px;
-    border-width: 0 1px 1px 0;
-  }
-  .btnLabel {
-    display: block;
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 13px;
-    letter-spacing: 1px;
-    text-shadow: 0 0 6px currentColor;
-  }
-  .btnEta { display: block; font-size: 10px; color: #fff; opacity: 0.85; margin-top: 3px; }
-  .btnDmg { display: block; font-size: 9px; opacity: 0.65; margin-top: 1px; }
-  /* LRNA-165: remaining counters this game, opposite corner from .btnKey */
-  .ammoLeft {
-    position: absolute;
-    top: 2px; left: 4px;
-    font-size: 8px;
-    letter-spacing: 0.5px;
-    opacity: 0.8;
-    font-family: "Courier New", ui-monospace, monospace;
-  }
-  .ammoLeft.empty { color: #ff5a36; opacity: 1; }
-  .btnKey {
-    position: absolute;
-    top: 2px; right: 3px;
-    font-size: 8px;
-    opacity: 0.55;
-    font-family: "Courier New", ui-monospace, monospace;
-  }
-  .launchBtn { position: relative; }
+  #btnTip[hidden] { display: none; }
 
-  /* Attack/Counter/Intel button bar (LRNA-074, issue #431) - replaces the
-     old single flat row of buttons with 3 colored groups, one per token
-     pillar, each headed by that pillar's live token count. */
-  #incomingAlert {
-    text-align: center;
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 10.5px;
-    letter-spacing: 1.5px;
-    padding: 6px 4px;
-    margin-bottom: 6px;
-    border: 1px solid #2a2a2a;
-    color: #555;
-    cursor: default;
-    transition: color 0.2s, border-color 0.2s, background 0.2s;
-  }
-  #incomingAlert.hasThreat { cursor: pointer; pointer-events: auto; }
-  #incomingAlert.green { color: var(--green); border-color: var(--green); background: rgba(53,230,255,0.06); }
-  #incomingAlert.yellow { color: #ffe066; border-color: #ffe066; background: rgba(255,224,102,0.08); animation: incomingPulse 1.1s infinite; }
-  #incomingAlert.red { color: var(--red); border-color: var(--red); background: rgba(255,90,54,0.1); animation: incomingPulse 0.5s infinite; }
-  @keyframes incomingPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-
-  #abilityGroups {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .abilityGroup {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex: 1 1 260px;
-    min-width: 210px;
-  }
-  .abilityGroupHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    font-family: "Courier New", ui-monospace, monospace;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    padding: 0 2px 3px;
-    border-bottom: 1px solid currentColor;
-  }
-  .abilityGroup[data-pillar="attack"] .abilityGroupHeader { color: #ff5a36; }
-  .abilityGroup[data-pillar="counter"] .abilityGroupHeader { color: #ffe066; }
-  .abilityGroupCount { font-size: 11px; }
-  .abilityGroupButtons { display: flex; gap: 6px; flex-wrap: wrap; }
-  /* LRNA-168: COUNTER has no planes, so its PLANES label headed an empty row */
-  .abilityGroupSub:has(+ .abilityGroupButtons:empty), .abilityGroupButtons:empty { display: none; }
-  .abilityGroupSub {
-    font-size: 8.5px;
-    letter-spacing: 1.5px;
-    opacity: 0.55;
-    margin-top: 4px;
-  }
-  .planeBtn.away { opacity: 0.5; }
-  .planeBtn .btnEta.rearming { color: #ffe066; }
 
   /* ---- ART epic 2 (ART-9): the menu design system. Tactical/military,
      chosen directly: dark olive-grey, one amber accent, thin rules and a
@@ -667,7 +373,7 @@
      tokens, one button style (.mBtn / .mBtn.primary / .mLink) and one
      panel style (.mPanel). The backdrop is solid so the live game HUD no
      longer shows through. */
-  #overlay, #gameMenu, #waveResultScreen, #menuBtn {
+  #overlay, #gameMenu, #waveResultScreen, #menuBtn, #hud, #bottomBar, #btnTip {
     --m-bg: #0c0e0b;
     --m-panel: #141712;
     --m-line: #2f342a;
@@ -872,51 +578,29 @@
      #opsCenterBtn/#opsCenterPanel mobile overrides had the same bug and
      were never actually taking effect.) */
   @media (max-width: 560px) {
-    #hud { grid-template-columns: 1fr 1fr; padding: 6px 10px; font-size: 11px; }
-    #centerLabel { grid-column: 1 / -1; order: -1; font-size: 9px; white-space: normal; }
-    /* LRNA-169: the title and address are the start screen's job; on a
-       phone every row up here costs battlefield. */
-    #centerLabel .hudTitle { display: none; }
-    #contacts { max-height: 22vh; }
-    /* LRNA-172: on a phone the contact list sat over the middle of the
-       battlefield, where the forward defenses are tapped. It starts
-       collapsed (the lane strip stays); tap RADAR LANE to open it. */
-    #contacts h3 { pointer-events: auto; cursor: pointer; }
-    #contacts h3::after { content: ' ▸'; }
-    #contacts.open h3::after { content: ' ▾'; }
-    #contacts:not(.open) #contactList { display: none; }
-    #contacts:not(.open) #radarLaneTrack { margin-bottom: 0; }
-
-    /* LRNA-168: compact ability bar. Each pillar becomes a 3-column grid
-       (display: contents lifts the missile and plane buttons into it), so
-       ATTACK is 2 rows and COUNTER 1 row, instead of one
-       full-width button per row. */
-    #counterOpsBar { padding: 5px 8px; }
-    .missionMapStripEnd { width: 40px; font-size: 6.5px; padding-top: 11px; }
-    .counterLaneEnd { width: 40px; font-size: 6.5px; }
-    #missionMapStripTrack { height: 20px; }
-    #counterLaneRow { margin-top: 4px; }
-    #minimapWrap { height: 22px; }
-    #launchBar { padding: 4px 8px calc(6px + env(safe-area-inset-bottom, 0px)); }
-    #launchBarHeader { font-size: 8px; margin-bottom: 3px; }
-    #targetLabel { font-size: 9px; margin-bottom: 3px; }
-    #incomingAlert { font-size: 9px; padding: 3px 4px; margin-bottom: 4px; }
-    #abilityGroups { gap: 5px; }
-    .abilityGroup {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 4px;
-      flex: 1 1 100%;
-      min-width: 0;
-    }
-    .abilityGroupHeader { grid-column: 1 / -1; font-size: 9px; padding-bottom: 2px; }
-    .abilityGroupButtons { display: contents; }
-    .abilityGroupSub { display: none; }
-    .launchBtn, #emergencyBtn { max-width: none; min-width: 0; padding: 10px 3px 4px; }
-    .btnLabel { font-size: 10px; letter-spacing: 0.5px; }
-    .btnEta { font-size: 8px; margin-top: 1px; }
-    .btnDmg { font-size: 7.5px; }
-    .btnKey, .ammoLeft { font-size: 6.5px; }
+    /* ART-17: phones - the two bars side by side, warning and wave line under them */
+    #hud { grid-template-columns: 1fr 1fr; padding: 6px 10px 8px; gap: 5px 12px; }
+    #hudCenter { grid-column: 1 / -1; grid-row: 2; }
+    .hpName { font-size: 9.5px; letter-spacing: 0.12em; }
+    .hpNum { font-size: 17px; }
+    .hpBar { height: 11px; }
+    #incomingAlert { font-size: 11px; padding: 4px 10px; }
+    #hudLine { font-size: 9px; }
+    /* ART-18: phones - the six attack buttons in one row, the counter full width under them */
+    #minimapWrap { height: 26px; }
+    #launchBar { padding: 4px 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
+    #barInfo { font-size: 9px; gap: 10px; margin-bottom: 4px; }
+    #abilityGroups { flex-direction: column; gap: 5px; }
+    .abilityGroupButtons { gap: 4px; }
+    .abilityGroup[data-pillar="attack"] .abilityGroupButtons { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .launchBtn { width: auto; min-width: 0; min-height: 54px; padding: 9px 1px 3px; }
+    .btnIcon { width: 28px; height: 14px; }
+    .btnLabel { font-size: 9px; letter-spacing: 0.04em; }
+    .btnDmg { font-size: 9px; }
+    .btnEta { font-size: 7.5px; }
+    .btnKey { display: none; }
+    #emergencyBtn { width: 100%; min-height: 44px; flex-direction: row; flex-wrap: wrap; column-gap: 10px; padding: 4px 8px; }
+    #emergencyBtn .ammoLeft { position: static; font-size: 10px; }
     /* ART-11: slot cards on phones - narrower name column, smaller pick text */
     .loadoutSlot { grid-template-columns: 70px 1fr; gap: 6px 10px; }
     .loadoutSelect { font-size: 12.5px; letter-spacing: 0.03em; }
@@ -927,27 +611,21 @@
   <canvas id="game"></canvas>
 
   <div id="hud">
-    <div class="panel">
-      <div>STRIKE PLATFORM — <span id="aHealth">250</span>/250</div>
-      <div class="barOuter"><div class="barInner" id="aBar" style="background:var(--green)"></div></div>
-      <div style="margin-top:3px;">IMPACTS <span id="aImpacts">0</span></div>
+    <div class="panel hpPanel">
+      <div class="hpHead"><span class="hpName">STRIKE PLATFORM</span><span class="hpNum" id="aHealth">250</span></div>
+      <div class="hpBar"><div class="hpFill" id="aBar"></div></div>
     </div>
-    <div id="centerLabel"><span class="hudTitle">LONG RANGE NODE ATTACK<br><span id="hudHostLine"><span class="url" id="hudHost"></span><br></span></span><span id="tokenHud"><span class="tokenChip" style="color:#ff5a36">&#9679; <span id="tokenAttack">0</span></span></span><br><span id="waveHud">WAVE 1</span><br><span id="objectiveHud"></span></div>
-    <div class="panel right">
-      <div>NODE OMEGA — <span id="oHealth">250</span>/250</div>
-      <div class="barOuter"><div class="barInner" id="oBar" style="background:var(--amber)"></div></div>
-      <div style="margin-top:3px;">IMPACTS <span id="oImpacts">0</span></div>
-      <div id="pointDefenseJamStatus" class="hidden">POINT DEFENSE JAMMED 0:15</div>
-      <div id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</div>
-      <div id="omegaCounterStatus"></div>
+    <div id="hudCenter">
+      <div id="incomingAlert">NO INBOUND THREATS</div>
+      <div id="hudLine"><span id="waveHud">WAVE 1</span> &middot; <span id="objectiveHud"></span></div>
+    </div>
+    <div class="panel hpPanel right">
+      <div class="hpHead"><span class="hpNum" id="oHealth">250</span><span class="hpName">NODE OMEGA</span></div>
+      <div class="hpBar"><div class="hpFill" id="oBar"></div></div>
+      <div class="hpTags"><span id="omegaCounterStatus"></span><span id="pointDefenseJamStatus" class="hidden">POINT DEFENSE JAMMED 0:15</span><span id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</span></div>
     </div>
   </div>
 
-  <div id="contacts">
-    <h3>RADAR LANE</h3>
-    <div id="radarLaneTrack"></div>
-    <div id="contactList"></div>
-  </div>
   <!-- LRNA-158: renamed from #opsCenterBtn/"COUNTER CENTER" - this now
        opens the STATS-only window, not an operations screen. -->
   <button id="menuBtn" aria-label="Menu">&#9776; MENU</button>
@@ -966,6 +644,7 @@
         <button id="menuQuit" class="mBtn">QUIT TO MENU</button>
       </div>
       <div class="gmHint">ESC TO RESUME</div>
+      <div class="gmHint" id="hudHostLine" hidden>SERVED FROM <span id="hudHost"></span></div>
     </div>
   </div>
 
@@ -1023,78 +702,37 @@
     </div>
   </div>
 
-  <!-- LRNA-158: "Counter Operations bar" - the zone strip (was inside
-       the merged window), now a persistent, always-visible bar on Main
-       View instead of hidden behind a second screen (LRNA-162 removed
-       the SEEK AND DESTROY/AntiPlane lists it also held), so inbound
-       threats can be tracked and
-       countered (via the bottom bar's own COUNTER buttons) without
-       leaving the battlefield. Visual/status only, not clickable to
-       select a target (confirmed explicitly - the bottom bar's buttons
-       already show the live threat's own stats). Positioned by JS
-       (see resize()) directly above #bottomBar, using the same
-       bottomBarPx measurement vh() already relies on, since the bottom
-       bar's real height varies by breakpoint/content and a static CSS
-       offset would drift out of sync with it. -->
-  <div id="counterOpsBar">
-    <div id="missionMapStrip">
-      <div class="missionMapStripEnd">STRIKE<br>PLATFORM</div>
-      <div id="missionMapStripTrack">
-        <div id="missionMapThreatMarker" class="hidden"></div>
-      </div>
-      <div class="missionMapStripEnd">NODE<br>OMEGA</div>
-    </div>
-    <!-- LRNA-161: dot lane for interception, drawn like #minimap but
-         only inbound strikes and the intercepts aimed at them. Same end columns and the same
-         Strike-Platform-to-Omega mapping as the zone strip above, so the
-         two lanes line up. -->
-    <div id="counterLaneRow">
-      <div class="counterLaneEnd">COUNTER<br>LANE</div>
-      <canvas id="counterLaneCanvas"></canvas>
-      <div class="counterLaneEnd"></div>
-    </div>
-  </div>
-
   <div id="bottomBar">
     <div id="minimapWrap"><canvas id="minimap"></canvas></div>
     <div id="launchBar">
-      <div id="launchBarHeader">WARHEADS 3/3 &nbsp;·&nbsp; ~85% HIT CHANCE &nbsp;·&nbsp; DRAG/ARROWS TO PAN</div>
-      <div id="targetLabel">TARGET: NODE OMEGA</div>
-      <div id="incomingAlert">NO INBOUND THREATS</div>
+      <div id="barInfo"><span id="targetLabel">TARGET: NODE OMEGA</span><span id="launchBarHeader">WARHEADS 3/3</span></div>
       <div id="abilityGroups">
         <div class="abilityGroup" data-pillar="attack">
           <div class="abilityGroupHeader">ATTACK <span class="abilityGroupCount">&#9679; <span id="groupTokenAttack">0</span></span></div>
-          <div class="abilityGroupButtons">
-            <button class="launchBtn" data-type="fast" style="--btncolor:#35e6ff">
-              <span class="btnKey">1</span>
-              <span class="btnLabel">FAST</span>
-              <span class="btnEta">10s flight</span>
-              <span class="btnDmg">&#9679; 100 ATTACK</span>
+          <!-- missiles first, then the planes (generated into the same row) -->
+          <div class="abilityGroupButtons" id="planeButtons-attack">
+            <button class="launchBtn" data-type="fast">
+              <span class="btnKey">1</span><span class="btnLabel">FAST</span>
+              <span class="btnDmg">100</span><span class="btnEta">10s</span>
             </button>
-            <button class="launchBtn" data-type="medium" style="--btncolor:#8f6bff">
-              <span class="btnKey">2</span>
-              <span class="btnLabel">MEDIUM</span>
-              <span class="btnEta">20s flight</span>
-              <span class="btnDmg">&#9679; 300 ATTACK</span>
+            <button class="launchBtn" data-type="medium">
+              <span class="btnKey">2</span><span class="btnLabel">MEDIUM</span>
+              <span class="btnDmg">300</span><span class="btnEta">20s</span>
             </button>
-            <button class="launchBtn" data-type="large" style="--btncolor:#ff5a36">
-              <span class="btnKey">3</span>
-              <span class="btnLabel">LONG RANGE</span>
-              <span class="btnEta">30s flight</span>
-              <span class="btnDmg">&#9679; 500 ATTACK</span>
+            <button class="launchBtn" data-type="large">
+              <span class="btnKey">3</span><span class="btnLabel">LONG</span>
+              <span class="btnDmg">500</span><span class="btnEta">30s</span>
             </button>
           </div>
-          <div class="abilityGroupSub">PLANES</div>
-          <div class="abilityGroupButtons" id="planeButtons-attack"></div>
         </div>
         <!-- LRNA-181: one counter - EMERGENCY COUNTER, 10 per game -->
         <div class="abilityGroup" data-pillar="counter">
           <div class="abilityGroupHeader">COUNTER</div>
           <div class="abilityGroupButtons">
-            <button id="emergencyBtn" disabled>
+            <button id="emergencyBtn" disabled title="EMERGENCY COUNTER - fires at the threat closest to impact, in its last 5 seconds. 75% kill, 10 per game.">
               <span class="btnKey">4</span>
               <span class="ammoLeft" id="emergencyAmmo">10 LEFT</span>
-              <span class="btnLabel">EMERGENCY COUNTER</span>
+              <span class="btnLabel">EMERGENCY</span>
               <span class="btnEta" id="emergencyStatus">no threat in window</span>
               <span class="btnDmg">LAST 5s &middot; 75% KILL</span>
             </button>
@@ -1103,6 +741,7 @@
       </div>
     </div>
   </div>
+  <div id="btnTip" hidden></div>
 
   <div id="overlay">
     <!-- ART-10: home - title, PLAY, MISSIONS; setup and how-to-play as quiet links -->
@@ -1183,10 +822,7 @@
   const ctx = canvas.getContext('2d');
   const minimap = document.getElementById('minimap');
   const mctx = minimap.getContext('2d');
-  const counterLaneCanvas = document.getElementById('counterLaneCanvas'); // LRNA-161
-  const clctx = counterLaneCanvas.getContext('2d');
   const bottomBarEl = document.getElementById('bottomBar');
-  const counterOpsBarEl = document.getElementById('counterOpsBar'); // LRNA-158
   const overlay = document.getElementById('overlay');
 
   // LRNA-170: the HUD and the start screen's ENTRANCE box used to print a
@@ -1199,7 +835,6 @@
     document.getElementById('hudHostLine').hidden = !host;
     if (host) document.getElementById('hudHost').textContent = host;
   })();
-  const contactListEl = document.getElementById('contactList');
   const targetListEl = document.getElementById('targetList');
   const targetLabelEl = document.getElementById('targetLabel');
   const launchBarHeaderEl = document.getElementById('launchBarHeader');
@@ -1267,7 +902,6 @@
   let missionMapOpen = false;
   const missionMapWindowEl = document.getElementById('missionMapWindow');
   const missionMapCloseBtnEl = document.getElementById('missionMapClose');
-  const missionMapThreatMarkerEl = document.getElementById('missionMapThreatMarker');
 
   // LRNA-156: STATS pauses the battle while it's open. Only a pause STATS
   // itself started is undone on close - if the player had already paused,
@@ -1286,22 +920,6 @@
     menuBtnEl.classList.remove('hidden');
     if (statsPausedGame && paused) setPaused(false);
     statsPausedGame = false;
-  }
-  // The zone strip: real world-x positions (the same nodeA.x..nodeO.x
-  // span the battlefield canvas itself uses) mapped to a 0-100% track.
-  // LRNA-180: with recon gone it only marks the nearest inbound threat.
-  function missionMapPct(x) {
-    return Math.max(0, Math.min(100, (x - nodeA.x) / (nodeO.x - nodeA.x) * 100));
-  }
-  function renderMissionMapStrip() {
-    if (!missionMapThreatMarkerEl) return;
-    const target = findInboundEnemyMissiles()[0];
-    if (target) {
-      missionMapThreatMarkerEl.classList.remove('hidden');
-      missionMapThreatMarkerEl.style.left = missionMapPct(target.x) + '%';
-    } else {
-      missionMapThreatMarkerEl.classList.add('hidden');
-    }
   }
   missionMapCloseBtnEl.addEventListener('click', closeMissionMap);
 
@@ -1431,11 +1049,9 @@
   // counter readout). They start under the HUD's real height instead,
   // which changes with jam lines and screen width.
   const hudEl = document.getElementById('hud');
-  const contactsEl = document.getElementById('contacts');
   const storageWarningEl = document.getElementById('storageWarning');
   function layoutTopStack() {
     const top = hudEl.offsetHeight + 6;
-    contactsEl.style.top = top + 'px';
     [menuBtnEl, storageWarningEl].forEach((el, i) => { el.style.top = (top + i * 38) + 'px'; });
   }
 
@@ -1444,13 +1060,8 @@
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
     MW = minimap.width = window.innerWidth;
-    MH = minimap.height = 32;
+    MH = minimap.height = minimap.clientHeight || 30; // ART-19
     bottomBarPx = bottomBarEl.offsetHeight;
-    counterOpsBarEl.style.bottom = bottomBarPx + 'px'; // LRNA-158: sits directly above the bottom bar, whatever its real height is
-    // LRNA-161: the lane sits inside the padded, flex-sized bar, so its
-    // pixel size comes from the laid-out element, not window.innerWidth.
-    counterLaneCanvas.width = counterLaneCanvas.clientWidth;
-    counterLaneCanvas.height = counterLaneCanvas.clientHeight;
     layout();
   }
 
@@ -2727,14 +2338,13 @@
   }
 
   const tokenDisplayEls = {
-    attack: document.getElementById('tokenAttack'),
   };
   // LRNA-074/#431: each ability group header shows that pillar's own
   // token count too, alongside the top-center HUD chips.
   const groupTokenDisplayEls = {
     attack: document.getElementById('groupTokenAttack'),
   };
-  const tokenHudEl = document.getElementById('tokenHud');
+  const tokenHudEl = document.querySelector('.abilityGroup[data-pillar="attack"] .abilityGroupCount'); // ART-18: pulses on a change
   let tokenPulseTimeout = null;
   function updateTokenHud(pulse) {
     for (const k of TOKEN_KEYS) {
@@ -2837,8 +2447,9 @@
 
   function updateHud() {
     document.getElementById('aHealth').textContent = Math.max(0, Math.round(nodeA.health));
-    document.getElementById('aImpacts').textContent = nodeA.impacts;
-    document.getElementById('aBar').style.width = Math.max(0, nodeA.health / PLAYER_MAX_HEALTH * 100) + '%';
+    const aBar = document.getElementById('aBar');
+    aBar.style.width = Math.max(0, nodeA.health / PLAYER_MAX_HEALTH * 100) + '%';
+    aBar.classList.toggle('low', nodeA.health / PLAYER_MAX_HEALTH < 0.3); // ART-17
     // Player 1 (Strike Platform) and Player 2 (Node Omega) both read on a
     // real, directly-tracked 0-PLAYER_MAX_HEALTH (250) scale (LRNA-092) -
     // oHealth/oBar reflect omegaHealth, the actual alive/dead gate, same
@@ -2846,8 +2457,9 @@
     // request) is no longer shown in the HUD - omegaRemainingNodes still
     // drives the crumble art itself, just not this readout.
     document.getElementById('oHealth').textContent = Math.max(0, Math.round(omegaHealth));
-    document.getElementById('oImpacts').textContent = nodeO.impacts;
-    document.getElementById('oBar').style.width = Math.max(0, omegaHealth / PLAYER_MAX_HEALTH * 100) + '%';
+    const oBar = document.getElementById('oBar');
+    oBar.style.width = Math.max(0, omegaHealth / PLAYER_MAX_HEALTH * 100) + '%';
+    oBar.classList.toggle('low', omegaHealth / PLAYER_MAX_HEALTH < 0.3);
     updateTurnHud();
     renderStats();
   }
@@ -2860,6 +2472,7 @@
       ['Wave', currentWave],
       ['Best wave', bestWave],
       ['Warheads fired', stats.fired.toLocaleString()],
+      ['Impacts taken / dealt to Omega', `${nodeA.impacts} / ${nodeO.impacts}`], // ART-17: moved off the HUD
       ['Hits landed', stats.hits.toLocaleString()],
       ['Enemy shots intercepted', stats.intercepts.toLocaleString()],
       ['Nodes chipped off Omega', Math.round(nodesChipped).toLocaleString()],
@@ -2874,16 +2487,19 @@
     const active = activeCount('A');
     const cap = MAX_ACTIVE;
     const atCap = active >= cap;
+    // ART-18: one short line - warhead pips (or the reload) and what's in flight
     if (shotsRemaining > 0) {
-      launchBarHeaderEl.innerHTML = `WARHEADS <span class="hot">${shotsRemaining}/${TURN_SIZE}</span> &nbsp;·&nbsp; IN FLIGHT <span class="hot">${active}/${cap}</span> &nbsp;·&nbsp; ~85% HIT CHANCE`;
+      launchBarHeaderEl.innerHTML = `WARHEADS <span class="pips">${'●'.repeat(shotsRemaining)}${'○'.repeat(TURN_SIZE - shotsRemaining)}</span> &middot; IN FLIGHT <span class="hot">${active}/${cap}</span>`;
     } else {
-      launchBarHeaderEl.innerHTML = `RECHARGING — <span class="hot">${Math.ceil(turnCooldown)}s</span> until next 3 warheads &nbsp;·&nbsp; IN FLIGHT <span class="hot">${active}/${cap}</span>`;
+      launchBarHeaderEl.innerHTML = `RELOADING <span class="hot">${Math.ceil(turnCooldown)}s</span> &middot; IN FLIGHT <span class="hot">${active}/${cap}</span>`;
     }
+    const reload = shotsRemaining <= 0 ? Math.max(0, Math.min(1, turnCooldown / TURN_COOLDOWN)) : 0;
     launchButtons.forEach(b => {
       const typeKey = b.dataset.type;
       const cost = TYPES[typeKey].cost;
       const pillar = ABILITY_PILLARS[typeKey];
       b.disabled = shotsRemaining <= 0 || atCap || tokens[pillar] < cost;
+      b.style.setProperty('--cd', reload.toFixed(3)); // ART-18: cooldown fill
     });
   }
 
@@ -3090,6 +2706,7 @@
     const ready = !!target && emergencyCooldown <= 0 && counterAmmo.emergency > 0;
     emergencyBtnEl.disabled = !ready;
     emergencyBtnEl.classList.toggle('ready', ready);
+    emergencyBtnEl.style.setProperty('--cd', Math.max(0, Math.min(1, emergencyCooldown / EMERGENCY_COOLDOWN)).toFixed(3)); // ART-18
     // LRNA-149: cost used to only appear embedded in this dynamic string,
     // so it vanished entirely whenever there was no target (button just
     // read "EMERGENCY COUNTER" with no cost at all) - every sibling
@@ -3621,7 +3238,6 @@
     if (running && !paused) update(dt);
     draw();
     drawMinimap();
-    drawCounterLane();
     requestAnimationFrame(loop);
   }
 
@@ -4018,10 +3634,6 @@
     // (the REINFORCED HULL upgrade, which only ever bought +regen, is
     // removed along with it - nothing else it did).
     updateHud();
-    // LRNA-158: unconditional now - the zone strip lives on the
-    // always-visible #counterOpsBar, not gated behind missionMapOpen like
-    // the window it used to share.
-    renderMissionMapStrip();
 
     tokens.attack += TOKEN_PASSIVE_RATE * dt;
     lifetimeTokensTotal += TOKEN_PASSIVE_RATE * TOKEN_KEYS.length * dt;
@@ -4059,74 +3671,10 @@
     contactsRenderTimer -= dt;
     if (contactsRenderTimer <= 0) {
       contactsRenderTimer = CONTACTS_RENDER_INTERVAL;
-      renderContacts();
       renderTargetList();
     }
   }
 
-  // ---- Radar Lane (LRNA-076, issue #433): every visible contact on a
-  // 0-1000 distance scale (0 = Strike Platform, 1000 = Node Omega),
-  // absorbing the old ACTIVE CONTACTS panel: every live missile and plane.
-  function dist1000(x) {
-    return Math.max(0, Math.min(1000, Math.round((x - nodeA.x) / (nodeO.x - nodeA.x) * 1000)));
-  }
-  function radarContacts() {
-    const list = [];
-    for (const m of missiles) {
-      const role = m.typeKey === 'counter' ? 'DEF' : (m.originId === 'A' ? 'ATK' : 'INBOUND');
-      // LRNA-109: enemy strikes of every size all share one type label
-      // ("STRIKE"), while the INCOMING alert distinguishes them by size -
-      // append the size here too so the contact list carries the same
-      // information instead of collapsing FAST/MEDIUM/LARGE strikes into
-      // one indistinguishable label.
-      const type = m.sizeKey ? `${m.label} [${m.sizeKey.toUpperCase()}]` : m.label;
-      list.push({
-        id: m.id, kind: 'missile', x: m.x, color: m.color, name: m.name,
-        dist: dist1000(m.x), speed: Math.round(Math.abs(m.vx || 0)), type, role,
-      });
-    }
-    list.sort((a, b) => a.dist - b.dist);
-    return list;
-  }
-  function renderRadarLaneTrack(list) {
-    if (!radarLaneTrackEl) return;
-    let html = '';
-    for (const c of list) {
-      const tracked = (c.kind === 'missile' && c.id === followId) ? ' tracked' : '';
-      html += `<div class="laneDot${tracked}" data-contact="${c.id}" data-kind="${c.kind}" ` +
-        `style="left:${(c.dist / 10).toFixed(1)}%; color:${c.color}; background:${c.color}"></div>`;
-    }
-    radarLaneTrackEl.innerHTML = html;
-  }
-  const CONTACT_LIST_MAX = 20;
-  function renderContacts() {
-    const relevant = radarContacts();
-    let html = '';
-    for (const c of relevant.slice(0, CONTACT_LIST_MAX)) {
-      const tracked = (c.kind === 'missile' && c.id === followId) ? ' tracked' : '';
-      html += `<div class="contact-row${tracked}" data-contact="${c.id}" data-kind="${c.kind}">` +
-        `<div class="contact-row-main"><span style="color:${c.color}">&#9670;</span>` +
-        `<span class="contact-name">${c.name}</span>` +
-        `<span class="contact-role" style="color:${c.color}">${c.role}</span></div>` +
-        `<div class="contact-sub">DIST ${c.dist} &middot; SPD ${c.speed} &middot; ${c.type}</div>` +
-        `</div>`;
-    }
-    if (!relevant.length) html = '<div style="opacity:0.6;">no active contacts</div>';
-    // LRNA-152: the list used to just drop anything past 20 with zero
-    // indication - during a real wave that reads as contacts randomly
-    // vanishing rather than "there are more than fit here."
-    else if (relevant.length > CONTACT_LIST_MAX) {
-      html += `<div class="contact-overflow">+${relevant.length - CONTACT_LIST_MAX} more contacts not shown</div>`;
-    }
-    contactListEl.innerHTML = html;
-    renderRadarLaneTrack(relevant);
-  }
-  // clicking a contact tracks it with the camera (followId)
-  function trackRadarContact(id) {
-    if (!missiles.some(m => m.id === id)) return;
-    followId = id;
-    renderContacts();
-  }
 
   function renderTargetList() {
     const rows = [];
@@ -5417,67 +4965,69 @@
 
   }
 
+  // ---- ART-19: the one strip. Replaces the minimap, zone strip, counter
+  // lane and Radar Lane panel: both bases, installations, your shots,
+  // incoming threats (the nearest ringed, with its time to impact), the
+  // counters chasing them, and the camera's view box.
+  function minimapDots() {
+    const scale = MW / MAP_W;
+    return missiles.map(m => ({ m, x: m.x * scale }));
+  }
   function drawMinimap() {
     mctx.clearRect(0, 0, MW, MH);
-    // ART-3: a matching deep-space gradient backdrop and corridor glow,
-    // instead of leaving the strip to plain CSS background + bare
-    // pixels - same visual language as the new battlefield nebula/lane
-    // treatment above, just compressed to a 32px strip.
-    const bgGrad = mctx.createLinearGradient(0, 0, 0, MH);
-    bgGrad.addColorStop(0, 'rgba(20,14,40,0.9)');
-    bgGrad.addColorStop(0.5, 'rgba(10,8,28,0.9)');
-    bgGrad.addColorStop(1, 'rgba(20,14,40,0.9)');
-    mctx.fillStyle = bgGrad;
+    mctx.fillStyle = '#101310';
     mctx.fillRect(0, 0, MW, MH);
-    mctx.strokeStyle = 'rgba(143,107,255,0.25)';
-    mctx.beginPath(); mctx.moveTo(0, MH / 2); mctx.lineTo(MW, MH / 2); mctx.stroke();
-    const scale = MW / MAP_W;
-    mctx.fillStyle = 'rgba(53,230,255,0.4)';
-    mctx.fillRect(nodeA.x * scale - 2, 6, 4, MH - 12);
-    mctx.fillStyle = 'rgba(255,46,166,0.4)';
-    mctx.fillRect(nodeO.x * scale - 2, 6, 4, MH - 12);
-    for (const t of fieldTargets) {
-      mctx.fillStyle = t.destroyed ? 'rgba(110,110,110,0.5)' : t.color;
-      mctx.fillRect(t.x * scale - 1, MH / 2 - 1, 2, 2);
-    }
-    for (const n of amNodes) {
-      mctx.fillStyle = 'rgba(53,230,255,0.55)';
-      mctx.fillRect(n.x * scale - 1, MH / 2 - 1, 2, 2);
-    }
-    for (const m of missiles) {
-      mctx.fillStyle = m.color;
-      mctx.fillRect(m.x * scale - 1, MH / 2 - 1, 2, 2);
-    }
-    mctx.strokeStyle = 'rgba(143,107,255,0.9)';
+    const scale = MW / MAP_W, cy = MH / 2;
+    // the corridor and quarter ticks
+    mctx.strokeStyle = 'rgba(141,139,119,0.25)';
     mctx.lineWidth = 1;
-    mctx.strokeRect(camX * scale, 1, Math.max(2, vw() * scale), MH - 2);
+    mctx.beginPath(); mctx.moveTo(0, cy + 0.5); mctx.lineTo(MW, cy + 0.5); mctx.stroke();
+    for (let q = 1; q < 4; q++) { const x = Math.round(MW * q / 4) + 0.5; mctx.beginPath(); mctx.moveTo(x, cy - 3); mctx.lineTo(x, cy + 4); mctx.stroke(); }
+    // bases
+    mctx.fillStyle = '#9db35e';
+    mctx.fillRect(nodeA.x * scale - 3, 4, 6, MH - 8);
+    mctx.fillStyle = omegaHealth > 0 ? '#c8553d' : '#5a5a52';
+    mctx.fillRect(nodeO.x * scale - 3, 4, 6, MH - 8);
+    // installations and ground defenses
+    for (const t of fieldTargets) {
+      mctx.fillStyle = t.destroyed ? 'rgba(90,90,82,0.6)' : 'rgba(200,85,61,0.75)';
+      mctx.fillRect(t.x * scale - 1, cy + 4, 2, 3);
+    }
+    mctx.fillStyle = 'rgba(157,179,94,0.6)';
+    for (const n of amNodes) mctx.fillRect(n.x * scale - 1, cy + 4, 2, 3);
+    for (const n of loadoutNodes) mctx.fillRect(n.x * scale - 1, cy + 4, 2, 3);
+    // shots, counters and threats
+    const nearest = findInboundEnemyMissiles()[0];
+    for (const m of missiles) {
+      const x = m.x * scale;
+      if (m.typeKey === 'counter') {
+        mctx.fillStyle = '#eae6d2';
+        mctx.fillRect(x - 1, cy - 1, 2, 2);
+      } else if (m.typeKey === 'enemyStrike') {
+        mctx.fillStyle = m === nearest ? '#e3a838' : '#d0573c';
+        mctx.beginPath(); mctx.moveTo(x - 4, cy - 6); mctx.lineTo(x + 3, cy - 9.5); mctx.lineTo(x + 3, cy - 2.5); mctx.closePath(); mctx.fill();
+      } else {
+        mctx.fillStyle = m.id === followId ? '#ffffff' : '#9db35e';
+        const r = m.typeKey === 'plane' ? 3 : 2;
+        mctx.beginPath(); mctx.arc(x, cy - 6, r, 0, Math.PI * 2); mctx.fill();
+      }
+      if (m.id === followId) { mctx.strokeStyle = '#ffffff'; mctx.beginPath(); mctx.arc(x, cy - 6, 5, 0, Math.PI * 2); mctx.stroke(); }
+    }
+    if (nearest) {
+      const x = nearest.x * scale;
+      mctx.strokeStyle = '#e3a838';
+      mctx.beginPath(); mctx.arc(x, cy - 6, 6.5, 0, Math.PI * 2); mctx.stroke();
+      const left = Math.max(0, nearest.totalSeconds - nearest.age);
+      mctx.fillStyle = '#e3a838';
+      mctx.font = '9px "Courier New", ui-monospace, monospace';
+      mctx.textAlign = x > MW - 40 ? 'right' : 'left';
+      mctx.fillText(formatETA(left), x + (x > MW - 40 ? -9 : 9), cy + 3);
+    }
+    // the camera's view
+    mctx.strokeStyle = 'rgba(227,168,56,0.8)';
+    mctx.strokeRect(Math.round(camX * scale) + 0.5, 1.5, Math.max(2, vw() * scale), MH - 3);
   }
 
-  // LRNA-161: drawMinimap()'s dot style, scoped to what matters for
-  // intercepting: inbound enemy strikes and the counters aimed at them. Uses missionMapPct() rather than
-  // x / MAP_W so each dot sits under the matching point of the zone strip.
-  function drawCounterLane() {
-    const w = counterLaneCanvas.width, h = counterLaneCanvas.height;
-    if (!w || !h) return;
-    clctx.clearRect(0, 0, w, h);
-    clctx.strokeStyle = 'rgba(143,107,255,0.25)';
-    clctx.beginPath(); clctx.moveTo(0, h / 2); clctx.lineTo(w, h / 2); clctx.stroke();
-    clctx.fillStyle = 'rgba(53,230,255,0.5)';
-    clctx.fillRect(0, 3, 3, h - 6);
-    clctx.fillStyle = 'rgba(255,46,166,0.5)';
-    clctx.fillRect(w - 3, 3, 3, h - 6);
-    const px = (x) => missionMapPct(x) / 100 * w;
-    const dot = (x, color) => { clctx.fillStyle = color; clctx.fillRect(Math.round(px(x)) - 1, h / 2 - 1, 3, 3); };
-    const inboundIds = new Set();
-    for (const m of missiles) {
-      if (m.typeKey !== 'enemyStrike') continue;
-      inboundIds.add(m.id);
-      dot(m.x, m.color);
-    }
-    for (const m of missiles) {
-      if (m.typeKey === 'counter' && inboundIds.has(m.seekTargetId)) dot(m.x, m.color);
-    }
-  }
 
   let dragging = false, dragStartX = 0, camStartX = 0;
   let dragConfirmed = false, pointerDownX = 0, pointerDownY = 0;
@@ -5683,8 +5233,13 @@
 
   minimap.addEventListener('click', (e) => {
     if (!running) return;
-    followId = null;
     const rect = minimap.getBoundingClientRect();
+    // ART-19: a tap on (or right next to) a dot follows that missile or plane
+    const px = (e.clientX - rect.left) * (MW / rect.width);
+    let best = null, bestD = 9;
+    for (const { m, x } of minimapDots()) { const d = Math.abs(x - px); if (d < bestD) { best = m; bestD = d; } }
+    if (best) { followId = best.id; return; }
+    followId = null;
     const frac = (e.clientX - rect.left) / rect.width;
     camX = Math.max(camMin(), Math.min(camMax(), frac * MAP_W - vw() / 2));
   });
@@ -5721,6 +5276,55 @@
     });
   });
 
+  // ---- ART-18: button icons (side profiles, drawn in currentColor), short
+  // labels and the full details shown on hover (title) or long-press.
+  const BTN_ICONS = {
+    fast: '<path d="M3 8 6 5.5h17l6 2.5-6 2.5H6z"/><path d="M3 5h3l2 3-2 3H3z"/>',
+    medium: '<path d="M2 8 5 5h18l7 3-7 3H5z"/><path d="M2 3.5h4l3 4.5-3 4.5H2zM14 5l2-2h3l-1 2z"/>',
+    large: '<path d="M1 8 4 4.5h20l8 3.5-8 3.5H4z"/><path d="M1 2h5l3 6-3 6H1zM12 4.5l3-3h4l-2 3zM12 11.5l3 3h4l-2-3z"/>',
+    strikeFighter: '<path d="M31 8 21 6.5 15 1h-3l3 5.5H7L4 3H2l1.5 5L2 13h2l3-3.5h8l-3 5.5h3l6-5.5z"/>',
+    strikeBomber: '<path d="M31 8 23 6.5 14 .5H10l5 6H6L3 3.5H1L2.5 8 1 12.5h2L6 9.5h9l-5 6h4l9-6z"/>',
+    heavyBomber: '<path d="M31 8 24 6.3 13 0H8l6 6.3H5L2 3H0l1.5 5L0 13h2l3-3.3h9l-6 6.3h5l11-6.3z"/><path d="M11 3.2h3v1.6h-3zM11 11.2h3v1.6h-3z"/>',
+    emergency: '<circle cx="16" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.2 0h1.6v5h-1.6zM15.2 11h1.6v5h-1.6zM6 7.2h5v1.6H6zM21 7.2h5v1.6h-5z"/>',
+  };
+  const PLANE_SHORT = { strikeFighter: 'FIGHTER', strikeBomber: 'BOMBER', heavyBomber: 'HEAVY' };
+  function decorateButton(btn, key, details) {
+    if (BTN_ICONS[key] && !btn.querySelector('.btnIcon')) {
+      btn.insertAdjacentHTML('afterbegin', `<svg class="btnIcon" viewBox="0 0 32 16" aria-hidden="true">${BTN_ICONS[key]}</svg>`);
+    }
+    if (details) { btn.title = details; btn.dataset.tip = details; }
+  }
+  for (const b of document.querySelectorAll('.launchBtn[data-type]')) {
+    const t = TYPES[b.dataset.type];
+    decorateButton(b, b.dataset.type, `${t.label} - ${t.eta}s flight, ${t.dmg} damage, ${t.cost} ATTACK. 3 warheads, then a ${TURN_COOLDOWN}s reload.`);
+  }
+  decorateButton(emergencyBtnEl, 'emergency', emergencyBtnEl.title);
+  emergencyBtnEl.dataset.tip = emergencyBtnEl.title;
+  // long-press on a touch screen shows the details instead of firing
+  const btnTipEl = document.getElementById('btnTip');
+  let tipTimer = null, tipShownFor = null, tipHideTimer = null;
+  document.getElementById('bottomBar').addEventListener('touchstart', (e) => {
+    const btn = e.target.closest('[data-tip]');
+    if (!btn) return;
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(() => {
+      tipShownFor = btn;
+      btnTipEl.textContent = btn.dataset.tip;
+      btnTipEl.hidden = false;
+      btnTipEl.style.bottom = (document.getElementById('bottomBar').offsetHeight + 8) + 'px';
+      clearTimeout(tipHideTimer);
+      tipHideTimer = setTimeout(() => { btnTipEl.hidden = true; }, 2500);
+    }, 450);
+  }, { passive: true });
+  for (const ev of ['touchend', 'touchmove', 'touchcancel']) {
+    document.getElementById('bottomBar').addEventListener(ev, () => clearTimeout(tipTimer), { passive: true });
+  }
+  // the click that follows a long-press doesn't fire the weapon
+  document.getElementById('bottomBar').addEventListener('click', (e) => {
+    if (tipShownFor && e.target.closest('[data-tip]') === tipShownFor) { e.stopPropagation(); e.preventDefault(); }
+    tipShownFor = null;
+  }, true);
+
   // ---- plane arsenal buttons (LRNA-078/#435): a PLANES row generated
   // into each pillar group from PLANE_TYPES, same pattern the loadout
   // picker uses to build its <select> options from LOADOUT_NODE_TYPES.
@@ -5733,10 +5337,9 @@
       const btn = document.createElement('button');
       btn.className = 'launchBtn planeBtn';
       btn.dataset.plane = def.key;
-      btn.style.setProperty('--btncolor', def.color);
-      btn.innerHTML = `<span class="btnLabel">${def.label}</span>` +
-        `<span class="btnEta">${def.eta}s flight</span>` +
-        `<span class="btnDmg">&#9679; ${def.cost} ${pillar.toUpperCase()}</span>`;
+      btn.innerHTML = `<span class="btnLabel">${PLANE_SHORT[def.key] || def.label}</span>` +
+        `<span class="btnDmg">${def.cost}</span><span class="btnEta">${def.eta}s</span>`;
+      decorateButton(btn, def.key, `${def.label} - ${def.eta}s flight, ${def.dmg} damage, ${def.cost} ATTACK. Flies out, then rearms.`);
       btn.addEventListener('click', () => {
         if (!running) return;
         firePlane(def.key);
@@ -5757,17 +5360,20 @@
         btn.disabled = tokens[def.pillar] < def.cost;
         btn.classList.remove('away');
         etaEl.classList.remove('rearming');
-        etaEl.textContent = `${def.eta}s flight`;
+        etaEl.textContent = `${def.eta}s`;
+        btn.style.setProperty('--cd', '0');
       } else if (slot.state === 'flying') {
         btn.disabled = true;
         btn.classList.add('away');
         etaEl.classList.remove('rearming');
         etaEl.textContent = 'AWAY';
+        btn.style.setProperty('--cd', '1');
       } else {
         btn.disabled = true;
         btn.classList.add('away');
         etaEl.classList.add('rearming');
         etaEl.textContent = `REARM ${Math.ceil(slot.cooldown)}s`;
+        btn.style.setProperty('--cd', Math.max(0, Math.min(1, slot.cooldown / PLANE_REARM_COOLDOWN)).toFixed(3));
       }
     }
   }
@@ -5783,32 +5389,6 @@
     selectedTargetId = row.dataset.target;
     renderTargetList();
     updateTargetLabel();
-  });
-
-  contactListEl.addEventListener('click', (e) => {
-    if (!running) return;
-    const row = e.target.closest('.contact-row');
-    if (!row) return;
-    trackRadarContact(row.dataset.contact, row.dataset.kind);
-  });
-  const radarLaneTrackEl = document.getElementById('radarLaneTrack');
-  // LRNA-172: phones open and close the contact list from its header.
-  document.querySelector('#contacts h3').addEventListener('click', () => {
-    document.getElementById('contacts').classList.toggle('open');
-    layoutTopStack();
-  });
-  radarLaneTrackEl.addEventListener('click', (e) => {
-    if (!running) return;
-    const dot = e.target.closest('.laneDot');
-    if (!dot) return;
-    trackRadarContact(dot.dataset.contact);
-  });
-  // A tap on the panel's empty space (not its header, a lane dot or a
-  // list row) goes to the battlefield under it: on a phone the collapsed
-  // panel can sit right over a forward defense.
-  document.getElementById('contacts').addEventListener('click', (e) => {
-    if (!running || e.target.closest('h3, .laneDot, #contactList')) return;
-    handleBattlefieldTap(e.clientX, e.clientY, MISSILE_HIT_RADIUS * 1.4);
   });
 
   // ---- INCOMING alert (LRNA-074/#431): flashes the color of the
@@ -5926,7 +5506,6 @@
       get gameMenuOpen() { return gameMenuOpen; }, // ART-14
       openMissionMap: () => openMissionMap(),
       closeMissionMap: () => closeMissionMap(),
-      missionMapPct: (x) => missionMapPct(x),
       get camShakeMag() { return camShakeMag; },
       get camShakeTimer() { return camShakeTimer; },
       get followId() { return followId; },
