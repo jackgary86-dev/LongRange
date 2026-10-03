@@ -949,23 +949,47 @@ package B1 (income 35, 15 counters, enemy damage x0.6): Normal 5:13-8:54,
 1.9-4.0 kills, first kill ~3-4 min; Easy missile-first survives the full
 15 min in 7 of 8 games; Hard 3:35-5:37, ~1 kill.
 
-Proposed tickets (not started - for the owner to pick):
+Tickets (the owner said "work them all"; all DONE 2026-10-03):
 
-- **LRNA-184** — PROPOSED — Economy: ATTACK income 20/s -> 35/s (B1).
+- **LRNA-184** — DONE — Economy: ATTACK income 20/s -> 35/s (B1).
   The single biggest lever: Omega becomes killable on Normal.
-- **LRNA-185** — PROPOSED — Defense: enemy strike damage x0.6 (12/24/40)
+- **LRNA-185** — DONE — Defense: enemy strike damage x0.6 (12/24/40)
   and 15 Emergency Counters per side (B1). Normal games last ~5-9 min
   instead of ~3-7.
-- **LRNA-186** — PROPOSED — Make radar nodes worth killing: e.g. each
+- **LRNA-186** — DONE — Make radar nodes worth killing: e.g. each
   Omega radar lost also costs it 3 Emergency Counters, or blinds its
   wave aiming (its strikes scatter wider and miss more).
-- **LRNA-187** — PROPOSED — Make your nodes matter: Omega focuses one of
+  *Done, both:* each Omega radar lost takes 4 of its Emergency Counters
+  on the spot, and its strikes land 85% / 70% / 50% of the time with
+  2 / 1 / 0 radars.
+- **LRNA-187** — DONE — Make your nodes matter: Omega focuses one of
   your nodes at a time, and your nodes drop to ~120 HP, so losing them is
   a real event you have to defend against.
-- **LRNA-188** — PROPOSED — Re-run `tools/simulate.js` after each balance
+  *Done:* Omega sends 35% of its strikes (was 25%) at your most damaged
+  standing node, and your nodes have 60 HP (Omega's stay at 400 against
+  your heavier weapons). Tuned with the simulator: at 120 HP they still
+  fell only 0.3 times a game; at 60 HP about 1-1.5, the first at 4-8
+  min.
+- **LRNA-188** — DONE — Re-run `tools/simulate.js` after each balance
   change and record the table here; targets to aim for: Normal first
   Omega kill at 2-4 min, median survival 6-10 min, node strategies
   clearly better than ignoring the nodes.
+  *Done:* the full run on the new balance (180 games, median survival,
+  Omega kills per game, first kill):
+
+  | | Omega first | Radar first | Missile first | All nodes first | FAST spam |
+  |-|-|-|-|-|-|
+  | Easy | 9:39, 4.5, 2:58 | 14:59, 7.3, 3:08 | 15:00+, 7.3, 3:53 | 15:00+, 8.0, 4:28 | 10:10, 0.2 |
+  | Normal | 5:30, 1.8, 2:56 | 8:27, 2.9, 3:13 | 10:35, 3.5, 4:00 | 14:49, 5.1, 4:33 | 6:49, 0 |
+  | Hard | 3:49, 1.0, 3:04 | 4:08, 1.2, 3:14 | 6:02, 1.4, 3:43 | 7:25, 1.8, 4:25 | 3:42, 0 |
+
+  Broke (under 100 ATTACK) 23% of the time (was 83%); your nodes lost
+  1.4 per game (was 0). Normal hits the targets: first Omega kill in
+  3-4.5 min, and the node plans clearly win (all-nodes-first survives
+  the 15-min cap in 6 of 12 games, maybe a little generous). Easy is now
+  forgiving with a good plan; Hard stays short. FAST spam still can't
+  break Omega - a hint that FAST could use a role (e.g. cheap node
+  sniping) later.
 
 ## OPEN — Counter Center Restructuring
 

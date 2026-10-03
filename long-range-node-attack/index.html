@@ -736,13 +736,13 @@
             </button>
           </div>
         </div>
-        <!-- LRNA-181: one counter - EMERGENCY COUNTER, 10 per game -->
+        <!-- LRNA-181: one counter - EMERGENCY COUNTER, 15 per game (LRNA-185) -->
         <div class="abilityGroup" data-pillar="counter">
           <div class="abilityGroupHeader">COUNTER</div>
           <div class="abilityGroupButtons">
-            <button id="emergencyBtn" disabled title="EMERGENCY COUNTER - fires at the threat closest to impact, in its last 5 seconds. 75% kill, 10 per game.">
+            <button id="emergencyBtn" disabled title="EMERGENCY COUNTER - fires at the threat closest to impact, in its last 5 seconds. 75% kill, 15 per game.">
               <span class="btnKey">4</span>
-              <span class="ammoLeft" id="emergencyAmmo">10 LEFT</span>
+              <span class="ammoLeft" id="emergencyAmmo">15 LEFT</span>
               <span class="btnLabel">EMERGENCY</span>
               <span class="btnEta" id="emergencyStatus">no threat in window</span>
               <span class="btnDmg">LAST 5s &middot; 75% KILL</span>
@@ -814,7 +814,7 @@
       <div class="mPanel">
         <ol class="howSteps">
           <li><span><strong>ATTACK</strong> from the first second. Pick a target - OMEGA, RADAR or MISSILE on the bar, or tap one on the field - then fire missiles and strike planes (they cost ATTACK).</span></li>
-          <li><span><strong>DEFEND</strong> against what Omega sends back in waves. Your ground defenses fire on their own; EMERGENCY COUNTER is yours to fire at any threat in its last 5 seconds. You get 10 per game, and so does Omega.</span></li>
+          <li><span><strong>DEFEND</strong> against what Omega sends back in waves. Your ground defenses fire on their own; EMERGENCY COUNTER is yours to fire at any threat in its last 5 seconds. You get 15 per game, and so does Omega.</span></li>
           <li><span><strong>BREAK</strong> Omega. It rebuilds stronger each time it falls; the run ends when your Strike Platform does.</span></li>
         </ol>
       </div>
@@ -1331,7 +1331,10 @@
     if (wasAlive && dest.destroyed && dest.baseNode) { // LRNA-182
       const what = dest.kind === 'missileNode'
         ? (dest.faction === 'enemy' ? 'OMEGA WAVES WEAKENED' : 'YOUR INCOME CUT')
-        : (dest.faction === 'enemy' ? 'OMEGA DEFENSES BLINDED' : 'YOUR RADAR WEAKENED');
+        : (dest.faction === 'enemy' ? `OMEGA BLINDED, -${RADAR_COUNTER_LOSS} COUNTERS` : 'YOUR RADAR WEAKENED');
+      if (dest.faction === 'enemy' && dest.kind === 'radarNode') { // LRNA-186
+        omegaCounterAmmo.emergency = Math.max(0, omegaCounterAmmo.emergency - RADAR_COUNTER_LOSS);
+      }
       spawnFloatText(dest.x, dest.y - 70, `${dest.name} DESTROYED — ${what}`, dest.faction === 'enemy' ? '#e3a838' : '#e8735a', 24);
       updateNodeHud();
     }
@@ -1622,9 +1625,10 @@
   // fast still ~12.5 hits to kill, medium ~6.25, large ~3.85 - rather than
   // the platform quietly becoming 2.5x tankier once its health pool grew.
   const ENEMY_STRIKE_SIZES = {
-    fast:   { eta: 9,  dmg: 20, radius: 5, peak: 160 },
-    medium: { eta: 14, dmg: 40, radius: 6, peak: 200 },
-    large:  { eta: 20, dmg: 65, radius: 8, peak: 230 },
+    // LRNA-185: x0.6 (were 20/40/65) - the platform used to fall to ~6 hits
+    fast:   { eta: 9,  dmg: 12, radius: 5, peak: 160 },
+    medium: { eta: 14, dmg: 24, radius: 6, peak: 200 },
+    large:  { eta: 20, dmg: 40, radius: 8, peak: 230 },
   };
   function pickEnemyStrikeSize() {
     const [fastCut0, mediumCut0] = DIFFICULTIES[difficulty].sizeMix;
@@ -1719,7 +1723,8 @@
   const MISSILE_NODE_WAVE_CUT = 0.2;     // per Omega missile node lost
   const RADAR_SIGHT = [0, 0.6, 1];       // Omega's defense sight by radars standing (0, 1, 2)
   const MISSILE_NODE_INCOME_CUT = 0.25;  // per player missile node lost
-  const NODE_STRIKE_SHARE = 0.25;        // share of Omega's strikes sent at your nodes
+  const NODE_STRIKE_SHARE = 0.35;        // share of Omega's strikes sent at your nodes (LRNA-187: was 0.25)
+  const PLAYER_NODE_HP = 60;             // LRNA-187: your nodes (Omega's stay at 400 vs your heavier weapons)
   function makeBaseNodes(faction, x0, x1, colors) {
     const out = [];
     const total = BASE_NODE_PLAN.reduce((n, [, c]) => n + c, 0);
@@ -1732,7 +1737,8 @@
           name: `${faction === 'enemy' ? '' : 'YOUR '}${def.label} ${String(k + 1).padStart(2, '0')}`,
           x: x0 + (x1 - x0) * ((i * 2 + 1) % total + 0.5) / total, y: 0,
           yOffset: (k % 2 ? 1 : -1) * (40 + Math.random() * 60),
-          color: colors[kind], maxHealth: def.maxHealth, health: def.maxHealth,
+          // LRNA-187: yours are built to Omega's damage scale (its strikes hit for 12-40)
+          color: colors[kind], maxHealth: faction === 'player' ? PLAYER_NODE_HP : def.maxHealth, health: faction === 'player' ? PLAYER_NODE_HP : def.maxHealth,
           defends: false, impacts: 0, destroyed: false, flakTimer: 0, faction, baseNode: true,
         });
       }
@@ -1784,6 +1790,12 @@
   const omegaNodes = () => fieldTargets.filter(t => t.baseNode);
   function omegaWaveFactor() { return 1 - MISSILE_NODE_WAVE_CUT * (3 - standing(omegaNodes(), 'missileNode')); }
   function omegaSight() { return RADAR_SIGHT[standing(omegaNodes(), 'radarNode')]; }
+  // LRNA-186: Omega's radar also guides its own strikes - each radar lost
+  // makes them miss more (85% hit with both, 70% with one, 50% blind), and
+  // costs it RADAR_COUNTER_LOSS of its Emergency Counters on the spot.
+  const OMEGA_AIM = [0.5 / 0.85, 0.7 / 0.85, 1];
+  const RADAR_COUNTER_LOSS = 4;
+  function omegaAim() { return OMEGA_AIM[standing(omegaNodes(), 'radarNode')]; }
   function playerIncomeFactor() { return 1 - MISSILE_NODE_INCOME_CUT * (3 - standing(playerNodes, 'missileNode')); }
   // your radar: with both up you see every threat; one down, only once it's
   // in the last 60% of its flight; both down, only in its last 5 seconds
@@ -2196,8 +2208,10 @@
         if (waveStrikeTimer <= 0 && activeCount('O') < MAX_ACTIVE) {
           waveStrikeTimer = ENEMY_STRIKE_INTERVAL() / omegaWaveFactor(); // LRNA-182: fewer missile nodes, slower waves
           // LRNA-182: some strikes go after your missile and radar nodes
-          const yours = playerNodes.filter(n => !n.destroyed);
-          const dest = yours.length && Math.random() < NODE_STRIKE_SHARE ? yours[(Math.random() * yours.length) | 0] : nodeA;
+          // LRNA-187: Omega works one of your nodes at a time - the most damaged
+          // standing one - instead of spreading hits over all five
+          const yours = playerNodes.filter(n => !n.destroyed).sort((a, b) => a.health - b.health || a.x - b.x);
+          const dest = yours.length && Math.random() < NODE_STRIKE_SHARE ? yours[0] : nodeA;
           const m = launchEnemyStrike(nodeO, dest);
           m.waveNum = currentWave;
           waveStrikesLaunched += 1;
@@ -2411,7 +2425,10 @@
   // minute on top of a carried-over balance, far more than a game could
   // spend (the attack fire rate caps out near a Long Range every 2s, and
   // counters are capped at 10/10/5 by LRNA-165).
-  const TOKEN_PASSIVE_RATE = 20; // per second, every category
+  // LRNA-184: raised from 20/s. The balance simulator (tools/simulate.js)
+  // showed players under 100 ATTACK 83% of the time and Omega never
+  // destroyed on Normal or Hard; at 35/s Omega falls in a few minutes.
+  const TOKEN_PASSIVE_RATE = 35; // per second, every category
   // Direct request: "only get extra coins from DMG impact of missiles
   // and planes on base... how much dmg was done back in coins one for
   // one" - every Attack-pillar weapon (main arsenal, planes, Attack
@@ -2740,7 +2757,7 @@
   // hand at an inbound threat in its last EMERGENCY_WINDOW seconds,
   // stacking on top of the automatic ground defenses. Any size and class
   // of threat (LRNA-181 dropped the FAST exclusion); each threat can be
-  // engaged twice at most. 10 per game, no currency cost.
+  // engaged twice at most. 15 per game (LRNA-185), no currency cost.
   const EMERGENCY_MAX_PER_TARGET = 2;
   const EMERGENCY_HIT_CHANCE = 0.75; // LRNA-181: the old Counter Missile's 75%, now that it's the only counter
   const EMERGENCY_COOLDOWN = 1.2;
@@ -2748,7 +2765,7 @@
   // player and Omega - "only have one counter button called EMERGENCY
   // COUNTER - you have 10 chances to intercept missiles." Refilled only
   // when a new game starts (resetCounterAmmo in reset).
-  const COUNTER_AMMO = { emergency: 10 };
+  const COUNTER_AMMO = { emergency: 15 }; // LRNA-185: was 10
   let counterAmmo = { ...COUNTER_AMMO };
   let omegaCounterAmmo = { ...COUNTER_AMMO };
   function resetCounterAmmo() {
@@ -2840,7 +2857,7 @@
       .sort((a, b) => (a.totalSeconds - a.age) - (b.totalSeconds - b.age));
   }
   // ---- OMEGA COUNTERS: since LRNA-181 Omega mirrors the player's one
-  // counter - an Emergency Counter, 10 per game, at a player warhead or
+  // counter - an Emergency Counter, 15 per game, at a player warhead or
   // plane in its last EMERGENCY_WINDOW seconds. A landed hit that jams
   // Omega's counters (omegaCountersJamTimer) stops it for a while.
   const OMEGA_COUNTERS_JAM_DURATION = 15;
@@ -3736,7 +3753,7 @@
         // missile, a counter, etc.) would still take a "ghost hit" -
         // awarding rewards and re-triggering destroy logic on a corpse.
         const targetAlive = !!dest && !dest.destroyed && !(dest.id === 'O' && omegaHealth <= 0);
-        const hit = targetAlive && Math.random() < HIT_CHANCE;
+        const hit = targetAlive && Math.random() < HIT_CHANCE * (m.originId === 'O' ? omegaAim() : 1); // LRNA-186
         if (hit) {
           const isPlayerShot = m.originId === 'A';
           dest.impacts += 1;

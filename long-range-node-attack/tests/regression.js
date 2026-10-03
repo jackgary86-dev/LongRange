@@ -383,8 +383,8 @@ test('LRNA-116/181: Omega\'s counter readiness is shown in the HUD', async () =>
       const cooldownHtml = document.getElementById('omegaCounterStatus').innerHTML;
       return { readyHtml, cooldownHtml };
     });
-    assert(/EC 10 READY/.test(result.readyHtml), `expected "EC 10 READY" while off cooldown, got: ${result.readyHtml}`);
-    assert(/EC 10 0:0?4/.test(result.cooldownHtml), `expected a countdown while on cooldown, got: ${result.cooldownHtml}`);
+    assert(/EC 15 READY/.test(result.readyHtml), `expected "EC 15 READY" while off cooldown, got: ${result.readyHtml}`);
+    assert(/EC 15 0:0?4/.test(result.cooldownHtml), `expected a countdown while on cooldown, got: ${result.cooldownHtml}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
@@ -699,7 +699,7 @@ test('LRNA-163: START MISSION and the title are reachable and tappable on short 
   }
 });
 
-test('LRNA-165/181: the player gets 10 Emergency Counters per game, at any size of threat', async () => {
+test('LRNA-165/181/185: the player gets 15 Emergency Counters per game, at any size of threat', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
@@ -710,20 +710,20 @@ test('LRNA-165/181: the player gets 10 Emergency Counters per game, at any size 
       const counters = () => T.missiles.filter(m => m.typeKey === 'counter' && m.source === 'emergency').length;
       const start = { ...T.counterAmmo };
       const sizes = ['fast', 'medium', 'large'];
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 20; i++) {
         const m = T.launchEnemyStrike(T.nodeO, T.nodeA);
         m.sizeKey = sizes[i % 3];
         m.age = m.totalSeconds - 3;
       }
-      for (let i = 0; i < 14; i++) { T.setEmergencyCooldown(0); T.fireEmergencyCounter(); }
+      for (let i = 0; i < 20; i++) { T.setEmergencyCooldown(0); T.fireEmergencyCounter(); }
       T.updateEmergencyBtn();
       const fastEngaged = T.missiles.some(c => c.typeKey === 'counter' && c.source === 'emergency' &&
         T.missiles.find(t => t.id === c.seekTargetId && t.sizeKey === 'fast'));
       return { start, fired: counters(), fastEngaged, badge: document.getElementById('emergencyAmmo').textContent,
         disabled: document.getElementById('emergencyBtn').disabled, end: { ...T.counterAmmo } };
     });
-    assertEqual(JSON.stringify(result.start), JSON.stringify({ emergency: 10 }), 'a new game starts with 10');
-    assertEqual(result.fired, 10, 'only 10 can be fired');
+    assertEqual(JSON.stringify(result.start), JSON.stringify({ emergency: 15 }), 'a new game starts with 15 (LRNA-185)');
+    assertEqual(result.fired, 15, 'only 15 can be fired');
     assert(result.fastEngaged, 'FAST threats can be countered too');
     assertEqual(result.badge, 'NONE LEFT', 'the button says none are left');
     assert(result.disabled, 'and is disabled');
@@ -732,21 +732,21 @@ test('LRNA-165/181: the player gets 10 Emergency Counters per game, at any size 
   });
 });
 
-test('LRNA-165/181: Omega gets the same 10 Emergency Counters', async () => {
+test('LRNA-165/181/185: Omega gets the same 15 Emergency Counters', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
       T.freezeWaves();
       T.clearMissiles();
       const start = { ...T.omegaCounterAmmo };
-      for (let i = 0; i < 14; i++) { const m = T.launchAttack(T.nodeA, T.nodeO, i % 2 ? 'fast' : 'medium'); m.age = m.totalSeconds - 3; }
-      for (let i = 0; i < 20; i++) { T.setOmegaEmergencyCooldown(0); T.tickOmegaCounters(0.01); }
+      for (let i = 0; i < 20; i++) { const m = T.launchAttack(T.nodeA, T.nodeO, i % 2 ? 'fast' : 'medium'); m.age = m.totalSeconds - 3; }
+      for (let i = 0; i < 30; i++) { T.setOmegaEmergencyCooldown(0); T.tickOmegaCounters(0.01); }
       T.updateOmegaCountersHud();
       return { start, fired: T.missiles.filter(m => m.typeKey === 'counter' && m.originId === 'O' && m.source === 'omegaEmergency').length,
         hud: document.getElementById('omegaCounterStatus').textContent, end: { ...T.omegaCounterAmmo } };
     });
-    assertEqual(JSON.stringify(result.start), JSON.stringify({ emergency: 10 }), 'Omega starts with 10');
-    assertEqual(result.fired, 10, 'Omega fires only 10');
+    assertEqual(JSON.stringify(result.start), JSON.stringify({ emergency: 15 }), 'Omega starts with 15');
+    assertEqual(result.fired, 15, 'Omega fires only 15');
     assertEqual(JSON.stringify(result.end), JSON.stringify({ emergency: 0 }), 'all used up');
     assert(/EC 0/.test(result.hud), `the HUD shows Omega is out: ${result.hud}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
@@ -766,9 +766,9 @@ test('LRNA-165: a new game refills both sides\' counters', async () => {
       const T = window.__TEST__;
       return { player: { ...T.counterAmmo }, omega: { ...T.omegaCounterAmmo }, badge: document.getElementById('emergencyAmmo').textContent };
     });
-    assertEqual(JSON.stringify(result.player), JSON.stringify({ emergency: 10 }), 'player refilled');
-    assertEqual(JSON.stringify(result.omega), JSON.stringify({ emergency: 10 }), 'Omega refilled');
-    assertEqual(result.badge, '10 LEFT', 'button badge refreshed');
+    assertEqual(JSON.stringify(result.player), JSON.stringify({ emergency: 15 }), 'player refilled');
+    assertEqual(JSON.stringify(result.omega), JSON.stringify({ emergency: 15 }), 'Omega refilled');
+    assertEqual(result.badge, '15 LEFT', 'button badge refreshed');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
 });
@@ -786,7 +786,7 @@ test('LRNA-166: tokens reset each game instead of carrying over', async () => {
   }, { skipStart: true });
 });
 
-test('LRNA-166: passive income is 20/s and a hit pays back a quarter of its damage', async () => {
+test('LRNA-166/184: passive income is 35/s and a hit pays back a quarter of its damage', async () => {
   await withGame(async (page, errors) => {
     const result = await page.evaluate(() => {
       const T = window.__TEST__;
@@ -806,7 +806,7 @@ test('LRNA-166: passive income is 20/s and a hit pays back a quarter of its dama
       const passive = T.TOKEN_PASSIVE_RATE * steps * 0.05;
       return { rate: T.TOKEN_PASSIVE_RATE, ratio: T.DMG_TO_COIN_RATIO, hitReward: T.tokens.attack - before - passive };
     });
-    assertEqual(result.rate, 20, 'passive income should be 20/s per category');
+    assertEqual(result.rate, 35, 'passive income should be 35/s (LRNA-184)');
     assertEqual(result.ratio, 0.25, 'hits should pay back a quarter of their damage');
     assert(Math.abs(result.hitReward - 63) < 1, `a 250-damage MEDIUM hit should pay back 63 (was 250): got ${result.hitReward}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
@@ -1336,8 +1336,8 @@ test('LRNA-159: Reactor Upgrades removed entirely - no UI remnants, and every me
     assertEqual(result.dmg, 50, `FAST warhead damage should be its plain base value (TYPES.fast.dmg = 50), no Overcharged Warheads multiplier: got ${result.dmg}`);
     assertEqual(result.activeAtCap, 3, 'active-shot cap should be the plain MAX_ACTIVE (3), no Expanded Ammo Bay bonus');
     assertEqual(result.activeAfterOneMore, 3, 'a 4th shot should still be refused at the plain cap');
-    // LRNA-166 lowered TOKEN_PASSIVE_RATE from 100/s to 20/s
-    assert(Math.abs(result.tokenGain - 20) < 1, `tokens should accrue at the plain TOKEN_PASSIVE_RATE (20/s), no Reactor Boost bonus: got ${result.tokenGain}/s`);
+    // LRNA-166 lowered TOKEN_PASSIVE_RATE from 100/s to 20/s; LRNA-184 raised it to 35/s
+    assert(Math.abs(result.tokenGain - 35) < 1, `tokens should accrue at the plain TOKEN_PASSIVE_RATE (35/s), no Reactor Boost bonus: got ${result.tokenGain}/s`);
     assert(result.upgradeListGone, '#upgradeList should not exist anywhere in the DOM');
     assert(result.dataUpgradeGone, 'no [data-upgrade] button should exist anywhere in the DOM');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
@@ -2148,7 +2148,7 @@ test('LRNA-182: your missile nodes feed your income, your radar nodes how early 
       return { factor: T.playerIncomeFactor(), gain, seen, alert, late: document.getElementById('incomingAlert').textContent };
     });
     assertEqual(r.factor, 0.25, 'three missile nodes lost: a quarter of the income');
-    assert(Math.abs(r.gain - 5) < 0.5, `passive income drops to 5/s: ${r.gain}`);
+    assert(Math.abs(r.gain - 8.75) < 0.5, `passive income drops to a quarter of 35/s: ${r.gain}`);
     assertEqual(r.seen.join(','), 'true,true,false', 'one radar down still sees it at half flight; both down does not');
     assert(/NO INBOUND/.test(r.alert), `blind, the warning stays quiet: ${r.alert}`);
     assert(/INCOMING/.test(r.late), `in its last 5s it shows up: ${r.late}`);
@@ -2169,6 +2169,63 @@ test('LRNA-182: Omega sends some strikes at your nodes', async () => {
       return T.missiles.filter((m) => m.typeKey === 'enemyStrike').map((m) => m.destId);
     });
     assert(r.length > 0 && r.every((id) => /^p[mr]\d$/.test(id)), `strikes aimed at your nodes: ${r}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-185: Omega\'s strikes hit for 12/24/40 and each side has 15 Emergency Counters', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => ({ sizes: ['fast', 'medium', 'large'].map((k) => window.__TEST__.ENEMY_STRIKE_SIZES[k].dmg),
+      mine: window.__TEST__.counterAmmo.emergency, omega: window.__TEST__.omegaCounterAmmo.emergency }));
+    assertEqual(r.sizes.join(','), '12,24,40', 'enemy strike damage x0.6');
+    assertEqual(r.mine, 15, 'your counters');
+    assertEqual(r.omega, 15, "Omega's counters");
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-186: each Omega radar lost costs it 4 counters and makes its strikes miss more', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.neutralizeAutoDefense(); T.disableOmegaCounters();
+      // a strike that arrives with a fixed roll of 0.75: lands at 85% aim, misses at 70% and 50%
+      const lands = () => {
+        const m = T.launchAttack(T.nodeO, T.nodeA, 'enemyStrike', T.ENEMY_STRIKE_SIZES.fast);
+        m.defended = true; m.targetX = T.nodeA.x;
+        const hp = T.nodeA.health;
+        const real = Math.random; Math.random = () => 0.75;
+        for (let i = 0; i < 400 && T.missiles.some((x) => x.id === m.id); i++) T.tickUpdate(0.05);
+        Math.random = real;
+        const landed = T.nodeA.health < hp; T.nodeA.health = 250; return landed;
+      };
+      const radars = T.fieldTargets.filter((t) => t.baseNode && t.kind === 'radarNode');
+      const out = { counters: [T.omegaCounterAmmo.emergency], lands: [lands()] };
+      T.damageNode(radars[0].id, 1000); out.counters.push(T.omegaCounterAmmo.emergency); out.lands.push(lands());
+      T.damageNode(radars[1].id, 1000); out.counters.push(T.omegaCounterAmmo.emergency); out.lands.push(lands());
+      return out;
+    });
+    assertEqual(r.counters.join(','), '15,11,7', 'each radar lost costs Omega 4 Emergency Counters');
+    assertEqual(r.lands.join(','), 'true,false,false', 'a roll of 0.75 lands at 85% aim but misses at 70% and 50%');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-187: your nodes have 60 HP and Omega works the most damaged one', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.clearMissiles();
+      const hp = T.playerNodes.map((n) => n.maxHealth);
+      const weak = T.playerNodes[3]; weak.health = 20;
+      T.startWave(3);
+      const real = Math.random; Math.random = () => 0.1; // under the node share
+      for (let i = 0; i < 40; i++) T.tickUpdate(0.05);
+      Math.random = real;
+      return { hp, dests: [...new Set(T.missiles.filter((m) => m.typeKey === 'enemyStrike').map((m) => m.destId))], weak: weak.id };
+    });
+    assert(r.hp.every((h) => h === 60), `your nodes have 60 HP: ${r.hp}`);
+    assertEqual(r.dests.join(','), r.weak, 'every strike goes at the most damaged node');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
