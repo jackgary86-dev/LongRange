@@ -836,6 +836,83 @@ test('LRNA-143/175: CLUSTER and EMP are back on the bar once unlocked, on keys 5
   });
 });
 
+test('LRNA-179: each weapon explodes its own way', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      const boom = (kind) => {
+        T.clearParticles(); T.launchRings.length = 0; T.pendingFx.length = 0;
+        T.spawnExplosion(1000, 300, '#ffffff', kind === 'large' ? 2.6 : kind === 'fast' ? 1 : 1.7, kind);
+        const now = { smoke: T.particles.filter((p) => p.smoke).length, sparks: T.particles.filter((p) => p.tracer).length,
+          rings: T.launchRings.length, pending: T.pendingFx.length, debris: T.particles.filter((p) => p.debris).length };
+        for (let i = 0; i < 10; i++) T.tickUpdate(0.05); // 0.5s: the delayed blasts land
+        return { ...now, ringsLater: T.launchRings.length, pendingLater: T.pendingFx.length };
+      };
+      return { fast: boom('fast'), medium: boom('medium'), large: boom('large'), buster: boom('buster'), heavy: boom('heavyBomber'), ghost: boom('ghost') };
+    });
+    assert(r.fast.sparks >= 14 && r.medium.sparks === 0, 'FAST cracks with sparks: ' + JSON.stringify(r.fast));
+    assert(r.fast.smoke < r.medium.smoke / 2, 'FAST leaves little smoke');
+    assertEqual(r.large.pending, 2, 'LONG RANGE: two follow-up blasts');
+    assert(r.large.ringsLater > r.large.rings && r.large.pendingLater === 0, 'they land within half a second');
+    assert(r.large.smoke > r.medium.smoke + 14, 'and a mushroom cap of smoke');
+    assertEqual(r.buster.pending, 1, 'BUNKER BUSTER: the deep blast comes after');
+    assert(r.buster.debris > r.medium.debris + 20, 'earth thrown straight up first');
+    assert(r.buster.ringsLater >= r.buster.rings + 2, 'then the deep blast');
+    assertEqual(r.heavy.pending, 4, 'HEAVY BOMBER: a line of 4 bombs');
+    assertEqual(r.ghost.rings, r.medium.rings + 1, 'GHOST: a pale flash ring');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-179: Omega smokes from 75%, burns from 50% and shows its core from 25%', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.neutralizeAutoDefense(); T.disableOmegaCounters();
+      const at = (frac) => {
+        T.omegaHealthForTest = Math.floor(T.PLAYER_MAX_HEALTH * frac);
+        T.clearParticles();
+        for (let i = 0; i < 30; i++) T.tickUpdate(0.05);
+        const fx = T.particles.filter((p) => p.omegaFx).map((p) => p.omegaFx);
+        return { state: T.omegaDamageState(), smoke: fx.filter((f) => f === 'smoke').length, fire: fx.filter((f) => f === 'fire').length, spark: fx.filter((f) => f === 'spark').length };
+      };
+      return { full: at(1), s1: at(0.7), s2: at(0.45), s3: at(0.2) };
+    });
+    assertEqual(r.full.state, 0, 'untouched'); assertEqual(r.full.smoke + r.full.fire + r.full.spark, 0, 'no damage effects at full health');
+    assertEqual(r.s1.state, 1, 'state 1'); assert(r.s1.smoke > 0 && r.s1.fire === 0, 'smoke only: ' + JSON.stringify(r.s1));
+    assertEqual(r.s2.state, 2, 'state 2'); assert(r.s2.fire > 0 && r.s2.spark === 0, 'fires: ' + JSON.stringify(r.s2));
+    assertEqual(r.s3.state, 3, 'state 3'); assert(r.s3.spark > 0, 'the core throws sparks: ' + JSON.stringify(r.s3));
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-179: an interceptor draws its path, and a kill leaves it on screen in its side\'s color', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.neutralizeAutoDefense(); T.disableOmegaCounters();
+      const m = T.launchAttack(T.nodeA, T.nodeO, 'large');
+      m.defended = true;
+      for (let i = 0; i < 480; i++) T.tickUpdate(0.05); // 24s: close to Omega, inside an interceptor's reach
+      const c = T.fireCounter({ id: 'O', x: T.nodeO.x, y: T.nodeO.y, hitChance: 1 }, m.id, 'omega');
+      c.seekSuccess = true;
+      let maxPath = 0;
+      for (let i = 0; i < 200 && T.missiles.some((x) => x.id === c.id); i++) { T.tickUpdate(0.05); const cc = T.missiles.find((x) => x.id === c.id); if (cc && cc.path) maxPath = cc.path.length; }
+      const trail = T.killTrails[0];
+      const info = trail && { len: trail.path.length, color: trail.color };
+      for (let i = 0; i < 40; i++) T.tickUpdate(0.05);
+      return { maxPath, killed: !T.missiles.some((x) => x.id === m.id), info, after: T.killTrails.length };
+    });
+    assert(r.killed, 'the missile was shot down');
+    assert(r.maxPath >= 3, 'the interceptor records its path in flight: ' + r.maxPath);
+    assert(r.info && r.info.len >= 4, 'the kill leaves its trail: ' + JSON.stringify(r.info));
+    assertEqual(r.info.color, '#e8735a', "Omega's interceptor (shooting your missile) is red");
+    assertEqual(r.after, 0, 'the kill trail fades after ~2s');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 test('LRNA-176: at 75% Omega goes to RAPID FIRE - announced, on the HUD, and its wave strikes come 15% faster', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {

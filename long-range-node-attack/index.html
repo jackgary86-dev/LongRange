@@ -1256,6 +1256,47 @@
     omegaSmolders.push({ x: wx, y: wy, timer: 4 + Math.random() * 3 * Math.max(0.6, scale), puffTimer: 0 });
     if (omegaSmolders.length > 10) omegaSmolders.shift();
   }
+  // ---- LRNA-179: Omega shows its damage, in step with its boss phases:
+  // smoke from 75%, fires from 50%, an exposed glowing core from 25%.
+  let omegaDamageFxTimer = 0;
+  function omegaDamageState() {
+    if (omegaHealth <= 0) return 0;
+    const f = omegaHealth / PLAYER_MAX_HEALTH;
+    return f <= 0.25 ? 3 : f <= 0.5 ? 2 : f <= 0.75 ? 1 : 0;
+  }
+  const OMEGA_SMOKE_SPOTS = [[-46, -18], [38, -26]];
+  const OMEGA_FIRE_SPOTS = [[-30, -6], [12, -20], [44, 4]];
+  function updateOmegaDamageFx(dt) {
+    const st = omegaDamageState();
+    if (!st) return;
+    omegaDamageFxTimer -= dt;
+    if (omegaDamageFxTimer > 0) return;
+    omegaDamageFxTimer = st === 3 ? 0.08 : st === 2 ? 0.12 : 0.22;
+    const [sx, sy] = OMEGA_SMOKE_SPOTS[(Math.random() * OMEGA_SMOKE_SPOTS.length) | 0];
+    particles.push({ x: nodeO.x + sx + (Math.random() - 0.5) * 8, y: nodeO.y + sy, vx: (Math.random() - 0.5) * 8 + 4, vy: -12 - Math.random() * 10,
+      life: 2 + Math.random(), color: st >= 2 ? '#2b261f' : '#4a443a', smoke: true, big: 1 + st * 0.4, omegaFx: 'smoke' });
+    if (st >= 2) {
+      const [fx, fy] = OMEGA_FIRE_SPOTS[(Math.random() * OMEGA_FIRE_SPOTS.length) | 0];
+      particles.push({ x: nodeO.x + fx + (Math.random() - 0.5) * 6, y: nodeO.y + fy, vx: (Math.random() - 0.5) * 10, vy: -30 - Math.random() * 25,
+        life: 0.6 + Math.random() * 0.3, color: Math.random() < 0.5 ? '#ffb347' : '#f0703a', fire: 3, omegaFx: 'fire' });
+    }
+    if (st >= 3) {
+      const a = Math.random() * Math.PI * 2;
+      particles.push({ x: nodeO.x, y: nodeO.y - 4, vx: Math.cos(a) * 90, vy: Math.sin(a) * 60 - 60, life: 0.8, color: '#ffd27a', tracer: true, omegaFx: 'spark' });
+    }
+  }
+  function drawOmegaCore(sx) { // LRNA-179: the exposed core, under 25%
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 130);
+    const g = ctx.createRadialGradient(sx, nodeO.y - 4, 2, sx, nodeO.y - 4, 34 + 8 * pulse);
+    g.addColorStop(0, 'rgba(255,240,200,0.95)');
+    g.addColorStop(0.35, 'rgba(255,140,60,0.75)');
+    g.addColorStop(1, 'rgba(200,40,20,0)');
+    ctx.save();
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(sx, nodeO.y - 4, 42 + 8 * pulse, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
   function updateOmegaSmolders(dt) {
     for (let i = omegaSmolders.length - 1; i >= 0; i--) {
       const s = omegaSmolders[i];
@@ -2481,6 +2522,13 @@
   const MAX_PARTICLES = 5000; // LRNA-136: hard cap so a big battle can't spike frame time
   let launchRings = [];
   let scorchMarks = [];
+  // LRNA-179: effects that land a moment later (a LONG RANGE's follow-up
+  // blasts, a BUNKER BUSTER's deep detonation, a bomber's bomb line), and
+  // interceptor trails that stay on screen after a kill
+  let pendingFx = [];
+  function scheduleFx(delay, fn) { pendingFx.push({ t: delay, fn }); }
+  let killTrails = [];
+  const KILL_TRAIL_LIFE = 1.8;
   let running = false;
   // LRNA-119: an explicit pause distinct from `running` - `running` also
   // means "game over" when false (see triggerRunEnd), so reusing it for
@@ -2731,6 +2779,7 @@
     particles = [];
     launchRings = [];
     scorchMarks = [];
+    pendingFx = []; killTrails = []; omegaDamageFxTimer = 0; // LRNA-179
     floatingTexts = [];
     followId = null;
     lastFireTime = 0;
@@ -2951,6 +3000,8 @@
   // else (AM batteries, defending field targets - fired through the
   // generic getDefender() auto-defend loop with no tag) falls back to a
   // live lookup by the counter's originId.
+  // LRNA-179: your interceptors' trails are green, Omega's red
+  function interceptSideColor(target) { return target.originId === 'A' ? '#e8735a' : '#a8d070'; }
   function describeDefender(m) {
     const SOURCE_LABELS = {
       emergency: 'EMERGENCY COUNTER',
@@ -3556,9 +3607,13 @@
   // ART-22: a real explosion - a white-hot flash, a fireball, a pale
   // shockwave ring, thrown debris and earth, then a dark smoke column
   // that rises and lingers. Everything scales with the weapon.
-  function spawnExplosion(x, y, color, scale, kind) {
+  // LRNA-179: each weapon explodes its own way, on top of ART-22's common
+  // flash / fireball / debris / smoke
+  const EXPLOSION_SMOKE = { fast: 0.4, ghost: 0.6, decoy: 0.2 };
+  function spawnExplosion(x, y, color, scale, kind, silent) {
     scale = scale || 1;
-    sfxImpact(scale, kind);
+    if (!silent) sfxImpact(scale, kind);
+    spawnExplosionExtras(x, y, color, scale, kind);
     launchRings.push({ x, y, age: 0, color: '#f3e7c1', maxR: 50 + 70 * scale });
     particles.push({ x, y, vx: 0, vy: 0, life: 1, color: '#fff4d6', flash: true, size: 10 + 10 * scale });
     for (let i = 0; i < Math.round(16 + 20 * scale); i++) { // fireball
@@ -3573,12 +3628,48 @@
       particles.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1.1 + Math.random() * 0.5,
         color: Math.random() < 0.6 ? '#5b4a35' : '#2e2a24', debris: true });
     }
-    for (let i = 0; i < Math.round(8 + 12 * scale); i++) { // smoke column
+    for (let i = 0; i < Math.round((8 + 12 * scale) * (EXPLOSION_SMOKE[kind] || 1)); i++) { // smoke column
       particles.push({
         x: x + (Math.random() - 0.5) * 18 * scale, y: y - Math.random() * 8,
         vx: (Math.random() - 0.5) * 14, vy: -14 - Math.random() * 22 * scale,
         life: 1.8 + Math.random() * 1.2 * scale, color: Math.random() < 0.5 ? '#3c362c' : '#5a5246', smoke: true, big: scale,
       });
+    }
+  }
+
+  function spawnExplosionExtras(x, y, color, scale, kind) {
+    if (kind === 'fast') {
+      // a sharp, quick crack: bright sparks flung out, little smoke
+      for (let i = 0; i < 14; i++) {
+        const a = Math.random() * Math.PI * 2, spd = 260 + Math.random() * 220;
+        particles.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd * 0.6 - 40, life: 1, color: '#fff1a8', tracer: true });
+      }
+    } else if (kind === 'large') {
+      // the heavy one: two follow-up blasts and a mushroom cap
+      for (const [d, dx] of [[0.18, -34], [0.36, 30]]) scheduleFx(d, () => spawnExplosion(x + dx, y + (Math.random() - 0.5) * 16, color, 0.9, 'secondary', true));
+      for (let i = 0; i < 14; i++) {
+        particles.push({ x: x + (Math.random() - 0.5) * 60, y: y - 70 - Math.random() * 20, vx: (Math.random() - 0.5) * 24, vy: -8 - Math.random() * 8,
+          life: 2.6 + Math.random(), color: Math.random() < 0.5 ? '#4a4236' : '#6a6052', smoke: true, big: 3 });
+      }
+    } else if (kind === 'buster') {
+      // ground-penetrating: earth bursts straight up first, the real blast follows underground
+      for (let i = 0; i < 24; i++) {
+        const spd = 120 + Math.random() * 200;
+        particles.push({ x: x + (Math.random() - 0.5) * 14, y, vx: (Math.random() - 0.5) * 60, vy: -spd, life: 1.3 + Math.random() * 0.4,
+          color: Math.random() < 0.6 ? '#6b5a40' : '#3b3226', debris: true });
+      }
+      scheduleFx(0.35, () => {
+        sfxImpact(1.6, 'large');
+        launchRings.push({ x, y, age: 0, color: '#3b3226', maxR: 150 });
+        spawnExplosion(x, y + 6, '#bfae86', 1.3, 'deep', true);
+        spawnScorch(x, 60, '#bfae8655');
+      });
+    } else if (kind === 'ghost') {
+      launchRings.push({ x, y, age: 0, color: '#9fd4e8', maxR: 90 }); // a pale, cold flash
+    } else if (kind === 'strikeBomber' || kind === 'heavyBomber') {
+      // a bomb line walking across the target
+      const n = kind === 'heavyBomber' ? 4 : 3;
+      for (let i = 1; i <= n; i++) scheduleFx(0.12 * i, () => spawnExplosion(x - 70 + (140 * i) / (n + 1), y + (Math.random() - 0.5) * 20, color, 0.7, 'secondary', true));
     }
   }
 
@@ -3735,6 +3826,12 @@
 
     updateOmegaRepair(dt);
     updateOmegaSmolders(dt);
+    updateOmegaDamageFx(dt); // LRNA-179
+    for (let i = pendingFx.length - 1; i >= 0; i--) { // LRNA-179: delayed blasts
+      pendingFx[i].t -= dt;
+      if (pendingFx[i].t <= 0) { const fx = pendingFx[i]; pendingFx.splice(i, 1); fx.fn(); }
+    }
+    for (let i = killTrails.length - 1; i >= 0; i--) { killTrails[i].age += dt; if (killTrails[i].age > KILL_TRAIL_LIFE) killTrails.splice(i, 1); }
 
     if (emergencyCooldown > 0) emergencyCooldown = Math.max(0, emergencyCooldown - dt);
     updateEmergencyBtn();
@@ -3776,6 +3873,13 @@
           }
         }
 
+        // LRNA-179: the interceptor's path, drawn as a trail in its side's color
+        m.pathTimer = (m.pathTimer || 0) - dt;
+        if (m.pathTimer <= 0) {
+          m.pathTimer = 0.04;
+          (m.path = m.path || []).push([m.x, vh() / 2 + m.laneY - altitude(m)]);
+          if (m.path.length > 60) m.path.shift();
+        }
         const prox = Math.abs(target.x - m.x);
         // LRNA-134-flake fix: at COUNTER.speed (840) a single frame's step
         // (42 units at a coarse 0.05s tick, still ~14 at real 60fps) can
@@ -3804,6 +3908,15 @@
             spawnBurst(mx, my, '#f3e7c1', 20);
             spawnBurst(mx, my, '#ffb347', 14);
             spawnFloatText(mx, my - 20, `INTERCEPTED BY ${describeDefender(m)}`, '#f3e7c1', 24); // LRNA-110, ART-22
+            // LRNA-179: what hit what - the interceptor's whole path stays on
+            // screen in its side's color, ending in a kill ring and wreckage
+            const side = interceptSideColor(target);
+            killTrails.push({ path: (m.path || []).concat([[mx, my]]), color: side, age: 0, x: mx, y: my });
+            launchRings.push({ x: mx, y: my, age: 0, color: side, maxR: 46 });
+            for (let i = 0; i < 8; i++) {
+              particles.push({ x: mx, y: my, vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 60, life: 1.2,
+                color: '#3a3328', debris: true });
+            }
             stats.intercepts += 1;
             // LRNA-078/#435: a shot-down plane frees its slot for a rearm,
             // same as one that lands safely - it just skips the "safe
@@ -4610,6 +4723,7 @@
       OMEGA_RES * OMEGA_PX_SCALE, OMEGA_RES * OMEGA_PX_SCALE
     );
     ctx.restore();
+    if (alive && omegaDamageState() === 3) drawOmegaCore(sx); // LRNA-179
     if (alive && omegaShieldTimer > 0) { // LRNA-176: SHIELD BURST dome
       const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 160);
       ctx.save();
@@ -5366,6 +5480,31 @@
       }
     }
 
+    // LRNA-179: interceptor trails (live, then the kills fading out)
+    const drawPath = (path, color, alpha, width) => {
+      if (!path || path.length < 2) return;
+      ctx.save();
+      ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round';
+      ctx.beginPath();
+      path.forEach(([px, py], i) => (i ? ctx.lineTo(px - camX, py) : ctx.moveTo(px - camX, py)));
+      ctx.stroke();
+      ctx.restore();
+    };
+    for (const m of missiles) {
+      if (m.typeKey !== 'counter' || !m.path) continue;
+      const target = missiles.find(t => t.id === m.seekTargetId);
+      if (target) drawPath(m.path.concat([[m.x, VH / 2 + m.laneY - altitude(m)]]), interceptSideColor(target), 0.55, 1.6);
+    }
+    for (const k of killTrails) {
+      const fade = 1 - k.age / KILL_TRAIL_LIFE;
+      drawPath(k.path, k.color, 0.85 * fade, 2.4);
+      ctx.save();
+      ctx.globalAlpha = fade; ctx.strokeStyle = k.color; ctx.lineWidth = 2.5;
+      const kx = k.x - camX, r = 9;
+      ctx.beginPath(); ctx.moveTo(kx - r, k.y - r); ctx.lineTo(kx + r, k.y + r); ctx.moveTo(kx + r, k.y - r); ctx.lineTo(kx - r, k.y + r); ctx.stroke();
+      ctx.restore();
+    }
+
     for (const m of missiles) {
       const sx = m.x - camX;
       if (sx < -60 || sx > VW + 60) continue;
@@ -6113,6 +6252,11 @@
       // -- raw state access (live references/getters, not snapshots) --
       get missiles() { return missiles; },
       get particles() { return particles; },
+      get launchRings() { return launchRings; },
+      get pendingFx() { return pendingFx; },
+      get killTrails() { return killTrails; },
+      omegaDamageState: () => omegaDamageState(),
+      spawnExplosion: (x, y, color, scale, kind) => spawnExplosion(x, y, color, scale, kind),
       get loadoutNodes() { return loadoutNodes; },
       get amNodes() { return amNodes; },
       get fieldTargets() { return fieldTargets; },

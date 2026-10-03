@@ -679,10 +679,31 @@ missions.
   Platform, the other plays Omega, on two devices. Needs a relay for the
   two browsers to talk through; Arcade 3000 already has one for Mega
   Checkers (`Rooms`, `/api/hexsiege/rooms*`). Largest of the set.
-- **LRNA-179** — OPEN — Visual effects pass (the owner's presentation
+- **LRNA-179** — DONE (2026-10-03) — Visual effects pass (the owner's presentation
   priority): bigger, distinct explosions per weapon, Omega damage states
   (smoke, fire, exposed core as health drops), and a clear "what hit what"
   (interceptor trails that end in a visible kill).
+  - Already covered by ART-22 and closed here: explosions scaled to the
+    weapon (flash, fireball, shockwave, debris, smoke column), craters,
+    HIT / MISS / INTERCEPTED BY markers, shake, flash and sounds.
+  - **Distinct explosions** (new): FAST cracks with a spray of sparks and
+    little smoke; LONG RANGE adds two follow-up blasts and a mushroom
+    cap; BUNKER BUSTER throws earth straight up, then detonates deep a
+    third of a second later (dark ring, bigger crater); STRIKE / HEAVY
+    BOMBER walk a line of 3 / 4 bombs across the target; GHOST flashes a
+    pale ring. CLUSTER (3 bomblets) and EMP (electric ring) already had
+    their own. Delayed effects run through a small `scheduleFx` queue.
+  - **Omega damage states**, in step with its LRNA-176 phases: smoke
+    plumes from 75%, fires from 50%, and from 25% an exposed, pulsing
+    core throwing sparks. Reset when it rebuilds (they follow its health).
+  - **What hit what**: every interceptor draws its path as it flies -
+    green for yours, red for Omega's. A kill leaves the whole path on
+    screen for ~2 seconds, ending in an X, a kill ring in the same color
+    and falling wreckage, next to ART-22's INTERCEPTED BY callout.
+  - No balance change (effects only). Tests (3 new): per-weapon
+    explosions (sparks, follow-ups, mushroom, deep blast, bomb line,
+    ghost ring), Omega's damage states at 100/70/45/20%, and an
+    interceptor's path and red kill trail fading out. 97/97.
 
 ## DONE — LRNA-180: remove recon, straight to the fight (2026-10-03)
 

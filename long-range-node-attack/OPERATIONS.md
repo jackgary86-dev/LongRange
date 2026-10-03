@@ -37,7 +37,7 @@ Tests:
 cd long-range-node-attack
 npm ci
 npx playwright install chromium    # skip where Chromium is preinstalled
-npm test                           # 94 tests as of LRNA-176
+npm test                           # 97 tests as of LRNA-179
 ```
 Tests drive the game through `window.__TEST__`, which only exists with
 `?test=1` in the URL (or `localStorage.lrna_test_mode = '1'`).
