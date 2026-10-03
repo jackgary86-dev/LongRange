@@ -2230,4 +2230,47 @@ test('LRNA-187: your nodes have 60 HP and Omega works the most damaged one', asy
   });
 });
 
+test('LRNA-189: when Omega falls it rebuilds its radar and missile nodes too', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      const nodes = T.fieldTargets.filter((t) => t.baseNode);
+      for (const n of nodes) T.damageNode(n.id, 1000);
+      const down = nodes.filter((n) => n.destroyed).length;
+      T.forceOmegaDamage(1e6);
+      return { down, back: nodes.filter((n) => !n.destroyed && n.health === n.maxHealth).length,
+        tag: document.getElementById('omegaNodeStatus').textContent };
+    });
+    assertEqual(r.down, 5, 'all five down first');
+    assertEqual(r.back, 5, 'all five rebuilt with Omega');
+    assertEqual(r.tag, 'MSL 3/3 · RDR 2/2', 'the readout shows them back');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-190: FAST hits nodes four times harder (200), but not Omega', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.disableOmegaCounters();
+      const fly = (dest) => {
+        const m = T.launchAttack(T.nodeA, dest, 'fast'); m.defended = true; m.targetX = dest.x;
+        const real = Math.random; Math.random = () => 0.01;
+        for (let i = 0; i < 1000 && T.missiles.some((x) => x.id === m.id); i++) T.tickUpdate(0.05);
+        Math.random = real;
+      };
+      const node = T.fieldTargets.find((t) => t.baseNode && t.kind === 'missileNode');
+      fly(node);
+      const nodeHp = node.health;
+      const before = T.omegaHealth; fly(T.nodeO);
+      return { nodeHp, omegaLoss: before - T.omegaHealth, tip: document.querySelector('.launchBtn[data-type="fast"]').dataset.tip };
+    });
+    assertEqual(r.nodeHp, 200, 'a FAST takes 200 off a 400 HP node');
+    assertEqual(r.omegaLoss, 2, 'and still the plain 50 (2 HP on the bar) off Omega');
+    assert(/200 against radar and missile nodes/.test(r.tip), `the button says so: ${r.tip}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 run();

@@ -819,7 +819,7 @@
         </ol>
       </div>
       <div class="mPanel">
-        <p class="howText"><strong>NODES</strong> &mdash; each base has 3 missile nodes and 2 radar nodes in front of it. Knock out Omega's missile nodes and its waves shrink; knock out its radar and its defenses go blind. Omega hits yours too: lose missile nodes and your income drops, lose radar and you see threats later.</p>
+        <p class="howText"><strong>NODES</strong> &mdash; each base has 3 missile nodes and 2 radar nodes in front of it. Knock out Omega's missile nodes and its waves shrink; knock out its radar and its defenses go blind. FAST hits nodes four times harder. When Omega falls it rebuilds its nodes too. Omega hits yours too: lose missile nodes and your income drops, lose radar and you see threats later.</p>
       </div>
       <div class="mPanel">
         <p class="howText"><strong>CURRENCY</strong> &mdash; <span style="color:#ff5a36">ATTACK</span> pays for warheads and strike planes. It trickles in, and hits pay back part of their cost.</p>
@@ -1723,6 +1723,10 @@
   const MISSILE_NODE_WAVE_CUT = 0.2;     // per Omega missile node lost
   const RADAR_SIGHT = [0, 0.6, 1];       // Omega's defense sight by radars standing (0, 1, 2)
   const MISSILE_NODE_INCOME_CUT = 0.25;  // per player missile node lost
+  // LRNA-190: FAST's job - a cheap, quick precision shot that hits the
+  // nodes hard (4x: 200 a hit, two FASTs kill a 400 HP node for 200 ATTACK)
+  const FAST_NODE_BONUS = 4;
+  function fastNodeBonus(m, dest) { return m.typeKey === 'fast' && m.originId === 'A' && dest && dest.baseNode ? FAST_NODE_BONUS : 1; }
   const NODE_STRIKE_SHARE = 0.35;        // share of Omega's strikes sent at your nodes (LRNA-187: was 0.25)
   const PLAYER_NODE_HP = 60;             // LRNA-187: your nodes (Omega's stay at 400 vs your heavier weapons)
   function makeBaseNodes(faction, x0, x1, colors) {
@@ -2198,6 +2202,13 @@
     buildOmegaBase();
     nodeO.hitChance = Math.min(OMEGA_HIT_CHANCE_CAP, (nodeO.hitChance || COUNTER.hitChance * DIFFICULTIES[difficulty].interceptMult) + 0.05);
     omegaInvulnTimer = OMEGA_REBUILD_INVULN; // Add invulnerability window (LRNA-125)
+    // LRNA-189: Omega rebuilds its radar and missile nodes with it, so
+    // clearing them once isn't a permanent win - each round starts again
+    let rebuilt = 0;
+    for (const n of omegaNodes()) if (n.destroyed || n.health < n.maxHealth) { n.health = n.maxHealth; n.destroyed = false; rebuilt++; }
+    if (rebuilt) spawnFloatText(nodeO.x - 340, nodeO.y - 120, 'OMEGA REBUILT ITS NODES', '#e8735a', 24);
+    if (selectedTargetId !== 'O' && !getTarget(selectedTargetId)) selectedTargetId = 'O';
+    updateNodeHud();
     updateObjectiveHud();
   }
   function updateWaveDirector(dt) {
@@ -3795,9 +3806,9 @@
             const blastScale = m.typeKey === 'large' ? 2.6 : m.typeKey === 'medium' ? 1.7 : 1;
             spawnExplosion(m.x, dest.y + m.laneY, m.color, blastScale, m.sizeKey || m.typeKey);
             spawnScorch(m.x, 24 + 22 * blastScale, m.color + '55');
-            justDestroyed = applyDamage(dest, m.x, m.laneY, m.dmg);
+            justDestroyed = applyDamage(dest, m.x, m.laneY, m.dmg * fastNodeBonus(m, dest));
           }
-          impactFeedback(dest, m.x, dest.y + m.laneY, m.dmg, m.typeKey === 'emp' ? 1 : m.splitCount > 0 ? 1.7
+          impactFeedback(dest, m.x, dest.y + m.laneY, m.dmg * fastNodeBonus(m, dest), m.typeKey === 'emp' ? 1 : m.splitCount > 0 ? 1.7
             : m.typeKey === 'large' ? 2.6 : m.typeKey === 'medium' ? 1.7 : (m.sizeKey === 'large' ? 2 : m.sizeKey === 'medium' ? 1.4 : 1), isPlayerShot);
           if (justDestroyed && isPlayerShot) {
             retargetAfterKill(dest); // LRNA-183
@@ -5608,7 +5619,8 @@
   }
   for (const b of document.querySelectorAll('.launchBtn[data-type]')) {
     const t = TYPES[b.dataset.type];
-    decorateButton(b, b.dataset.type, `${t.label} - ${t.eta}s flight, ${t.dmg} damage, ${t.cost} ATTACK. 3 warheads, then a ${TURN_COOLDOWN}s reload.`);
+    const extra = b.dataset.type === 'fast' ? ` (${t.dmg * FAST_NODE_BONUS} against radar and missile nodes)` : ''; // LRNA-190
+    decorateButton(b, b.dataset.type, `${t.label} - ${t.eta}s flight, ${t.dmg} damage${extra}, ${t.cost} ATTACK. 3 warheads, then a ${TURN_COOLDOWN}s reload.`);
   }
   decorateButton(emergencyBtnEl, 'emergency', emergencyBtnEl.title);
   emergencyBtnEl.dataset.tip = emergencyBtnEl.title;

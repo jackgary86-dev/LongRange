@@ -19,7 +19,7 @@ const OUT = process.argv[4] || null;
 // filters for what-if runs: SIM_STRATEGIES=omega,nodes-first SIM_DIFFICULTIES=normal SIM_SKILLS=sharp
 // and SIM_GAME=path/to/a/modified/index.html
 const pickList = (env, all) => (process.env[env] ? process.env[env].split(',') : all);
-const STRATEGIES = pickList('SIM_STRATEGIES', ['omega', 'fast-spam', 'radar-first', 'missile-first', 'nodes-first']);
+const STRATEGIES = pickList('SIM_STRATEGIES', ['omega', 'fast-spam', 'radar-first', 'missile-first', 'nodes-first', 'fast-nodes']);
 const DIFFICULTIES = pickList('SIM_DIFFICULTIES', ['easy', 'normal', 'hard']);
 const ALL_SKILLS = { sharp: 1.0, casual: 0.35 }; // chance per decision to react with the Emergency Counter
 const SKILLS = Object.fromEntries(pickList('SIM_SKILLS', Object.keys(ALL_SKILLS)).map((k) => [k, ALL_SKILLS[k]]));
@@ -59,11 +59,14 @@ async function playGame({ strategy, reflex, minutes }) {
       if (strategy === 'radar-first' && standing(om, 'radarNode')) want = 'radarNode';
       if (strategy === 'missile-first' && standing(om, 'missileNode')) want = 'missileNode';
       if (strategy === 'nodes-first') want = standing(om, 'radarNode') ? 'radarNode' : standing(om, 'missileNode') ? 'missileNode' : 'O';
+      if (strategy === 'fast-nodes') want = standing(om, 'missileNode') ? 'missileNode' : standing(om, 'radarNode') ? 'radarNode' : 'O';
       const cur = T.getTarget(T.selectedTargetId);
       const curKind = !cur || cur.id === 'O' ? 'O' : cur.kind;
       if (curKind !== want) pick(want);
       // 3. fire: planes when ready, then the biggest missile affordable (fast-spam: only FAST)
-      if (strategy !== 'fast-spam') {
+      if (strategy === 'fast-nodes' && want !== 'O') {
+        T.attemptFire('fast'); // LRNA-190: FAST at the nodes, planes and heavy missiles at Omega
+      } else if (strategy !== 'fast-spam') {
         for (const k of ['heavyBomber', 'strikeBomber', 'strikeFighter']) if (T.planeSlots[k].state === 'ready') T.firePlane(k);
         const a = T.tokens.attack;
         T.attemptFire(a >= 500 ? 'large' : a >= 300 ? 'medium' : 'fast');

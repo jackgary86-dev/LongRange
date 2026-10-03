@@ -991,6 +991,36 @@ Tickets (the owner said "work them all"; all DONE 2026-10-03):
   break Omega - a hint that FAST could use a role (e.g. cheap node
   sniping) later.
 
+## DONE — LRNA-189/190: from the second simulation (2026-10-03)
+
+The LRNA-188 run flagged two weak spots; the owner said "proceed".
+
+- **LRNA-189** — DONE — Omega rebuilds its nodes when it rebuilds. They
+  used to stay destroyed for the rest of the game, so clearing all five
+  once was close to a guaranteed win (all-nodes-first survived the 15-min
+  cap in 6 of 12 Normal games). Now each Omega rebuild restores all five
+  ("OMEGA REBUILT ITS NODES").
+- **LRNA-190** — DONE — FAST gets a job: 4x damage against radar and
+  missile nodes (200 a hit - two FASTs, 200 ATTACK, kill a node that
+  costs one 500 LONG RANGE). Unchanged against Omega. Shown on the FAST
+  button's details and in HOW TO PLAY.
+
+The simulator got a sixth plan, "fast-nodes" (FAST at the nodes, missile
+nodes first, planes and heavy missiles at Omega). Re-run, 216 games
+(median survival, Omega kills, first kill, games that lasted 15 min):
+
+| | Omega first | Radar first | Missile first | All nodes first | FAST at nodes | FAST spam |
+|-|-|-|-|-|-|-|
+| Easy | 10:39, 4.8, 2:51 (2/12) | 14:08, 3.0, 3:02 (5/12) | 15:00+, 3.2, 3:31 (9/12) | 15:00+, 3.0, 4:07 (9/12) | 15:00+, 4.8, 2:58 (11/12) | 10:18, 0.2 |
+| Normal | 6:28, 2.3, 2:58 | 6:51, 1.8, 3:08 | 8:24, 1.8, 3:31 | 10:21, 2.1, 3:52 (2/12) | 10:51, 3.2, 3:02 | 6:10, 0 |
+| Hard | 3:47, 1.2, 2:57 | 4:32, 1.2, 2:56 | 6:27, 0.9, 3:30 | 5:55, 1.0, 4:14 | 6:51, 1.6, 3:06 | 3:53, 0 |
+
+All-nodes-first on Normal now survives the cap in 2 of 12 (was 6); the
+smart plan - FAST at the nodes, heavy weapons at Omega - is the best on
+every difficulty, and FAST spam at Omega is still the worst, so the
+choice of weapon per target matters. Easy stays forgiving. 2 new tests,
+82/82.
+
 ## OPEN — Counter Center Restructuring
 
 Direct request from a live design-review session (2026-09-29), working from
