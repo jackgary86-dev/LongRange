@@ -1982,4 +1982,23 @@ test('ART-20: a manual move holds the camera for 4s; a missile you picked stays 
   });
 });
 
+test('ART-16: the battlefield is open ground in earth tones, not deep space', async () => {
+  await withGame(async (page, errors) => {
+    await page.waitForTimeout(300);
+    const r = await page.evaluate(() => {
+      const c = document.getElementById('game');
+      const ctx = c.getContext('2d');
+      const pts = [[0.2, 0.3], [0.5, 0.25], [0.8, 0.35], [0.3, 0.6], [0.7, 0.62]];
+      const px = pts.map(([fx, fy]) => Array.from(ctx.getImageData(Math.round(c.width * fx), Math.round(c.height * fy), 1, 1).data));
+      return { px, bg: getComputedStyle(c).backgroundImage };
+    });
+    for (const [rr, g, b] of r.px) {
+      assert(rr + g + b > 120, `ground is lit, not night sky: ${[rr, g, b]}`);
+      assert(g >= b && rr >= b * 0.9, `earth tones (green/brown over blue): ${[rr, g, b]}`);
+    }
+    assert(!/radial-gradient/.test(r.bg), 'no deep-space gradient behind the canvas');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 run();

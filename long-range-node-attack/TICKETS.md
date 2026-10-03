@@ -711,13 +711,28 @@ better and look better." Asked directly; the owner's answers:
 
 Tickets:
 
-- **ART-16** — OPEN — Battlefield art, realistic military. Replace the
+- **ART-16** — DONE — Battlefield art, realistic military. Replace the
   starfield, nebulae and neon/pixel sprites with vector art: a ground
   band with terrain and craters, muted military colors, the Strike
   Platform as a launch site and Omega as a fortified bunker complex,
   shaded silhouettes for infantry, vehicles, launchers, sub-bases, the
   defense nodes, every missile and every plane. Omega's damage shows on
   the bunker itself.
+  *Done:* the battlefield is drawn as a military map seen from above at
+  an angle: earth-tone ground fields and scrub, a dirt supply road along
+  the corridor (concrete bridges over the rivers), water with muddy
+  banks, tree canopy with shadows, hills along the top, rusted wrecks, a
+  faint map grid, and dark craters with thrown-earth rims where shells
+  land. The Strike Platform is a launch site (pad, sandbag berm, launcher
+  truck with its missile raised, radar dish, command bunker) that
+  scorches, smokes and burns as it loses health; Omega is a concrete
+  complex (wall, courtyard, domed bunker with firing slits, four turrets,
+  antenna) carved by the existing crater damage. Every unit and weapon
+  moved to a military palette (olive and sand for yours, brick and rust
+  for the enemy, weathered metal for ordnance); the neon glow became a
+  drop shadow and trails became grey-white smoke. Units draw 1.35-1.5x
+  larger so they read at the half zoom. One new test samples the
+  battlefield's colors. 71/71.
 - **ART-17** — DONE — HUD. Two big health bars in the top corners (your
   Strike Platform left, Omega right) and one incoming warning with time
   to impact. Everything else in the HUD goes or moves (currency moves

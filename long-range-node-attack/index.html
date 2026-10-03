@@ -28,7 +28,7 @@
   #wrap { position: relative; width: 100vw; height: 100vh; }
   canvas {
     display: block;
-    background: radial-gradient(circle at center, #0a0f38 0%, #05061e 70%, #020212 100%);
+    background: #4d5535; /* ART-16: open ground, not deep space */
     cursor: grab;
   }
   canvas.dragging { cursor: grabbing; }
@@ -1107,8 +1107,10 @@
   // `.health` uses this scale directly; Node Omega's node-count model is
   // normalized onto the same scale for its HUD readout (see updateHud).
   const PLAYER_MAX_HEALTH = 250;
-  const nodeA = { id: 'A', name: 'STRIKE PLATFORM', x: 320, y: 0, color: '#35e6ff', health: PLAYER_MAX_HEALTH, impacts: 0 };
-  const nodeO = { id: 'O', name: 'NODE OMEGA', x: MAP_W - 320, y: 0, color: '#ff2ea6', health: 100, impacts: 0, flakTimer: 0, faction: 'enemy' };
+  // ART-16: a muted military palette - friendly units in olive and sand,
+  // the enemy in brick red and rust, ordnance in weathered metal.
+  const nodeA = { id: 'A', name: 'STRIKE PLATFORM', x: 320, y: 0, color: '#c9cf9c', health: PLAYER_MAX_HEALTH, impacts: 0 };
+  const nodeO = { id: 'O', name: 'NODE OMEGA', x: MAP_W - 320, y: 0, color: '#d9775f', health: 100, impacts: 0, flakTimer: 0, faction: 'enemy' };
 
   function layout() {
     nodeA.y = vh() / 2;
@@ -1155,19 +1157,37 @@
   omegaCanvas.height = OMEGA_RES;
   const omegaCtx = omegaCanvas.getContext('2d');
 
+  // ART-16: Node Omega as a fortified concrete complex seen from above at
+  // an angle - an outer wall, a courtyard, a domed main bunker with firing
+  // slits, four corner gun turrets and an antenna mast. Drawn into the
+  // same raster damage mask, so hits still carve craters out of it.
   function drawOmegaBaseShapes() {
-    const R = OMEGA_RES;
-    omegaCtx.fillStyle = nodeO.color;
-    omegaCtx.beginPath();
-    omegaCtx.arc(R / 2, R * 0.56, R * 0.34, Math.PI, 0);
-    omegaCtx.fill();
-    omegaCtx.fillRect(R * 0.12, R * 0.56, R * 0.76, R * 0.32);
-    omegaCtx.fillRect(R * 0.02, R * 0.64, R * 0.11, R * 0.24);
-    omegaCtx.fillRect(R * 0.87, R * 0.64, R * 0.11, R * 0.24);
-    omegaCtx.fillRect(R / 2 - R * 0.012, R * 0.04, R * 0.024, R * 0.22);
-    omegaCtx.beginPath();
-    omegaCtx.arc(R / 2, R * 0.04, R * 0.02, 0, Math.PI * 2);
-    omegaCtx.fill();
+    const R = OMEGA_RES, c = omegaCtx, cx = R / 2, cy = R * 0.56;
+    const poly = (r, ry, fill) => {
+      c.fillStyle = fill;
+      c.beginPath();
+      for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; c.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * ry); }
+      c.closePath(); c.fill();
+    };
+    poly(R * 0.47, R * 0.36, '#5f5a50');      // outer wall
+    poly(R * 0.42, R * 0.31, '#7b7568');      // wall top
+    poly(R * 0.36, R * 0.26, '#4c4840');      // courtyard
+    const g = c.createRadialGradient(cx - R * 0.08, cy - R * 0.1, R * 0.02, cx, cy, R * 0.22);
+    g.addColorStop(0, '#b3ab9a'); g.addColorStop(1, '#7d7567');
+    c.fillStyle = g;
+    c.beginPath(); c.ellipse(cx, cy, R * 0.22, R * 0.17, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#2b2722';                   // firing slits
+    for (const [dx, dy, w] of [[-0.13, -0.02, 0.07], [0.06, -0.02, 0.07], [-0.04, 0.07, 0.08]]) c.fillRect(cx + dx * R, cy + dy * R, w * R, R * 0.012);
+    for (const [tx, ty] of [[-0.34, -0.2], [0.34, -0.2], [-0.34, 0.2], [0.34, 0.2]]) {
+      c.fillStyle = '#56514a';
+      c.beginPath(); c.arc(cx + tx * R, cy + ty * R, R * 0.055, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#3a3631';
+      c.fillRect(cx + tx * R - R * 0.07, cy + ty * R - R * 0.006, R * 0.07, R * 0.012); // gun barrel toward the player
+    }
+    c.fillStyle = '#4a463f';                   // antenna mast
+    c.fillRect(cx + R * 0.05, R * 0.08, R * 0.014, cy - R * 0.08 - R * 0.12);
+    c.fillStyle = '#b8574a';
+    c.beginPath(); c.arc(cx + R * 0.057, R * 0.08, R * 0.016, 0, Math.PI * 2); c.fill();
   }
 
   // recent crater sites {rx, ry, r} (raster-space), oldest first - used both
@@ -1210,10 +1230,10 @@
     drawOmegaBaseShapes();
     // vent/panel texture so the mass doesn't look like a flat blob
     omegaCtx.globalCompositeOperation = 'destination-out';
-    for (let i = 0; i < 220; i++) {
-      const gx = R * 0.08 + Math.random() * R * 0.84;
-      const gy = R * 0.2 + Math.random() * R * 0.68;
-      omegaCtx.fillRect(gx, gy, 1.6, 1.6);
+    for (let i = 0; i < 60; i++) { // ART-16: a few pits in the concrete, not a vent grid
+      const gx = R * 0.1 + Math.random() * R * 0.8;
+      const gy = R * 0.3 + Math.random() * R * 0.55;
+      omegaCtx.fillRect(gx, gy, 1.2, 1.2);
     }
     omegaCtx.globalCompositeOperation = 'source-over';
     omegaCraters = [];
@@ -1336,7 +1356,7 @@
         yOff: (Math.random() - 0.5) * 1400,
         r: 0.4 + Math.random() * 1.4,
         a: 0.15 + Math.random() * 0.75,
-        tint: Math.random() < 0.15 ? '#8fd8ff' : '#ffffff',
+        tint: Math.random() < 0.5 ? '#2c3220' : '#8a8460', // ART-16: stones and scrub, not stars
       });
     }
     return stars;
@@ -1352,8 +1372,10 @@
   // generic procedural placement (evenly spaced, randomized only in
   // size/color/vertical offset) - no relation to any node's real
   // position.
-  const NEBULA_PARALLAX = 0.12;
-  const NEBULA_COLORS = ['#2a1a5e', '#1a2a5e', '#3a1a4a', '#1a4a3a', '#4a1a2a'];
+  // ART-16: these were nebulae; now they're large fields of different
+  // ground cover (grass, dry grass, earth), on the ground plane itself.
+  const NEBULA_PARALLAX = 1;
+  const NEBULA_COLORS = ['#59633e', '#4a5434', '#635c3c', '#435030', '#5f5a3e'];
   const NEBULA_CLOUDS = (() => {
     const clouds = [];
     const spacing = 900;
@@ -1368,7 +1390,7 @@
     return clouds;
   })();
 
-  const TERRAIN_COLORS = ['#140a30', '#1a0e3c', '#0e1236', '#20103a', '#0a1840', '#2a0f2e', '#160a24'];
+  const TERRAIN_COLORS = ['#4c5634', '#55603a', '#5a553a', '#48523a', '#4f4a32', '#596443', '#3f4a2e']; // ART-16: earth tones
   const terrainPatches = (() => {
     const patches = [];
     const spacing = 70;
@@ -1571,9 +1593,9 @@
     // speedMultiplier/launchAttack) - only these four types get the
     // burn/coast profile; everything else keeps the original constant
     // velocity it always had.
-    fast:    { label: 'FAST',        names: ['VIPER', 'ADDER', 'LANCE', 'WASP'],       eta: 10, dmg: 50,   radius: 5, color: '#35e6ff', peak: 150, cost: 100, burn: 5 },
-    medium:  { label: 'MEDIUM',      names: ['FALCON', 'KESTREL', 'RAVEN', 'HAWK'],    eta: 20, dmg: 250,  radius: 7, color: '#8f6bff', peak: 240, cost: 300, burn: 10 },
-    large:   { label: 'LONG RANGE',  names: ['HAMMER', 'TITAN', 'ANVIL', 'BASTION'],   eta: 30, dmg: 1000, radius: 9, color: '#ff5a36', peak: 330, cost: 500, burn: 15 },
+    fast:    { label: 'FAST',        names: ['VIPER', 'ADDER', 'LANCE', 'WASP'],       eta: 10, dmg: 50,   radius: 5, color: '#e2ddc6', peak: 150, cost: 100, burn: 5 },
+    medium:  { label: 'MEDIUM',      names: ['FALCON', 'KESTREL', 'RAVEN', 'HAWK'],    eta: 20, dmg: 250,  radius: 7, color: '#d4ceb4', peak: 240, cost: 300, burn: 10 },
+    large:   { label: 'LONG RANGE',  names: ['HAMMER', 'TITAN', 'ANVIL', 'BASTION'],   eta: 30, dmg: 1000, radius: 9, color: '#ece2bd', peak: 330, cost: 500, burn: 15 },
     // cost/dmg bumped well past LONG RANGE - now the single heaviest hit in
     // the arsenal, justifying its higher price tag.
     cluster: { label: 'CLUSTER',     names: ['SWARM', 'VOLLEY', 'SALVO', 'BARRAGE'],   eta: 24, dmg: 1400, radius: 6, color: '#7bffa0', peak: 280, cost: 750, splitCount: 3, burn: 15 },
@@ -1584,7 +1606,7 @@
     // Omega's own offensive strike on the Strike Platform - not player-selectable
     // (no launch button), scaled for nodeA's 0-PLAYER_MAX_HEALTH regenerating
     // health, not the player's node-count/health-pool damage tiers above.
-    enemyStrike: { label: 'STRIKE', names: ['REAPER', 'JAVELIN', 'SCYTHE', 'TALON'], eta: 14, dmg: 14, radius: 6, color: '#ff2ea6', peak: 200 },
+    enemyStrike: { label: 'STRIKE', names: ['REAPER', 'JAVELIN', 'SCYTHE', 'TALON'], eta: 14, dmg: 14, radius: 6, color: '#d8613f', peak: 200 },
   };
   // LRNA-143: CLUSTER/EMP stay fully defined above (tests still exercise
   // them directly, and a future pass may want to bring them back) but
@@ -1646,7 +1668,7 @@
     }
     return missile;
   }
-  const COUNTER = { label: 'COUNTER', names: ['GUARDIAN', 'SENTRY', 'AEGIS', 'WARDEN'], color: '#ffe066', radius: 6, speed: 840, totalSeconds: 6, peak: 90, hitChance: 0.5 };
+  const COUNTER = { label: 'COUNTER', names: ['GUARDIAN', 'SENTRY', 'AEGIS', 'WARDEN'], color: '#f3e7c1', radius: 6, speed: 840, totalSeconds: 6, peak: 90, hitChance: 0.5 };
   const HIT_CHANCE = 0.85;
   const nameCounters = {
     fast: 0, medium: 0, large: 0, cluster: 0, emp: 0, enemyStrike: 0, counter: 0,
@@ -1681,10 +1703,10 @@
   // (infantry, vehicles) die in one or two hits; launchers and sub-bases are
   // armed and defend themselves just like Omega does.
   const FIELD_KIND_DEFS = {
-    infantry: { label: 'INFANTRY SQUAD', color: '#ff9ecf', maxHealth: 40,   defends: false },
-    vehicle:  { label: 'VEHICLE',        color: '#ff7a3d', maxHealth: 120,  defends: false },
-    launcher: { label: 'LAUNCHER',       color: '#ff3b3b', maxHealth: 350,  defends: true },
-    subbase:  { label: 'SUB-BASE',       color: '#ff2ea6', maxHealth: 1400, defends: true },
+    infantry: { label: 'INFANTRY SQUAD', color: '#c9a184', maxHealth: 40,   defends: false },
+    vehicle:  { label: 'VEHICLE',        color: '#bf8a5e', maxHealth: 120,  defends: false },
+    launcher: { label: 'LAUNCHER',       color: '#c45a42', maxHealth: 350,  defends: true },
+    subbase:  { label: 'SUB-BASE',       color: '#b04c3a', maxHealth: 1400, defends: true },
   };
   const fieldTargets = (() => {
     const plan = [
@@ -1743,7 +1765,7 @@
         name: `AM BATTERY ${String(i + 1).padStart(2, '0')}`,
         x: start + frac * span + jitter, y: 0,
         yOffset: (Math.random() - 0.5) * NODE_SCATTER,
-        color: '#35e6ff',
+        color: '#9db35e',
         hitChance: AM_NODE_HIT_CHANCE, flakTimer: 0, faction: 'player',
         muzzleY: -14,
       });
@@ -1770,19 +1792,19 @@
     gml: {
       key: 'gml', label: 'GROUND MISSILE LAUNCHER', short: 'GML',
       desc: 'vs missiles and small planes, not large ones — 40% hit',
-      color: '#35e6ff', hitChance: 0.40, cooldown: 1.4,
+      color: '#b9c48d', hitChance: 0.40, cooldown: 1.4,
       engages: sizeKey => sizeKey === 'fast' || sizeKey === 'medium',
     },
     mgaa: {
       key: 'mgaa', label: 'MACHINE GUN ANTI-AIR', short: 'MG AA',
       desc: 'vs everything — 35% hit',
-      color: '#7bffa0', hitChance: 0.35, cooldown: 1.1,
+      color: '#a3b678', hitChance: 0.35, cooldown: 1.1,
       engages: () => true,
     },
     cb: {
       key: 'cb', label: 'COUNTER BATTERY', short: 'CTR BTY',
       desc: 'vs everything, 30s on/30s off — 60% hit',
-      color: '#ffe066', hitChance: 0.60, cooldown: 1.6, cycling: true,
+      color: '#d6c68e', hitChance: 0.60, cooldown: 1.6, cycling: true,
       engages: () => true,
     },
     // LRNA-049's "Ground Units": engages anything, but a successful hit
@@ -1798,7 +1820,7 @@
     gu: {
       key: 'gu', label: 'GROUND UNITS', short: 'GRD UNITS',
       desc: 'vs everything, damages (doesn\'t destroy) — 50% hit',
-      color: '#ff8a5c', hitChance: 0.50, cooldown: 1.3, chipOnly: true,
+      color: '#c4a576', hitChance: 0.50, cooldown: 1.3, chipOnly: true,
       engages: () => true,
     },
     // LRNA-049's "Base": the ticket's own genuinely-open node, resolved
@@ -1812,7 +1834,7 @@
     base: {
       key: 'base', label: 'BASE', short: 'BASE',
       desc: 'vs everything, fires at every inbound threat at once — 35% hit, 6s cycle',
-      color: '#c48bff', hitChance: 0.35, cooldown: 6, volley: true,
+      color: '#cdbb8c', hitChance: 0.35, cooldown: 6, volley: true,
       engages: () => true,
     },
   };
@@ -2257,9 +2279,9 @@
   // from existing shared code, same as every other missile type.
   const PLANE_REARM_COOLDOWN = 5;
   const PLANE_TYPES = {
-    strikeFighter: { key: 'strikeFighter', label: 'STRIKE FIGHTER', pillar: 'attack', eta: 10, dmg: 300, cost: 150, dodge: true, color: '#35e6ff' },
-    strikeBomber:  { key: 'strikeBomber',  label: 'STRIKE BOMBER',  pillar: 'attack', eta: 20, dmg: 700, cost: 350, color: '#8f6bff' },
-    heavyBomber:   { key: 'heavyBomber',   label: 'HEAVY BOMBER',   pillar: 'attack', eta: 30, dmg: 1200, cost: 550, easyTarget: true, color: '#ff5a36' },
+    strikeFighter: { key: 'strikeFighter', label: 'STRIKE FIGHTER', pillar: 'attack', eta: 10, dmg: 300, cost: 150, dodge: true, color: '#d3d6c2' },
+    strikeBomber:  { key: 'strikeBomber',  label: 'STRIKE BOMBER',  pillar: 'attack', eta: 20, dmg: 700, cost: 350, color: '#c2c5b0' },
+    heavyBomber:   { key: 'heavyBomber',   label: 'HEAVY BOMBER',   pillar: 'attack', eta: 30, dmg: 1200, cost: 550, easyTarget: true, color: '#b3b49c' },
     // Interceptor Jet removed for now (direct request) - buttons are
     // generated from this object, so dropping the entry is enough to
     // stop it being offered. Every code path that resolves it (firePlane,
@@ -2717,7 +2739,7 @@
     target.emergencyUsed = (target.emergencyUsed || 0) + 1;
     counterAmmo.emergency -= 1;
     updateCounterAmmoBadges();
-    fireCounter({ id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#fff2b0', hitChance: EMERGENCY_HIT_CHANCE }, target.id, 'emergency');
+    fireCounter({ id: nodeA.id, x: nodeA.x, y: nodeA.y, color: '#f3e7c1', hitChance: EMERGENCY_HIT_CHANCE }, target.id, 'emergency');
     emergencyCooldown = EMERGENCY_COOLDOWN;
     return true;
   }
@@ -2804,7 +2826,7 @@
     // Heavy Bomber is explicitly easy to shoot down.
     const hitChance = target.planeKind === 'heavyBomber' ? Math.min(0.95, EMERGENCY_HIT_CHANCE + 0.15) : EMERGENCY_HIT_CHANCE;
     omegaCounterAmmo.emergency -= 1;
-    fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#ff8fd0', hitChance }, target.id, 'omegaEmergency');
+    fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#e8a58f', hitChance }, target.id, 'omegaEmergency');
   }
 
   function updateOmegaCountersHud() {
@@ -3464,7 +3486,7 @@
             vx: -m.vx * 0.06 + (Math.random() - 0.5) * 6,
             vy: -8 - Math.random() * 10,
             life: (1.4 + Math.random() * 0.5) * (0.7 + speedFrac0 * 0.5),
-            color: m.color, smoke: true,
+            color: '#d2d0c4', smoke: true, // ART-16: contrails
           });
           maybeSpawnSpeedLine(m, m.x - dir0 * (m.radius + 3), vh() / 2 + m.laneY + weaveOffset(m) - alt0 + 4); // LRNA-087
         }
@@ -3560,8 +3582,8 @@
             life: 0.45 + Math.random() * 0.3, color: '#fff066', tracer: true,
           });
         } else {
-          let color = '#9fd6ff', puffs = 1, sizeMult = 1;
-          if (m.typeKey === 'cluster') color = '#bfffdb';
+          let color = '#d8d6cc', puffs = 1, sizeMult = 1; // ART-16: real smoke, not neon
+          if (m.typeKey === 'cluster') color = '#cfcdbf';
           else if (m.typeKey === 'large') { sizeMult = 1.4; if (Math.random() < 0.4) puffs = 2; }
           else if (m.typeKey === 'fast') sizeMult = 0.65;
           if (m.burnFrac != null) {
@@ -3569,7 +3591,7 @@
               color = '#5a4a42'; // burning: thicker, darker, warmer smoke
               if (Math.random() < speedFrac * 0.5) puffs = 2;
             } else {
-              color = '#c9e8ff'; // coasting: thinner, paler, more dispersed
+              color = '#e4e2d8'; // coasting: thinner, paler, more dispersed
             }
           }
           for (let i = 0; i < puffs; i++) {
@@ -4060,8 +4082,11 @@
     ctx.translate(x, y);
     if (angle) ctx.rotate(angle);
     ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = typeKey === 'counter' ? 16 : (typeKey === 'large' ? 12 : 7);
+    // ART-16: a soft drop shadow (sun from the upper left) instead of a neon glow
+    ctx.shadowColor = 'rgba(12,14,8,0.55)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 3;
     if (typeKey === 'enemyStrike' && weaponClass === 'plane') {
       // LRNA-051's symmetric arsenal: a plane-classed enemy strike reads
       // as a plane/bomber (the same drawBomber/drawAttackPlane the
@@ -4099,38 +4124,80 @@
     } else {
       drawMissileBody(r);
     }
-    ctx.shadowBlur = 0;
+    ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
     ctx.restore();
   }
 
+  // ART-16: the Strike Platform as a launch site seen from above at an
+  // angle - a concrete pad inside a sandbag berm, a launcher truck with
+  // its missile raised toward Omega, a radar dish and a command bunker.
+  // Damage shows on the site itself: scorch, then smoke and fire.
+  const SITE_DAMAGE = [[-22, -6, 9], [14, 8, 8], [-4, 14, 7], [24, -10, 6], [-14, 10, 8], [6, -14, 7]];
   function drawNode(node) {
     const sx = node.x - camX;
-    if (sx < -70 || sx > vw() + 70) return;
+    if (sx < -120 || sx > vw() + 120) return;
+    const sy = node.y;
     const alive = node.health > 0;
-    // drawNode is only ever called with nodeA, whose health is on the
-    // PLAYER_MAX_HEALTH (250) scale - crumble fraction must match.
     const frac = Math.max(0, node.health) / PLAYER_MAX_HEALTH;
-    const total = node.pixels.length;
-    const visibleCount = Math.round(total * frac);
-    for (let idx = 0; idx < total; idx++) {
-      const c = node.pixels[idx];
-      const px = sx + c.gx * BASE_BLOCK;
-      const py = node.y + c.gy * BASE_BLOCK;
-      if (idx < visibleCount) {
-        ctx.fillStyle = alive ? node.color : '#7a2222';
-        ctx.globalAlpha = 0.94;
-        ctx.fillRect(px - BASE_BLOCK / 2, py - BASE_BLOCK / 2, BASE_BLOCK - 1, BASE_BLOCK - 1);
-        ctx.globalAlpha = 1;
-      } else {
-        ctx.strokeStyle = 'rgba(255,90,90,0.15)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px - BASE_BLOCK / 2 + 0.5, py - BASE_BLOCK / 2 + 0.5, BASE_BLOCK - 2, BASE_BLOCK - 2);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.scale(1.5, 1.5);
+    // ground shadow and pad
+    ctx.fillStyle = 'rgba(15,18,10,0.35)';
+    ctx.beginPath(); ctx.ellipse(4, 6, 48, 30, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8c8977';
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; ctx.lineTo(Math.cos(a) * 42, Math.sin(a) * 26); }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(40,40,30,0.35)'; ctx.lineWidth = 1;
+    for (let x = -30; x <= 30; x += 15) { ctx.beginPath(); ctx.moveTo(x, -24); ctx.lineTo(x, 24); ctx.stroke(); }
+    // sandbag berm
+    ctx.strokeStyle = '#9b8c62'; ctx.lineWidth = 6; ctx.setLineDash([7, 2]);
+    ctx.beginPath(); ctx.ellipse(0, 0, 50, 32, 0, Math.PI * 0.62, Math.PI * 2.38); ctx.stroke();
+    ctx.setLineDash([]);
+    // command bunker
+    ctx.fillStyle = '#6d6a58'; ctx.fillRect(-34, -8, 16, 14);
+    ctx.fillStyle = '#3a382e'; ctx.fillRect(-32, -4, 12, 2);
+    // radar dish on a mast
+    ctx.strokeStyle = '#5c5a4a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-26, -8); ctx.lineTo(-26, -24); ctx.stroke();
+    ctx.fillStyle = '#c9c7b3';
+    ctx.beginPath(); ctx.ellipse(-26, -27, 8, 4, -0.5, 0, Math.PI * 2); ctx.fill();
+    // launcher truck: cab, bed, raised rail with the missile
+    ctx.fillStyle = '#56633a'; ctx.fillRect(-10, 2, 30, 11);
+    ctx.fillStyle = '#4a5532'; ctx.fillRect(20, 3, 9, 10);
+    ctx.fillStyle = '#26291c';
+    for (const wx of [-6, 4, 14, 24]) { ctx.beginPath(); ctx.arc(wx, 14, 2.8, 0, Math.PI * 2); ctx.fill(); }
+    ctx.save();
+    ctx.translate(-4, 4);
+    ctx.rotate(-0.55);
+    ctx.fillStyle = '#3d4529'; ctx.fillRect(0, -3, 36, 6);
+    ctx.fillStyle = alive ? '#e7e2cb' : '#6a6658';
+    ctx.fillRect(4, -2.2, 30, 4.4);
+    ctx.beginPath(); ctx.moveTo(34, -2.2); ctx.lineTo(40, 0); ctx.lineTo(34, 2.2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#9db35e'; ctx.fillRect(8, -2.2, 3, 4.4);
+    ctx.restore();
+    // damage: scorch marks spread as health drops, then smoke and fire
+    const burnt = Math.round((1 - frac) * SITE_DAMAGE.length);
+    for (let i = 0; i < burnt; i++) {
+      const [dx, dy, r] = SITE_DAMAGE[i];
+      ctx.fillStyle = 'rgba(25,20,15,0.65)';
+      ctx.beginPath(); ctx.ellipse(dx, dy, r, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+      if (frac < 0.5 || !alive) {
+        const flick = 0.6 + 0.4 * Math.sin(performance.now() / 90 + i * 1.7);
+        ctx.fillStyle = `rgba(232,128,52,${0.55 * flick})`;
+        ctx.beginPath(); ctx.ellipse(dx, dy - 2, r * 0.45, r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
       }
     }
+    ctx.restore();
+    if (frac < 0.5 && Math.random() < 0.25) {
+      particles.push({ x: node.x + (Math.random() - 0.5) * 50, y: sy - 4, vx: (Math.random() - 0.5) * 8, vy: -10 - Math.random() * 8,
+        life: 1.4 + Math.random() * 0.8, color: '#3f3a32', smoke: true });
+    }
     ctx.fillStyle = alive ? node.color : '#a55';
-    ctx.font = '12px "Courier New", ui-monospace, monospace';
+    ctx.font = 'bold 12px "Courier New", ui-monospace, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(node.name, sx, node.y + BASE_R * BASE_BLOCK + 16);
+    ctx.fillText(node.name, sx, sy + 66);
   }
 
   // pulsing dashed ring drawn over any node whose defenses are EMP-jammed
@@ -4166,7 +4233,7 @@
     // both can be up at once and both should read clearly.
     if (alive && omegaCountersJamTimer > 0) drawJamIndicator(sx, nodeO.y, halfDraw + 18, '#ff2ea6');
     ctx.fillStyle = alive ? nodeO.color : '#a55';
-    ctx.font = '12px "Courier New", ui-monospace, monospace';
+    ctx.font = 'bold 12px "Courier New", ui-monospace, monospace';
     ctx.textAlign = 'center';
     const jamLabel = empGlobalJamTimer > 0 && omegaCountersJamTimer > 0 ? ' [JAMMED / COUNTERS JAMMED]'
       : empGlobalJamTimer > 0 ? ' [JAMMED]'
@@ -4174,7 +4241,7 @@
     ctx.fillText(alive ? `${nodeO.name}${jamLabel}` : nodeO.name, sx, nodeO.y + halfDraw + 16);
   }
 
-  const FIELD_MARKER_OFFSET = 26;
+  const FIELD_MARKER_OFFSET = 36;
   function drawFieldTarget(t) {
     const sx = t.x - camX;
     if (sx < -40 || sx > vw() + 40) return;
@@ -4182,6 +4249,7 @@
     const c = t.destroyed ? '#5a5a5a' : t.color;
     ctx.save();
     ctx.translate(sx, sy);
+    ctx.scale(1.5, 1.5); // ART-16: readable at the battlefield's half zoom
     ctx.globalAlpha = t.destroyed ? 0.35 : 1;
     ctx.fillStyle = c;
     if (t.kind === 'infantry') {
@@ -4308,7 +4376,7 @@
     ctx.textAlign = 'center';
     const jammed = t.defends && empGlobalJamTimer > 0;
     const label = t.destroyed ? `${t.name} [DESTROYED]` : (jammed ? `${t.name} [JAMMED]` : t.name);
-    ctx.fillText(label, sx, sy + 20);
+    ctx.fillText(label, sx, sy + 28);
   }
 
 
@@ -4319,6 +4387,7 @@
     const sy = n.y;
     ctx.save();
     ctx.translate(sx, sy);
+    ctx.scale(1.35, 1.35); // ART-16
 
     // dashed coverage ring
     ctx.strokeStyle = n.color;
@@ -4388,7 +4457,7 @@
     ctx.globalAlpha = 0.75;
     ctx.font = '7px "Courier New", ui-monospace, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(n.name, sx, sy + 16);
+    ctx.fillText(n.name, sx, sy + 22);
     ctx.globalAlpha = 1;
   }
 
@@ -4406,6 +4475,7 @@
     const flashT = isBase ? n.volleyFlash / 0.35 : 0; // 1 -> 0 right after a volley fires
     ctx.save();
     ctx.translate(sx, sy);
+    ctx.scale(1.4, 1.4); // ART-16
 
     ctx.strokeStyle = n.color;
     ctx.globalAlpha = active ? 0.3 : 0.12;
@@ -4550,11 +4620,11 @@
     ctx.globalAlpha = 0.85;
     ctx.font = '7px "Courier New", ui-monospace, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(n.name, sx, sy + 16);
+    ctx.fillText(n.name, sx, sy + 23);
     if (n.def.cycling) {
-      ctx.fillStyle = active ? '#7bffa0' : '#ff5a36';
+      ctx.fillStyle = active ? '#b9c48d' : '#d0573c';
       ctx.font = '6px "Courier New", ui-monospace, monospace';
-      ctx.fillText(active ? 'ON' : 'OFF', sx, sy + 24);
+      ctx.fillText(active ? 'ON' : 'OFF', sx, sy + 31);
     }
     ctx.globalAlpha = 1;
   }
@@ -4566,7 +4636,7 @@
   // (0.12x) drawn behind these, this is the actual fix for the
   // battlefield reading as flat - it had real terrain content already,
   // just none of it (stars included) had any depth cue at all.
-  const STAR_PARALLAX = 0.5;
+  const STAR_PARALLAX = 1; // ART-16: ground detail sits on the ground
   function drawStars() {
     const VW = vw(), VH = vh();
     for (const s of STARS) {
@@ -4574,9 +4644,9 @@
       if (sx < -4 || sx > VW + 4) continue;
       const sy = VH / 2 + s.yOff;
       if (sy < -4 || sy > VH + 4) continue;
-      ctx.globalAlpha = s.a;
+      ctx.globalAlpha = s.a * 0.55;
       ctx.fillStyle = s.tint;
-      ctx.fillRect(sx, sy, s.r, s.r);
+      ctx.fillRect(sx, sy, s.r * 1.6, s.r * 1.2);
     }
     ctx.globalAlpha = 1;
   }
@@ -4627,21 +4697,25 @@
         ctx.lineTo(sx + r.width / 2, y);
       }
       ctx.closePath();
-      ctx.fillStyle = '#0a1440';
+      ctx.strokeStyle = 'rgba(70,62,42,0.6)'; // ART-16: muddy banks
+      ctx.lineWidth = 8;
+      ctx.stroke();
+      ctx.fillStyle = '#4b6670';
       ctx.fill();
-      ctx.strokeStyle = 'rgba(90,180,255,0.35)';
+      ctx.strokeStyle = 'rgba(178,196,190,0.35)';
       ctx.lineWidth = 2;
       ctx.stroke();
 
       // relay pylon where the missile corridor crosses the energy conduit
       const bx = riverXAt(r, VH / 2) - camX;
-      ctx.fillStyle = '#3a4568';
-      ctx.fillRect(bx - r.width / 2 - 6, VH / 2 - 5, r.width + 12, 10);
-      ctx.fillStyle = '#242c48';
-      ctx.fillRect(bx - r.width / 2 - 6, VH / 2 - 5, 5, 10);
-      ctx.fillRect(bx + r.width / 2 + 1, VH / 2 - 5, 5, 10);
-      ctx.fillStyle = 'rgba(143,107,255,0.8)';
-      ctx.fillRect(bx - r.width / 2 - 6, VH / 2 - 1, r.width + 12, 2);
+      // ART-16: a concrete road bridge where the supply road crosses
+      ctx.fillStyle = 'rgba(20,24,14,0.4)';
+      ctx.fillRect(bx - r.width / 2 - 8, VH / 2 - 12, r.width + 16, 28);
+      ctx.fillStyle = '#8f8b7c';
+      ctx.fillRect(bx - r.width / 2 - 10, VH / 2 - 15, r.width + 20, 30);
+      ctx.fillStyle = '#5f5c51';
+      ctx.fillRect(bx - r.width / 2 - 10, VH / 2 - 15, r.width + 20, 3);
+      ctx.fillRect(bx - r.width / 2 - 10, VH / 2 + 12, r.width + 20, 3);
     }
   }
 
@@ -4662,9 +4736,9 @@
         ctx.lineTo(sx + c.width / 2, y);
       }
       ctx.closePath();
-      ctx.fillStyle = 'rgba(20,40,90,0.5)';
+      ctx.fillStyle = 'rgba(70,98,104,0.75)'; // ART-16: water
       ctx.fill();
-      ctx.strokeStyle = 'rgba(90,180,255,0.16)';
+      ctx.strokeStyle = 'rgba(60,54,38,0.5)';
       ctx.lineWidth = 1;
       ctx.stroke();
     }
@@ -4676,15 +4750,15 @@
       const sx = c.x - camX;
       if (sx < -100 || sx > VW + 100) continue;
       const sy = VH / 2 + c.yOff;
+      // ART-16: tree canopy from above - shadow, crown, sunlit edge
       for (const t of c.trees) {
-        const tx = sx + t.dx, ty = sy + t.dy;
-        ctx.beginPath();
-        ctx.moveTo(tx, ty - t.r * 1.8);
-        ctx.lineTo(tx - t.r, ty + t.r * 0.6);
-        ctx.lineTo(tx + t.r, ty + t.r * 0.6);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(64,150,128,0.5)';
-        ctx.fill();
+        const tx = sx + t.dx, ty = sy + t.dy, r = t.r * 1.5;
+        ctx.fillStyle = 'rgba(18,22,10,0.4)';
+        ctx.beginPath(); ctx.arc(tx + r * 0.45, ty + r * 0.5, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#33421f';
+        ctx.beginPath(); ctx.arc(tx, ty, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#4b5d2b';
+        ctx.beginPath(); ctx.arc(tx - r * 0.3, ty - r * 0.3, r * 0.55, 0, Math.PI * 2); ctx.fill();
       }
     }
   }
@@ -4714,7 +4788,7 @@
     const scrollX = camX * FOREGROUND_PARALLAX;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = 'rgba(38,58,48,0.85)';
+    ctx.fillStyle = 'rgba(40,46,26,0.85)'; // ART-16: near scrub
     for (let sx = -((scrollX % FOREGROUND_SPACING) + FOREGROUND_SPACING); sx < VW + FOREGROUND_SPACING; sx += FOREGROUND_SPACING) {
       // a stable per-tile pseudo-random look derived from the tile's own
       // index (not a fresh Math.random() each frame), so tiles don't
@@ -4722,12 +4796,10 @@
       const tileIndex = Math.round((sx + scrollX) / FOREGROUND_SPACING);
       const rnd = ((tileIndex * 9301 + 49297) % 233280) / 233280;
       const sy = VH / 2 + (rnd - 0.5) * 520;
-      const r = (7 + rnd * 11) * scale;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy - r);
-      ctx.lineTo(sx - r * 0.8, sy + r * 0.5);
-      ctx.lineTo(sx + r * 0.8, sy + r * 0.5);
-      ctx.closePath();
+      const r = (5 + rnd * 7) * scale;
+      ctx.beginPath(); // ART-16: a low bush, not a neon pine
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.arc(sx + r * 0.8, sy + r * 0.2, r * 0.7, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
@@ -4748,9 +4820,9 @@
     }
     ctx.lineTo(VW + 50, baseY + 20);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(58,48,110,0.55)';
+    ctx.fillStyle = 'rgba(58,64,40,0.75)'; // ART-16: hills along the top edge
     ctx.fill();
-    ctx.strokeStyle = 'rgba(150,120,220,0.3)';
+    ctx.strokeStyle = 'rgba(140,134,98,0.45)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     let first = true;
@@ -4771,7 +4843,7 @@
       ctx.save();
       ctx.translate(sx, sy);
       ctx.rotate(w.rot);
-      ctx.fillStyle = 'rgba(40,35,55,0.7)';
+      ctx.fillStyle = 'rgba(78,62,46,0.85)'; // ART-16: rusted wrecks
       if (w.kind === 'pillar') {
         ctx.fillRect(-3, -22, 6, 22);
         ctx.fillRect(-7, -2, 14, 5);
@@ -4786,7 +4858,8 @@
   }
 
   function draw() {
-    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#4d5535'; // ART-16: the ground itself, painted on the canvas
+    ctx.fillRect(0, 0, W, H);
     ctx.save();
     ctx.scale(ZOOM, ZOOM);
     // LRNA-086: render-time-only shake offset, decaying with camShakeTimer.
@@ -4808,45 +4881,31 @@
     drawTrees();
     drawForeground(); // LRNA-088
 
-    ctx.strokeStyle = 'rgba(60,50,140,0.14)';
+    ctx.strokeStyle = 'rgba(30,34,18,0.18)'; // ART-16: a faint map grid
     ctx.lineWidth = 1 / ZOOM;
     for (let x = -((camX) % 80); x < VW; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, VH); ctx.stroke(); }
     for (let y = 0; y < VH; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(VW, y); ctx.stroke(); }
 
-    // ART-3: the corridor itself, as a real conduit rather than a plain
-    // thin grid line - a soft glow band plus traveling energy pulses
-    // flowing Strike-Platform-to-Omega, so the lane the player launches
-    // ordnance down actually reads as a path, not just a ruler mark.
-    // Purely decorative (phase driven by wall-clock time, not game
-    // state) - doesn't touch camera/coordinate math at all.
-    const laneGrad = ctx.createLinearGradient(0, VH / 2 - 16, 0, VH / 2 + 16);
-    laneGrad.addColorStop(0, 'rgba(143,107,255,0)');
-    laneGrad.addColorStop(0.5, 'rgba(143,107,255,0.14)');
-    laneGrad.addColorStop(1, 'rgba(143,107,255,0)');
-    ctx.fillStyle = laneGrad;
-    ctx.fillRect(0, VH / 2 - 16, VW, 32);
-    ctx.strokeStyle = 'rgba(143,107,255,0.15)';
-    ctx.beginPath(); ctx.moveTo(0, VH / 2); ctx.lineTo(VW, VH / 2); ctx.stroke();
-    const pulseSpacing = 220;
-    const pulsePhase = (performance.now() / 1000 * 260) % pulseSpacing;
-    ctx.fillStyle = 'rgba(205,185,255,0.55)';
-    for (let wx = nodeA.x + pulsePhase; wx < nodeO.x; wx += pulseSpacing) {
-      const sx = wx - camX;
-      if (sx < -10 || sx > VW + 10) continue;
-      ctx.beginPath();
-      ctx.ellipse(sx, VH / 2, 5, 1.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    // ART-16: the corridor is a dirt supply road between the two bases -
+    // packed earth with darker verges and two worn tyre tracks.
+    ctx.fillStyle = 'rgba(48,42,28,0.35)';
+    ctx.fillRect(0, VH / 2 - 17, VW, 34);
+    ctx.fillStyle = '#8a7b57';
+    ctx.fillRect(0, VH / 2 - 13, VW, 26);
+    ctx.strokeStyle = 'rgba(92,80,54,0.75)';
+    ctx.lineWidth = 2.5;
+    for (const dy of [-6, 6]) { ctx.beginPath(); ctx.moveTo(0, VH / 2 + dy); ctx.lineTo(VW, VH / 2 + dy); ctx.stroke(); }
 
     for (const s of scorchMarks) {
       const sx = s.x - camX;
       if (sx < -50 || sx > VW + 50) continue;
       const fade = Math.max(0, 1 - s.age / 10);
-      ctx.beginPath();
-      ctx.ellipse(sx, VH / 2, s.radius, s.radius * 0.32, 0, 0, Math.PI * 2);
-      ctx.fillStyle = s.color;
-      ctx.globalAlpha = fade * 0.6;
-      ctx.fill();
+      // ART-16: a dark crater with a lighter thrown-earth rim
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = 'rgba(120,104,72,0.45)';
+      ctx.beginPath(); ctx.ellipse(sx, VH / 2, s.radius * 1.15, s.radius * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(28,22,16,0.7)';
+      ctx.beginPath(); ctx.ellipse(sx, VH / 2, s.radius * 0.8, s.radius * 0.28, 0, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
     }
 
