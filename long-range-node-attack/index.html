@@ -71,6 +71,17 @@
   .hpFill.low { background: #d0573c; animation: omegaJamPulse 0.9s infinite; }
   #oBar.low { background: #e07a3f; }
   .hpTags { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: flex-end; font-size: 9.5px; letter-spacing: 0.12em; }
+  .hpTags.left { justify-content: flex-start; }
+  /* LRNA-182: missile and radar nodes standing (MSL n/3 · RDR n/2) */
+  #playerNodeStatus, #omegaNodeStatus { color: var(--m-text); }
+  #playerNodeStatus .down, #omegaNodeStatus .down { color: #d0573c; }
+  .nodeTargetBtn {
+    pointer-events: auto; cursor: pointer;
+    font: inherit; font-size: 9.5px; letter-spacing: 0.12em; color: var(--m-text);
+    background: #1a1e17; border: 1px solid var(--m-line-strong); border-radius: 2px; padding: 3px 8px;
+  }
+  .nodeTargetBtn:hover:not(:disabled) { border-color: #e3a838; color: #e3a838; }
+  .nodeTargetBtn:disabled { opacity: 0.4; cursor: default; }
   /* Omega's counter stock (LRNA-116/165/181) and its two jam timers (LRNA-075/151) */
   #omegaCounterStatus { color: var(--m-muted); }
   #omegaCounterStatus .ready { color: var(--m-text); }
@@ -605,12 +616,15 @@
     .hpName { font-size: 9.5px; letter-spacing: 0.12em; }
     .hpNum { font-size: 17px; }
     .hpBar { height: 11px; }
+    .hpPanel { gap: 2px; }
+    .hpTags { font-size: 8.5px; gap: 2px 8px; }
     #incomingAlert { font-size: 11px; padding: 4px 10px; }
     #hudLine { font-size: 9px; }
     /* ART-18: phones - the six attack buttons in one row, the counter full width under them */
     #minimapWrap { height: 26px; }
     #launchBar { padding: 4px 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
-    #barInfo { font-size: 9px; gap: 10px; margin-bottom: 4px; }
+    #barInfo { font-size: 9px; gap: 8px; margin-bottom: 4px; }
+    .nodeTargetBtn { font-size: 8.5px; padding: 2px 5px; }
     #abilityGroups { flex-direction: column; gap: 5px; }
     .abilityGroupButtons { gap: 4px; }
     .abilityGroup[data-pillar="attack"] .abilityGroupButtons { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
@@ -635,6 +649,7 @@
     <div class="panel hpPanel">
       <div class="hpHead"><span class="hpName">STRIKE PLATFORM</span><span class="hpNum" id="aHealth">250</span></div>
       <div class="hpBar"><div class="hpFill" id="aBar"></div></div>
+      <div class="hpTags left"><span id="playerNodeStatus">MSL 3/3 &middot; RDR 2/2</span></div>
     </div>
     <div id="hudCenter">
       <div id="incomingAlert">NO INBOUND THREATS</div>
@@ -643,7 +658,7 @@
     <div class="panel hpPanel right">
       <div class="hpHead"><span class="hpNum" id="oHealth">250</span><span class="hpName">NODE OMEGA</span></div>
       <div class="hpBar"><div class="hpFill" id="oBar"></div></div>
-      <div class="hpTags"><span id="omegaCounterStatus"></span><span id="pointDefenseJamStatus" class="hidden">POINT DEFENSE JAMMED 0:15</span><span id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</span></div>
+      <div class="hpTags"><span id="omegaNodeStatus">MSL 3/3 &middot; RDR 2/2</span><span id="omegaCounterStatus"></span><span id="pointDefenseJamStatus" class="hidden">POINT DEFENSE JAMMED 0:15</span><span id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</span></div>
     </div>
   </div>
 
@@ -726,7 +741,7 @@
     </div>
     <div id="minimapWrap"><canvas id="minimap"></canvas></div>
     <div id="launchBar">
-      <div id="barInfo"><button id="targetLabel" aria-haspopup="listbox" aria-expanded="false">TARGET: NODE OMEGA &#9662;</button><span id="launchBarHeader">WARHEADS 3/3</span></div>
+      <div id="barInfo"><button id="targetLabel" aria-haspopup="listbox" aria-expanded="false">TARGET: NODE OMEGA &#9662;</button><button class="nodeTargetBtn" data-kind="missileNode" title="Aim at Omega's nearest missile node - each one destroyed shrinks and slows its waves">MISSILE NODES</button><button class="nodeTargetBtn" data-kind="radarNode" title="Aim at Omega's nearest radar node - each one destroyed blinds its defenses">RADAR NODES</button><span id="launchBarHeader">WARHEADS 3/3</span></div>
       <div id="abilityGroups">
         <div class="abilityGroup" data-pillar="attack">
           <div class="abilityGroupHeader">ATTACK <span class="abilityGroupCount">&#9679; <span id="groupTokenAttack">0</span></span></div>
@@ -827,6 +842,9 @@
           <li><span><strong>DEFEND</strong> against what Omega sends back in waves. Your ground defenses fire on their own; EMERGENCY COUNTER is yours to fire at any threat in its last 5 seconds. You get 10 per game, and so does Omega.</span></li>
           <li><span><strong>BREAK</strong> Omega. It rebuilds stronger each time it falls; the run ends when your Strike Platform does.</span></li>
         </ol>
+      </div>
+      <div class="mPanel">
+        <p class="howText"><strong>NODES</strong> &mdash; each base has 3 missile nodes and 2 radar nodes in front of it. Knock out Omega's missile nodes and its waves shrink; knock out its radar and its defenses go blind (MISSILE NODES and RADAR NODES on the bar aim at them). Omega hits yours too: lose missile nodes and your income drops, lose radar and you see threats later.</p>
       </div>
       <div class="mPanel">
         <p class="howText"><strong>CURRENCY</strong> &mdash; <span style="color:#ff5a36">ATTACK</span> pays for warheads and strike planes. It trickles in, and hits pay back part of their cost.</p>
@@ -1116,6 +1134,7 @@
     nodeA.y = vh() / 2;
     nodeO.y = vh() / 2;
     for (const t of fieldTargets) t.y = vh() / 2 + t.yOffset;
+    for (const n of playerNodes) n.y = vh() / 2 + n.yOffset; // LRNA-182
     for (const n of amNodes) n.y = vh() / 2 + n.yOffset;
     for (const n of loadoutNodes) n.y = vh() / 2 + n.yOffset;
   }
@@ -1337,6 +1356,13 @@
     dest.health = Math.max(0, dest.health - dmg);
     if (dest.health <= 0) dest.destroyed = true;
     // LRNA-180: missions count field targets by kind
+    if (wasAlive && dest.destroyed && dest.baseNode) { // LRNA-182
+      const what = dest.kind === 'missileNode'
+        ? (dest.faction === 'enemy' ? 'OMEGA WAVES WEAKENED' : 'YOUR INCOME CUT')
+        : (dest.faction === 'enemy' ? 'OMEGA DEFENSES BLINDED' : 'YOUR RADAR WEAKENED');
+      spawnFloatText(dest.x, dest.y - 70, `${dest.name} DESTROYED — ${what}`, dest.faction === 'enemy' ? '#e3a838' : '#e8735a', 24);
+      updateNodeHud();
+    }
     if (wasAlive && dest.destroyed && fieldTargets.includes(dest)) {
       missionStats.fieldKills += 1;
       missionStats.kindKills[dest.kind] = (missionStats.kindKills[dest.kind] || 0) + 1;
@@ -1707,7 +1733,38 @@
     vehicle:  { label: 'VEHICLE',        color: '#bf8a5e', maxHealth: 120,  defends: false },
     launcher: { label: 'LAUNCHER',       color: '#c45a42', maxHealth: 350,  defends: true },
     subbase:  { label: 'SUB-BASE',       color: '#b04c3a', maxHealth: 1400, defends: true },
+    // LRNA-182: the nodes in front of each base
+    missileNode: { label: 'MISSILE NODE', color: '#c96a4a', maxHealth: 400, defends: false },
+    radarNode:   { label: 'RADAR NODE',   color: '#cf8a5c', maxHealth: 400, defends: false },
   };
+  // LRNA-182: how many of each sit in front of each base, and what losing
+  // them costs. Omega: each missile node lost shrinks and slows its waves;
+  // each radar node lost blinds its defenses. You: each missile node lost
+  // cuts your ATTACK income; each radar node lost shows threats later.
+  const BASE_NODE_PLAN = [['missileNode', 3], ['radarNode', 2]];
+  const MISSILE_NODE_WAVE_CUT = 0.2;     // per Omega missile node lost
+  const RADAR_SIGHT = [0, 0.6, 1];       // Omega's defense sight by radars standing (0, 1, 2)
+  const MISSILE_NODE_INCOME_CUT = 0.25;  // per player missile node lost
+  const NODE_STRIKE_SHARE = 0.25;        // share of Omega's strikes sent at your nodes
+  function makeBaseNodes(faction, x0, x1, colors) {
+    const out = [];
+    const total = BASE_NODE_PLAN.reduce((n, [, c]) => n + c, 0);
+    let i = 0;
+    for (const [kind, count] of BASE_NODE_PLAN) {
+      for (let k = 0; k < count; k++, i++) {
+        const def = FIELD_KIND_DEFS[kind];
+        out.push({
+          id: `${faction === 'enemy' ? 'e' : 'p'}${kind === 'missileNode' ? 'm' : 'r'}${k}`, kind,
+          name: `${faction === 'enemy' ? '' : 'YOUR '}${def.label} ${String(k + 1).padStart(2, '0')}`,
+          x: x0 + (x1 - x0) * ((i * 2 + 1) % total + 0.5) / total, y: 0,
+          yOffset: (k % 2 ? 1 : -1) * (40 + Math.random() * 60),
+          color: colors[kind], maxHealth: def.maxHealth, health: def.maxHealth,
+          defends: false, impacts: 0, destroyed: false, flakTimer: 0, faction, baseNode: true,
+        });
+      }
+    }
+    return out;
+  }
   const fieldTargets = (() => {
     const plan = [
       ...Array(4).fill('infantry'),
@@ -1741,9 +1798,27 @@
         impacts: 0, destroyed: false, flakTimer: 0, faction: 'enemy',
       };
     });
+    // LRNA-182: Omega's missile and radar nodes, just in front of its base
+    targets.push(...makeBaseNodes('enemy', nodeO.x - 480, nodeO.x - 200,
+      { missileNode: FIELD_KIND_DEFS.missileNode.color, radarNode: FIELD_KIND_DEFS.radarNode.color }));
     targets.sort((a, b) => a.x - b.x);
     return targets;
   })();
+  // LRNA-182: your own missile and radar nodes, just in front of the Strike Platform
+  const playerNodes = makeBaseNodes('player', nodeA.x + 200, nodeA.x + 480, { missileNode: '#b9c48d', radarNode: '#a3b678' });
+  const standing = (list, kind) => list.filter(n => n.kind === kind && !n.destroyed).length;
+  const omegaNodes = () => fieldTargets.filter(t => t.baseNode);
+  function omegaWaveFactor() { return 1 - MISSILE_NODE_WAVE_CUT * (3 - standing(omegaNodes(), 'missileNode')); }
+  function omegaSight() { return RADAR_SIGHT[standing(omegaNodes(), 'radarNode')]; }
+  function playerIncomeFactor() { return 1 - MISSILE_NODE_INCOME_CUT * (3 - standing(playerNodes, 'missileNode')); }
+  // your radar: with both up you see every threat; one down, only once it's
+  // in the last 60% of its flight; both down, only in its last 5 seconds
+  function threatSeen(m) {
+    const radars = standing(playerNodes, 'radarNode');
+    if (radars >= 2) return true;
+    const left = m.totalSeconds - m.age;
+    return radars === 1 ? left <= m.totalSeconds * 0.6 : left <= 5;
+  }
 
   // ---- anti-missile nodes: 5 dedicated point-defense batteries on the player's
   // side of the corridor (between the Strike Platform and the map's midpoint),
@@ -1952,7 +2027,7 @@
   function startWave(n) {
     currentWave = n;
     waveState = 'active';
-    waveStrikesTotal = waveSizeForN(n);
+    waveStrikesTotal = Math.max(1, Math.round(waveSizeForN(n) * omegaWaveFactor())); // LRNA-182
     waveStrikesLaunched = 0;
     waveStrikeTimer = 0.6; // brief pause before the wave's first strike
     waveIsElite = n > 0 && n % ELITE_WAVE_INTERVAL === 0;
@@ -2145,8 +2220,11 @@
       if (waveStrikesLaunched < waveStrikesTotal) {
         waveStrikeTimer -= dt;
         if (waveStrikeTimer <= 0 && activeCount('O') < MAX_ACTIVE) {
-          waveStrikeTimer = ENEMY_STRIKE_INTERVAL();
-          const m = launchEnemyStrike(nodeO, nodeA);
+          waveStrikeTimer = ENEMY_STRIKE_INTERVAL() / omegaWaveFactor(); // LRNA-182: fewer missile nodes, slower waves
+          // LRNA-182: some strikes go after your missile and radar nodes
+          const yours = playerNodes.filter(n => !n.destroyed);
+          const dest = yours.length && Math.random() < NODE_STRIKE_SHARE ? yours[(Math.random() * yours.length) | 0] : nodeA;
+          const m = launchEnemyStrike(nodeO, dest);
           m.waveNum = currentWave;
           waveStrikesLaunched += 1;
           updateWaveHud();
@@ -2185,8 +2263,9 @@
     // manual tools' 75%) - a real safety net, not a replacement for
     // actively using Emergency Counter/Counter Missile/Counter Attack
     // Planes.
-    if (id === 'A') return amNodes.find(n => activeCount(n.id) < DEFENSE_ENGAGE_CAP) || null;
+    if (id === 'A' || playerNodes.some(n => n.id === id)) return amNodes.find(n => activeCount(n.id) < DEFENSE_ENGAGE_CAP) || null;
     if (empGlobalJamTimer > 0) return null;
+    if (omegaSight() === 0) return null; // LRNA-182: Omega's radars are gone, its defenses are blind
     if (id === 'O') return omegaHealth > 0 ? nodeO : null;
     const t = fieldTargets.find(ft => ft.id === id);
     return (t && t.defends && !t.destroyed) ? t : null;
@@ -2454,7 +2533,7 @@
     omegaRemainingNodes = (initial && typeof initial.omegaNodes === 'number') ? initial.omegaNodes : OMEGA_TOTAL_NODES;
     if (omegaRemainingNodes >= OMEGA_TOTAL_NODES) buildOmegaBase();
     omegaHealth = (initial && typeof initial.omegaHealth === 'number') ? initial.omegaHealth : PLAYER_MAX_HEALTH;
-    for (const t of fieldTargets) { t.health = t.maxHealth; t.destroyed = false; t.impacts = 0; }
+    for (const t of [...fieldTargets, ...playerNodes]) { t.health = t.maxHealth; t.destroyed = false; t.impacts = 0; } // LRNA-182: yours too
     empGlobalJamTimer = 0;
     omegaInvulnTimer = 0; // Reset Omega invulnerability timer (LRNA-125)
     initLoadoutNodes();
@@ -2488,6 +2567,7 @@
     updatePlaneButtons();
     renderTargetList();
     updateTargetLabel();
+    updateNodeHud(); // LRNA-182
     updateModeStatus();
     lastObjectiveText = '';
     updateObjectiveHud(); // LRNA-173
@@ -2611,7 +2691,8 @@
     const target = missiles.find(m => m.id === targetId);
     if (!target) return null;
     const lane = (Math.random() - 0.5) * LANE_SPAN;
-    const baseHitChance = origin.hitChance != null ? origin.hitChance : COUNTER.hitChance;
+    let baseHitChance = origin.hitChance != null ? origin.hitChance : COUNTER.hitChance;
+    if (origin.id === 'O' || origin.faction === 'enemy') baseHitChance *= omegaSight(); // LRNA-182
     const hitChance = Math.min(0.92, baseHitChance * speedInterceptFactor(target.vx));
     const success = Math.random() < hitChance;
     // Planes (LRNA-078/#435) fly at a constant, much slower speed than a
@@ -2781,7 +2862,7 @@
   // inbound enemy threats, soonest to impact first
   function findInboundEnemyMissiles() {
     return missiles
-      .filter(m => m.typeKey === 'enemyStrike')
+      .filter(m => m.typeKey === 'enemyStrike' && threatSeen(m)) // LRNA-182: only what your radar sees
       .sort((a, b) => (a.totalSeconds - a.age) - (b.totalSeconds - b.age));
   }
   // ---- OMEGA COUNTERS: since LRNA-181 Omega mirrors the player's one
@@ -2795,6 +2876,7 @@
   // plane (no FAST exclusion since LRNA-181).
   let omegaEmergencyCooldown = 0;
   function findOmegaEmergencyTarget() {
+    if (omegaSight() === 0) return null; // LRNA-182: blind without its radars
     let best = null, bestRemaining = Infinity;
     for (const m of missiles) {
       if (m.originId !== 'A' || m.typeKey === 'counter') continue;
@@ -2939,7 +3021,7 @@
     spawnExplosion(m.x, dest.y + m.laneY, m.color, blastScale, m.planeKind);
     spawnScorch(m.x, 22 + 18 * blastScale, m.color + '55');
     stats.hits += 1;
-    earnTokens('attack', Math.round(def.dmg * DMG_TO_COIN_RATIO), m.x, dest.y + m.laneY - 24);
+    earnTokens('attack', Math.round(def.dmg * DMG_TO_COIN_RATIO * playerIncomeFactor()), m.x, dest.y + m.laneY - 24);
     const justDestroyed = applyDamage(dest, m.x, m.laneY, def.dmg);
     impactFeedback(dest, m.x, dest.y + m.laneY, def.dmg, blastScale, true); // ART-22
     if (justDestroyed) {
@@ -3231,7 +3313,7 @@
   }
 
   function updateFlak(dt, node) {
-    if (node.faction === 'enemy' && empGlobalJamTimer > 0) return;
+    if (node.faction === 'enemy' && (empGlobalJamTimer > 0 || omegaSight() === 0)) return; // LRNA-182: or blind
     node.flakTimer -= dt;
     if (node.flakTimer > 0) return;
     let nearest = null, nearestDist = FLAK_RANGE;
@@ -3688,7 +3770,7 @@
             stats.hits += 1;
             // Economy rework (direct request): pay back exactly the
             // damage this hit deals, 1:1 - EMP deals 0 and earns nothing.
-            const dmgReward = Math.round(m.dmg * DMG_TO_COIN_RATIO);
+            const dmgReward = Math.round(m.dmg * DMG_TO_COIN_RATIO * playerIncomeFactor()); // LRNA-182
             if (dmgReward > 0) earnTokens('attack', dmgReward, m.x, dest.y + m.laneY - 24);
           }
 
@@ -3763,7 +3845,7 @@
     // removed along with it - nothing else it did).
     updateHud();
 
-    tokens.attack += TOKEN_PASSIVE_RATE * dt;
+    tokens.attack += TOKEN_PASSIVE_RATE * playerIncomeFactor() * dt; // LRNA-182
     lifetimeTokensTotal += TOKEN_PASSIVE_RATE * TOKEN_KEYS.length * dt;
     updateTokenHud(false);
     tokenSaveTimer -= dt;
@@ -3830,6 +3912,33 @@
     }
     targetListEl.innerHTML = html || '<div style="opacity:0.6;">no targets left</div>';
   }
+
+  // ---- LRNA-182: the node readouts and the two target buttons
+  function nodeTag(list) {
+    const m = standing(list, 'missileNode'), r = standing(list, 'radarNode');
+    const part = (label, n, of) => `<span class="${n < of ? 'down' : ''}">${label} ${n}/${of}</span>`;
+    return `${part('MSL', m, 3)} &middot; ${part('RDR', r, 2)}`;
+  }
+  function updateNodeHud() {
+    const p = document.getElementById('playerNodeStatus'), o = document.getElementById('omegaNodeStatus');
+    if (p) p.innerHTML = nodeTag(playerNodes);
+    if (o) o.innerHTML = nodeTag(omegaNodes());
+    for (const b of document.querySelectorAll('.nodeTargetBtn')) {
+      b.disabled = standing(omegaNodes(), b.dataset.kind) === 0;
+      const word = b.dataset.kind === 'missileNode' ? (isMobileViewport() ? 'MSL' : 'MISSILE') : (isMobileViewport() ? 'RDR' : 'RADAR');
+      b.textContent = `${word} NODES`;
+    }
+  }
+  function aimAtNodes(kind) {
+    const next = omegaNodes().filter(n => n.kind === kind && !n.destroyed).sort((a, b) => a.x - b.x)[0];
+    if (next) selectTarget(next);
+  }
+  document.getElementById('barInfo').addEventListener('click', (e) => {
+    const b = e.target.closest('.nodeTargetBtn');
+    if (!b || !running || b.disabled) return;
+    e.stopPropagation();
+    aimAtNodes(b.dataset.kind);
+  });
 
   function updateTargetLabel() {
     const t = getTarget(selectedTargetId) || nodeO;
@@ -4373,6 +4482,33 @@
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
       }
+    } else if (t.kind === 'missileNode') {
+      // LRNA-182: a missile battery - a revetted pad with a rack of three
+      // launch tubes raised toward the enemy
+      const dir = t.faction === 'enemy' ? -1 : 1;
+      ctx.fillStyle = 'rgba(20,22,14,0.35)';
+      ctx.beginPath(); ctx.ellipse(2, 5, 15, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#7d7a68';
+      ctx.fillRect(-13, -3, 26, 9);
+      ctx.fillStyle = c;
+      ctx.fillRect(-9, -5, 18, 6);
+      for (const off of [-5, 0, 5]) {
+        ctx.save(); ctx.translate(off, -4); ctx.rotate(dir * 0.6);
+        ctx.fillStyle = c; ctx.fillRect(-1.6, -14, 3.2, 14);
+        ctx.fillStyle = t.destroyed ? '#444' : '#e2ddc6'; ctx.fillRect(-1.1, -16, 2.2, 3);
+        ctx.restore();
+      }
+    } else if (t.kind === 'radarNode') {
+      // LRNA-182: a radar station - cabin, mast and a turning dish
+      ctx.fillStyle = 'rgba(20,22,14,0.35)';
+      ctx.beginPath(); ctx.ellipse(2, 5, 12, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#7d7a68'; ctx.fillRect(-8, -1, 16, 7);
+      ctx.fillStyle = c; ctx.fillRect(-1, -16, 2, 15);
+      const spin = t.destroyed ? 0.4 : Math.sin(performance.now() / 600 + t.x) ;
+      ctx.save(); ctx.translate(0, -17);
+      ctx.fillStyle = t.destroyed ? '#555' : '#d8d4bf';
+      ctx.beginPath(); ctx.ellipse(0, 0, 9 * Math.abs(spin) + 2, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     } else if (t.kind === 'subbase') {
       if (!t.destroyed) {
         ctx.save();
@@ -4966,6 +5102,7 @@
     drawNode(nodeA);
     drawOmegaNode();
     for (const t of fieldTargets) drawFieldTarget(t);
+    for (const n of playerNodes) drawFieldTarget(n); // LRNA-182
     for (const n of amNodes) drawAmNode(n);
     for (const n of loadoutNodes) drawLoadoutNode(n);
 
@@ -5000,6 +5137,7 @@
     for (const m of missiles) {
       const sx = m.x - camX;
       if (sx < -60 || sx > VW + 60) continue;
+      if (m.typeKey === 'enemyStrike' && !threatSeen(m)) continue; // LRNA-182: your radar can't see it yet
       const baseY = VH / 2 + m.laneY + weaveOffset(m);
       const alt = altitude(m);
       const sy = baseY - alt;
@@ -5184,6 +5322,7 @@
     }
     mctx.fillStyle = 'rgba(157,179,94,0.6)';
     for (const n of amNodes) mctx.fillRect(n.x * scale - 1, cy + 4, 2, 3);
+    for (const n of playerNodes) { mctx.fillStyle = n.destroyed ? 'rgba(90,90,82,0.6)' : '#b9c48d'; mctx.fillRect(n.x * scale - 1, cy + 4, 3, 4); } // LRNA-182
     for (const n of loadoutNodes) mctx.fillRect(n.x * scale - 1, cy + 4, 2, 3);
     // shots, counters and threats
     const nearest = findInboundEnemyMissiles()[0];
@@ -5193,6 +5332,7 @@
         mctx.fillStyle = '#eae6d2';
         mctx.fillRect(x - 1, cy - 1, 2, 2);
       } else if (m.typeKey === 'enemyStrike') {
+        if (!threatSeen(m)) continue; // LRNA-182
         mctx.fillStyle = m === nearest ? '#e3a838' : '#d0573c';
         mctx.beginPath(); mctx.moveTo(x - 4, cy - 6); mctx.lineTo(x + 3, cy - 9.5); mctx.lineTo(x + 3, cy - 2.5); mctx.closePath(); mctx.fill();
       } else {
@@ -5691,6 +5831,11 @@
       get loadoutNodes() { return loadoutNodes; },
       get amNodes() { return amNodes; },
       get fieldTargets() { return fieldTargets; },
+      get playerNodes() { return playerNodes; }, // LRNA-182
+      omegaWaveFactor: () => omegaWaveFactor(),
+      omegaSight: () => omegaSight(),
+      playerIncomeFactor: () => playerIncomeFactor(),
+      threatSeen: (m) => threatSeen(m),
       get nodeA() { return nodeA; },
       get nodeO() { return nodeO; },
       get tokens() { return tokens; },
@@ -5767,6 +5912,7 @@
       startWave: (n) => startWave(n),
       get waveIsElite() { return waveIsElite; },
       get waveStrikesLaunched() { return waveStrikesLaunched; },
+      get waveStrikesTotal() { return waveStrikesTotal; },
       get currentWave() { return currentWave; },
       get ENEMY_STRIKE_SIZES() { return ENEMY_STRIKE_SIZES; },
       fireCounter: (origin, targetId, source) => fireCounter(origin, targetId, source),

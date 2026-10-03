@@ -2060,4 +2060,105 @@ test('ART-22: the siren sounds once when a threat is 3 seconds out', async () =>
   });
 });
 
+test('LRNA-182: both bases have 3 missile and 2 radar nodes; the bar buttons aim at Omega\'s nearest, and grey out when they\'re gone', async () => {
+  await withGame(async (page, errors) => {
+    const before = await page.evaluate(() => {
+      const T = window.__TEST__;
+      const count = (list, kind) => list.filter((n) => n.kind === kind).length;
+      const om = T.fieldTargets.filter((t) => t.baseNode);
+      return { om: [count(om, 'missileNode'), count(om, 'radarNode')], pl: [count(T.playerNodes, 'missileNode'), count(T.playerNodes, 'radarNode')],
+        omNearOmega: om.every((n) => n.x > T.nodeO.x - 600), plNearHome: T.playerNodes.every((n) => n.x < T.nodeA.x + 600),
+        tag: document.getElementById('omegaNodeStatus').textContent };
+    });
+    await page.click('.nodeTargetBtn[data-kind="radarNode"]');
+    const aimed = await page.evaluate(() => window.__TEST__.selectedTargetId);
+    const after = await page.evaluate(() => {
+      const T = window.__TEST__;
+      for (const n of T.fieldTargets.filter((t) => t.baseNode && t.kind === 'radarNode')) T.damageNode(n.id, 1000);
+      return { disabled: document.querySelector('.nodeTargetBtn[data-kind="radarNode"]').disabled,
+        tag: document.getElementById('omegaNodeStatus').textContent };
+    });
+    assertEqual(before.om.join(','), '3,2', "Omega's nodes");
+    assertEqual(before.pl.join(','), '3,2', 'your nodes');
+    assert(before.omNearOmega && before.plNearHome, 'each side\'s nodes sit in front of its own base');
+    assertEqual(before.tag, 'MSL 3/3 · RDR 2/2', 'HUD readout');
+    assert(/^er\d$/.test(aimed), `RADAR NODES aims at an enemy radar node: ${aimed}`);
+    assert(after.disabled, 'the button greys out once they are all destroyed');
+    assertEqual(after.tag, 'MSL 3/3 · RDR 0/2', 'and the readout follows');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-182: Omega\'s missile nodes feed its waves, its radar nodes its defenses', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      const om = (kind) => T.fieldTargets.filter((t) => t.baseNode && t.kind === kind);
+      T.startWave(10); const full = T.waveStrikesTotal;
+      for (const n of om('missileNode')) T.damageNode(n.id, 1000);
+      T.startWave(10); const weak = T.waveStrikesTotal;
+      const waveFactor = T.omegaWaveFactor();
+      const sight = [T.omegaSight()];
+      T.damageNode(om('radarNode')[0].id, 1000); sight.push(T.omegaSight());
+      T.damageNode(om('radarNode')[1].id, 1000); sight.push(T.omegaSight());
+      const m = T.launchAttack(T.nodeA, T.nodeO, 'medium');
+      m.age = m.totalSeconds - 3;
+      T.setOmegaEmergencyCooldown(0);
+      T.tickOmegaCounters(0.05);
+      return { full, weak, waveFactor, sight, omegaFired: T.missiles.filter((x) => x.source === 'omegaEmergency').length };
+    });
+    assert(Math.abs(r.waveFactor - 0.4) < 1e-9, `all 3 missile nodes gone: waves at 40% (${r.waveFactor})`);
+    assert(r.weak < r.full, `the next wave is smaller: ${r.full} -> ${r.weak}`);
+    assertEqual(r.sight.join(','), '1,0.6,0', "Omega's defenses lose sight radar by radar");
+    assertEqual(r.omegaFired, 0, 'blind, Omega\'s counter does not fire');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-182: your missile nodes feed your income, your radar nodes how early you see threats', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.neutralizeAutoDefense(); T.disableOmegaCounters();
+      const mine = (kind) => T.playerNodes.filter((n) => n.kind === kind);
+      for (const n of mine('missileNode')) n.destroyed = true;
+      const before = T.tokens.attack; T.tickUpdate(1); const gain = T.tokens.attack - before;
+      const strike = T.launchAttack(T.nodeO, T.nodeA, 'enemyStrike', T.ENEMY_STRIKE_SIZES.large);
+      strike.defended = true;
+      strike.age = strike.totalSeconds * 0.5; // half its flight left
+      const seen = [T.threatSeen(strike)];
+      mine('radarNode')[0].destroyed = true; seen.push(T.threatSeen(strike));
+      mine('radarNode')[1].destroyed = true; seen.push(T.threatSeen(strike));
+      T.tickUpdate(0.05);
+      const alert = document.getElementById('incomingAlert').textContent;
+      strike.age = strike.totalSeconds - 4; T.tickUpdate(0.05);
+      return { factor: T.playerIncomeFactor(), gain, seen, alert, late: document.getElementById('incomingAlert').textContent };
+    });
+    assertEqual(r.factor, 0.25, 'three missile nodes lost: a quarter of the income');
+    assert(Math.abs(r.gain - 5) < 0.5, `passive income drops to 5/s: ${r.gain}`);
+    assertEqual(r.seen.join(','), 'true,true,false', 'one radar down still sees it at half flight; both down does not');
+    assert(/NO INBOUND/.test(r.alert), `blind, the warning stays quiet: ${r.alert}`);
+    assert(/INCOMING/.test(r.late), `in its last 5s it shows up: ${r.late}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-182: Omega sends some strikes at your nodes', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.clearMissiles();
+      T.startWave(3);
+      const realRandom = Math.random;
+      Math.random = () => 0.1; // under the 25% share
+      for (let i = 0; i < 40; i++) T.tickUpdate(0.05);
+      Math.random = realRandom;
+      return T.missiles.filter((m) => m.typeKey === 'enemyStrike').map((m) => m.destId);
+    });
+    assert(r.length > 0 && r.every((id) => /^p[mr]\d$/.test(id)), `strikes aimed at your nodes: ${r}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 run();

@@ -816,7 +816,7 @@ Order: ART-19 + ART-17 + ART-18 together (the declutter, one layout
 pass), then ART-21, ART-20, ART-16, ART-22. Each keeps the suite green and
 gets desktop (1280x800) and phone (390x844) screenshot checks.
 
-## OPEN — LRNA-182: missile and radar nodes in front of each base (2026-10-03)
+## DONE — LRNA-182: missile and radar nodes in front of each base (2026-10-03)
 
 Request: "Make a button to attack the nodes in front of the base - add
 buttons to attack Missile and Radar nodes - as missile nodes are
@@ -826,7 +826,7 @@ feed its **waves**; its radar nodes feed its **defenses** (fewer radars,
 fewer intercepts); **both sides** get them; the buttons are **target
 buttons**.
 
-- **LRNA-182** — OPEN — Missile and radar nodes.
+- **LRNA-182** — DONE — Missile and radar nodes.
 
   Each side gets a row of nodes in front of its base, visible from the
   start (no recon - LRNA-180 stays):
@@ -867,6 +867,21 @@ buttons**.
   waves, defenses, income and threat visibility as above; the two buttons
   work; tests cover each effect; the suite is green and installer, Alert
   copy, demo and Pages are updated.
+
+  *Done (2026-10-03), with the proposals as written:* 3 missile and 2
+  radar nodes (400 HP each) in front of each base, drawn as missile
+  batteries and radar stations. Omega: each missile node lost cuts its
+  waves by 20% (size and pace; all 3 = 40%); radar sight 2/1/0 = 100% /
+  60% / blind (no counter, flak or auto-intercept). You: each missile
+  node lost cuts ATTACK income by 25% (passive and hit refunds); one
+  radar down and a threat appears in the last 60% of its flight, both
+  down only in its last 5s (strip, battlefield, warning, camera). 1 in 4
+  of Omega's strikes go at your standing nodes. A node falling is
+  announced ("... DESTROYED - OMEGA WAVES WEAKENED"). MISSILE NODES and
+  RADAR NODES on the bar aim at Omega's nearest standing one and grey
+  out when none are left; MSL n/3 · RDR n/2 under each health bar; a
+  NODES paragraph in HOW TO PLAY. 4 new tests. 77/77. No mission added
+  yet.
 
 ## OPEN — Counter Center Restructuring
 
