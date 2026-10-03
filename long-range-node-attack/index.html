@@ -953,6 +953,18 @@
     max-width: 560px;
   }
   #bestWaveLabel { font-size: 11px; letter-spacing: 1.5px; color: #ffe066; margin-top: -2px; }
+  /* LRNA-174: mission list on the start screen */
+  #missionList { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 8px; width: min(560px, 100%); }
+  .missionBtn {
+    pointer-events: auto; cursor: pointer; text-align: left;
+    display: flex; flex-direction: column; gap: 3px;
+    background: rgba(0,0,0,0.4); border: 1px solid var(--green-dim); color: #c3d4ff;
+    font-family: "Courier New", ui-monospace, monospace; padding: 8px 10px;
+  }
+  .missionBtn:hover, .missionBtn:focus-visible { border-color: var(--green); background: rgba(53,230,255,0.08); }
+  .missionBtn .mName { color: var(--green); font-size: 12px; letter-spacing: 1.5px; display: flex; justify-content: space-between; gap: 8px; }
+  .missionBtn .mStars { color: #ffe066; letter-spacing: 2px; white-space: nowrap; }
+  .missionBtn .mGoal { font-size: 10px; opacity: 0.85; line-height: 1.4; }
   .overlaySectionTitle { font-size: 10.5px; letter-spacing: 2px; color: var(--green); opacity: 0.9; }
   #difficultyPicker { display: flex; gap: 8px; }
   .difficultyBtn {
@@ -1296,7 +1308,10 @@
         </div>
       </div>
       <div id="satelliteWarning" class="hidden">SATELLITE ALREADY IN LOADOUT — a second one adds nothing</div>
-      <button id="startGameBtn">START MISSION</button>
+      <button id="startGameBtn">PLAY ENDLESS</button>
+      <!-- LRNA-174: missions with goals, beside the endless mode -->
+      <div class="overlaySectionTitle">MISSIONS</div>
+      <div id="missionList"></div>
     </div>
     <p>
       Deep space, hostile territory. You command a Strike Platform launching FAST/
@@ -1825,7 +1840,10 @@
     if (dest.health <= 0) dest.destroyed = true;
     // LRNA-167: a hidden node killed by a missile or plane gets the same
     // ground-kill effect the Attack Drone kill always had.
-    if (wasAlive && dest.destroyed && allHuntableNodes().includes(dest)) spawnGroundKillFx(dest.x, dest.y);
+    if (wasAlive && dest.destroyed && allHuntableNodes().includes(dest)) {
+      spawnGroundKillFx(dest.x, dest.y);
+      if (dest.radar) missionStats.radarKills += 1; else missionStats.nodeKills += 1; // LRNA-174
+    }
     return wasAlive && dest.destroyed;
   }
 
@@ -2641,6 +2659,96 @@
     }
     updateWaveHud();
   }
+  // ---- LRNA-174: MISSIONS. Each has one goal, a time limit (or none),
+  // and 1-3 stars on success. They reuse the endless game's systems - the
+  // recon chain (LRNA-172), waves, counters - with a goal on top. Stars
+  // are kept per browser; LRNA-175 will spend them on unlocks.
+  const MISSION_STARS_KEY = 'lrna_mission_stars_v1';
+  const fmtTime = (t) => formatETA(Math.max(0, t));
+  // stars from a time: 3 at or under t3, 2 at or under t2, else 1
+  const starsByTime = (t, t3, t2) => (t <= t3 ? 3 : t <= t2 ? 2 : 1);
+  const MISSIONS = [
+    { id: 'first-contact', name: 'FIRST CONTACT', goal: 'Find 3 of the 5 forward defenses.',
+      limit: 150, starsHint: '3★ under 1:00, 2★ under 1:40',
+      progress: (st) => `FOUND ${st.found}/3`, done: (st) => st.found >= 3,
+      stars: (st) => starsByTime(st.time, 60, 100) },
+    { id: 'blind-the-radar', name: 'BLIND THE RADAR', goal: 'Destroy both radar defenses.',
+      limit: 300, starsHint: '3★ under 2:30, 2★ under 4:00',
+      progress: (st) => `RADAR DEFENSES ${Math.min(2, st.radarKills)}/2`, done: (st) => st.radarKills >= 2,
+      stars: (st) => starsByTime(st.time, 150, 240) },
+    { id: 'break-the-line', name: 'BREAK THE LINE', goal: 'Destroy all 5 forward defenses.',
+      limit: 420, starsHint: '3★ under 4:00, 2★ under 5:30',
+      progress: (st) => `FORWARD DEFENSES ${Math.min(5, st.radarKills + st.nodeKills)}/5`,
+      done: (st) => st.radarKills + st.nodeKills >= 5, stars: (st) => starsByTime(st.time, 240, 330) },
+    { id: 'hold-the-line', name: 'HOLD THE LINE', goal: 'Survive 5 waves. No recon needed: the attack starts at once.',
+      limit: 0, skipRecon: true, starsHint: '3★ above 200 hull, 2★ above 120',
+      progress: (st) => `WAVES ${Math.min(5, st.wavesCleared)}/5`, done: (st) => st.wavesCleared >= 5,
+      stars: () => (nodeA.health > 200 ? 3 : nodeA.health > 120 ? 2 : 1) },
+    { id: 'take-down-omega', name: 'TAKE DOWN OMEGA', goal: 'Destroy Node Omega.',
+      limit: 600, starsHint: '3★ under 6:00, 2★ under 8:00',
+      progress: () => `OMEGA ${Math.round(omegaHealth)}/${PLAYER_MAX_HEALTH}`, done: (st) => st.omegaKills >= 1,
+      stars: (st) => starsByTime(st.time, 360, 480) },
+    { id: 'no-safety-net', name: 'NO SAFETY NET', goal: 'Destroy Node Omega with no Emergency Counters.',
+      limit: 720, noEmergency: true, starsHint: '3★ under 7:00, 2★ under 9:30',
+      progress: () => `OMEGA ${Math.round(omegaHealth)}/${PLAYER_MAX_HEALTH}`, done: (st) => st.omegaKills >= 1,
+      stars: (st) => starsByTime(st.time, 420, 570) },
+  ];
+  let activeMission = null;
+  let missionStats = { time: 0, radarKills: 0, nodeKills: 0, wavesCleared: 0, omegaKills: 0 };
+  function loadMissionStars() {
+    try { return JSON.parse(localStorage.getItem(MISSION_STARS_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function saveMissionStars(stars) { trySaveStorage(MISSION_STARS_KEY, JSON.stringify(stars)); }
+  const starText = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
+  function renderMissionList() {
+    const el = document.getElementById('missionList');
+    if (!el) return;
+    const best = loadMissionStars();
+    el.innerHTML = MISSIONS.map((m, i) => `<button class="missionBtn" data-mission="${m.id}">` +
+      `<span class="mName"><span>${i + 1}. ${m.name}</span><span class="mStars">${starText(best[m.id] || 0)}</span></span>` +
+      `<span class="mGoal">${m.goal}${m.limit ? ` Time limit ${fmtTime(m.limit)}.` : ''}</span>` +
+      `<span class="mGoal">${m.starsHint}</span></button>`).join('');
+  }
+  function missionState() {
+    const found = allHuntableNodes().filter(n => n.discovered).length;
+    return { ...missionStats, found };
+  }
+  // applied after reset() when a mission starts
+  function applyMissionSetup(m) {
+    missionStats = { time: 0, radarKills: 0, nodeKills: 0, wavesCleared: 0, omegaKills: 0 };
+    if (m.skipRecon) { openingLocked = false; updateOpeningLockUi(); }
+    if (m.noEmergency) { counterAmmo.emergency = 0; updateCounterAmmoBadges(); }
+  }
+  function updateMission(dt) {
+    if (!activeMission || !running) return;
+    missionStats.time += dt;
+    const st = missionState();
+    if (activeMission.done(st)) endMission(true);
+    else if (activeMission.limit && missionStats.time >= activeMission.limit) endMission(false, 'Out of time.');
+  }
+  function endMission(won, reason) {
+    const m = activeMission;
+    const st = missionState();
+    running = false;
+    setPaused(false);
+    let stars = 0, bestNote = '';
+    if (won) {
+      stars = m.stars(st);
+      const best = loadMissionStars();
+      if (stars > (best[m.id] || 0)) { best[m.id] = stars; saveMissionStars(best); bestNote = '<br>New best!'; }
+    }
+    document.getElementById('waveResultTitle').textContent = won ? 'MISSION COMPLETE' : 'MISSION FAILED';
+    waveResultBodyEl.innerHTML = `
+      ${m.name}<br>
+      ${won ? `<span style="color:#ffe066;font-size:20px;letter-spacing:4px">${starText(stars)}</span><br>` : `${reason}<br>`}
+      Time: ${fmtTime(st.time)}${m.limit ? ` of ${fmtTime(m.limit)}` : ''}<br>
+      Warheads fired: ${stats.fired.toLocaleString()}${bestNote}
+    `;
+    waveResultEl.classList.remove('hidden');
+    activeMission = null;
+    renderMissionList();
+  }
+
   // ---- LRNA-172/173: objective line and Omega's guard. Step 1: find the
   // forward defenses (recon). Step 2: destroy the ones still standing.
   // Step 3: Omega takes full damage. Rebuilds start again at step 1.
@@ -2660,7 +2768,12 @@
     const sel = getTarget(selectedTargetId);
     const aimed = sel && allHuntableNodes().includes(sel);
     let text;
-    if (isMobileViewport()) {
+    if (activeMission) {
+      // LRNA-174: the mission's own goal and clock replace the step line
+      const st = missionState();
+      const clock = activeMission.limit ? ` · ${fmtTime(activeMission.limit - st.time)} LEFT` : '';
+      text = `${isMobileViewport() ? '' : 'MISSION · '}${activeMission.name} · ${activeMission.progress(st)}${clock}`;
+    } else if (isMobileViewport()) {
       // phones: same steps, a third of the width
       text = o.step === 1 ? `1/3 FIND DEFENSES ${o.found}/${o.total}${o.ready && !aimed ? ' · TAP ONE' : ''}`
         : o.step === 2 ? `2/3 DESTROY DEFENSES · ${o.standing} LEFT${aimed ? '' : ' · TAP ONE'}`
@@ -2721,11 +2834,13 @@
   }
 
   function triggerRunEnd() {
+    if (activeMission) { endMission(false, 'The Strike Platform was destroyed.'); return; } // LRNA-174
     running = false;
     setPaused(false); // LRNA-119: game over shouldn't leave the PAUSED banner up
     if (currentWave > bestWave) bestWave = currentWave;
     saveBestWave();
     postArcadeScore(currentWave); // this mode's existing score is "waves survived" (LRNA-072)
+    document.getElementById('waveResultTitle').textContent = 'MISSION FAILED'; // LRNA-174 reuses this screen
     waveResultBodyEl.innerHTML = `
       SURVIVED WAVE <strong>${currentWave}</strong><br>
       Best wave: ${bestWave}<br>
@@ -2743,6 +2858,7 @@
   const OMEGA_HIT_CHANCE_CAP = 0.70;
   function onOmegaDestroyedForWaves() {
     omegaRebuildCount += 1;
+    missionStats.omegaKills += 1; // LRNA-174
     spawnFloatText(nodeO.x, nodeO.y - 160, 'NODE OMEGA DESTROYED — REBUILDING STRONGER', '#ff2ea6');
     omegaRemainingNodes = OMEGA_TOTAL_NODES;
     omegaHealth = PLAYER_MAX_HEALTH;
@@ -2774,6 +2890,7 @@
         // Economy rework (direct request): wave-clear no longer earns
         // coins - see TOKEN_PASSIVE_RATE/DMG_TO_COIN_RATIO above.
         spawnFloatText(nodeA.x, nodeA.y - 150, `WAVE ${currentWave} CLEARED`, '#7bffa0');
+        missionStats.wavesCleared += 1; // LRNA-174
         if (currentWave > bestWave) { bestWave = currentWave; saveBestWave(); }
         waveState = 'break';
         waveBreakTimer = WAVE_BREAK_SECONDS;
@@ -4262,6 +4379,7 @@
 
     updateWaveDirector(dt);
     updateWaveHud();
+    updateMission(dt); // LRNA-174
     updateObjectiveHud(); // LRNA-172/173
     updateIncomingAlert();
     updateOmegaCounters(dt);
@@ -6555,8 +6673,24 @@
   updateSatelliteWarning();
   startGameBtnEl.addEventListener('click', () => {
     if (running) return;
+    activeMission = null; // LRNA-174: the endless mode
     startDemo();
   });
+  // LRNA-174: start a mission from its card
+  function startMission(id) {
+    const m = MISSIONS.find(x => x.id === id);
+    if (!m || running) return;
+    activeMission = m;
+    startDemo();
+    applyMissionSetup(m);
+    lastObjectiveText = '';
+    updateObjectiveHud();
+  }
+  document.getElementById('missionList').addEventListener('click', (e) => {
+    const btn = e.target.closest('.missionBtn');
+    if (btn) startMission(btn.dataset.mission);
+  });
+  renderMissionList();
 
   // click-to-track (LRNA-045): hit-tests a click/tap against each live
   // missile's actual on-screen position - the exact sx/sy math render()
@@ -6663,7 +6797,7 @@
   window.addEventListener('keydown', (e) => {
     if (!running) return;
     keys[e.key] = true;
-    if (e.key === 'r' || e.key === 'R') { reset(); }
+    if (e.key === 'r' || e.key === 'R') { reset(); if (activeMission) applyMissionSetup(activeMission); }
   });
   window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
@@ -6947,6 +7081,12 @@
       get ZOOM() { return ZOOM; },
       clearForwardDefenses() { for (const n of allHuntableNodes()) { n.discovered = true; n.destroyed = true; } updateObjectiveHud(); },
       updateObjectiveHud: () => updateObjectiveHud(),
+      // LRNA-174
+      get MISSIONS() { return MISSIONS; },
+      get activeMission() { return activeMission; },
+      get missionStats() { return missionStats; },
+      startMission: (id) => startMission(id),
+      damageNode(id, dmg) { const n = allHuntableNodes().find(x => x.id === id); return n ? applyDamage(n, n.x, 0, dmg) : null; },
 
       // -- deterministic scenario control --
       freezeWaves() { waveState = 'break'; waveBreakTimer = 1e9; },

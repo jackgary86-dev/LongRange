@@ -451,12 +451,34 @@ missions.
     OMEGA — FULL DAMAGE" (shorter on phones). DRONE and RECON PLANE glow
     while there's something left to find (steady glow with reduced
     motion).
-- **LRNA-174** — OPEN — Missions with goals (build first, after LRNA-172).
+- **LRNA-174** — DONE (2026-10-03, first set of 6) — Missions with goals (build first, after LRNA-172).
   A mission list beside the endless mode: each mission a fixed layout,
   objective (e.g. "destroy both radar defenses in 3 minutes", "survive 8
   waves with no Emergency Counters", "kill Omega without losing a node")
   and 1-3 stars. Open: how many missions to start with (proposal: 8), and
   whether endless stays the default mode.
+  - Built (asked to "start missions"): endless stays (the start button is
+    now PLAY ENDLESS) and a MISSIONS list sits under it with 6 missions,
+    each with a goal, a time limit and star rules shown on its card:
+    FIRST CONTACT (find 3 of 5 forward defenses, 2:30), BLIND THE RADAR
+    (destroy both radar defenses, 5:00), BREAK THE LINE (all 5, 7:00),
+    HOLD THE LINE (survive 5 waves, recon skipped; stars by hull left),
+    TAKE DOWN OMEGA (10:00), NO SAFETY NET (destroy Omega with no
+    Emergency Counters, 12:00). Stars are by time except HOLD THE LINE.
+  - While a mission runs, its goal, progress and clock replace the step
+    line (e.g. "MISSION · BLIND THE RADAR · RADAR DEFENSES 1/2 · 3:12
+    LEFT"). Success or failure (time out, or the Strike Platform lost)
+    shows on the existing result screen with the stars; the best stars
+    per mission are saved (`lrna_mission_stars_v1`) and shown on the list.
+    R restarts the same mission.
+  - Missions reuse the endless game's systems: kills and cleared waves
+    are counted where they already happen.
+  - Tests: list with saved stars; BLIND THE RADAR from start to 3 stars
+    saved and shown; a time-out fails and saves nothing; HOLD THE LINE /
+    NO SAFETY NET setups, R restart, and PLAY ENDLESS clearing the
+    mission. 74/74.
+  - Next: more missions once these are playtested, and LRNA-175 spends
+    stars on unlocks.
 - **LRNA-175** — OPEN — Unlocks between games: new weapons and loadout
   nodes. Earn points from missions (stars) and endless runs; spend them to
   unlock weapons (LONG RANGE, then CLUSTER and EMP back on the bar, then

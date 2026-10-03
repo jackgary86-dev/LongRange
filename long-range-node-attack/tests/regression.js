@@ -1831,6 +1831,106 @@ test('LRNA-172: on a phone the contact list starts collapsed and a tap on a foun
   }, { viewport: { width: 390, height: 844 } });
 });
 
+test('LRNA-174: the start screen lists the missions with saved stars', async () => {
+  await withGame(async (page, errors) => {
+    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'blind-the-radar': 2 })));
+    await page.reload();
+    await page.waitForTimeout(300);
+    const r = await page.evaluate(() => Array.from(document.querySelectorAll('#missionList .missionBtn')).map((b) => ({
+      id: b.dataset.mission, stars: b.querySelector('.mStars').textContent })));
+    assertEqual(r.length, 6, 'six missions listed');
+    assertEqual(r.find((m) => m.id === 'blind-the-radar').stars, '★★☆', 'saved stars shown');
+    assertEqual(r.find((m) => m.id === 'first-contact').stars, '☆☆☆', 'unplayed mission shows empty stars');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('LRNA-174: BLIND THE RADAR completes when both radar defenses fall, with stars saved', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('.missionBtn[data-mission="blind-the-radar"]');
+    await page.waitForTimeout(200);
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.updateObjectiveHud();
+      const hudStart = document.getElementById('objectiveHud').textContent;
+      T.damageNode('ap0', 1000);
+      T.tickUpdate(0.05);
+      const mid = { active: !!T.activeMission, hud: document.getElementById('objectiveHud').textContent };
+      T.damageNode('ap1', 1000);
+      T.tickUpdate(0.05);
+      return { hudStart, mid, active: !!T.activeMission, running: T.running,
+        title: document.getElementById('waveResultTitle').textContent,
+        body: document.getElementById('waveResultBody').textContent,
+        saved: JSON.parse(localStorage.getItem('lrna_mission_stars_v1') || '{}') };
+    });
+    assert(r.hudStart.startsWith('MISSION · BLIND THE RADAR · RADAR DEFENSES 0/2'), r.hudStart);
+    assert(r.mid.active && r.mid.hud.includes('RADAR DEFENSES 1/2'), `one down, still running: ${JSON.stringify(r.mid)}`);
+    assert(!r.active && !r.running, 'the mission ends when the second one falls');
+    assertEqual(r.title, 'MISSION COMPLETE', 'result title');
+    assert(r.body.includes('★★★'), `a quick finish earns 3 stars: ${r.body}`);
+    assertEqual(r.saved['blind-the-radar'], 3, 'stars saved');
+    await page.click('#waveResultClose');
+    const listStars = await page.$eval('.missionBtn[data-mission="blind-the-radar"] .mStars', (e) => e.textContent);
+    assertEqual(listStars, '★★★', 'the list shows the new best');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('LRNA-174: running out of time fails the mission and saves nothing', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('.missionBtn[data-mission="first-contact"]');
+    await page.waitForTimeout(200);
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.missionStats.time = 149.99;
+      T.tickUpdate(0.05);
+      return { title: document.getElementById('waveResultTitle').textContent,
+        body: document.getElementById('waveResultBody').textContent, running: T.running,
+        saved: localStorage.getItem('lrna_mission_stars_v1') };
+    });
+    assertEqual(r.title, 'MISSION FAILED', 'result title');
+    assert(r.body.includes('Out of time.'), r.body);
+    assert(!r.running, 'the game stops');
+    assertEqual(r.saved, null, 'no stars saved for a failed mission');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('LRNA-174: mission setups - HOLD THE LINE skips recon, NO SAFETY NET has no Emergency Counters; endless clears the mission', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('.missionBtn[data-mission="hold-the-line"]');
+    await page.waitForTimeout(200);
+    const hold = await page.evaluate(() => ({ locked: window.__TEST__.openingLocked }));
+    await page.evaluate(() => { window.__TEST__.missionStats.time = 0; });
+    await page.keyboard.press('r');  // restart keeps the mission and its setup
+    const afterR = await page.evaluate(() => ({ mission: window.__TEST__.activeMission?.id, locked: window.__TEST__.openingLocked }));
+    await page.evaluate(() => window.__TEST__.missionStats.wavesCleared = 5);
+    await page.waitForTimeout(200);
+    await page.click('#waveResultClose');
+    await page.click('.missionBtn[data-mission="no-safety-net"]');
+    await page.waitForTimeout(200);
+    const net = await page.evaluate(() => ({ emergency: window.__TEST__.counterAmmo.emergency,
+      badge: document.getElementById('emergencyAmmo').textContent }));
+    await page.evaluate(() => { const T = window.__TEST__; T.missionStats.omegaKills = 1; });
+    await page.waitForTimeout(200);
+    await page.click('#waveResultClose');
+    await page.click('#startGameBtn');
+    await page.waitForTimeout(200);
+    const endless = await page.evaluate(() => { window.__TEST__.updateObjectiveHud();
+      return { mission: window.__TEST__.activeMission, hud: document.getElementById('objectiveHud').textContent }; });
+    assert(!hold.locked, 'HOLD THE LINE starts with attacks unlocked');
+    assertEqual(afterR.mission, 'hold-the-line', 'R restarts the same mission');
+    assert(!afterR.locked, 'and re-applies its setup');
+    assertEqual(net.emergency, 0, 'NO SAFETY NET starts with no Emergency Counters');
+    assertEqual(net.badge, 'NONE LEFT', 'its badge says so');
+    assertEqual(endless.mission, null, 'PLAY ENDLESS runs no mission');
+    assert(endless.hud.startsWith('STEP 1/3'), `endless shows the recon steps again: ${endless.hud}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
 test('LRNA-162: the Counter Operations bar holds only the two lanes - no recon lists', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {
