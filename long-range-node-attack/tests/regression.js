@@ -1280,8 +1280,8 @@ test('LRNA-158: STATS carries GAME MODE/RUN STATS/TARGETS and drops every now-de
         upgradeListGone: !document.getElementById('upgradeList'), // LRNA-159: Reactor Upgrades removed entirely
         counterPlanesWindowGone: !document.getElementById('counterPlanesWindow'), // LRNA-160: Counter Attack Planes fires directly now
         siegeGone: ['siegeToggleBtn', 'siegeTimer', 'siegeResult'].every((id) => !document.getElementById(id)), // LRNA-157: Siege Mode removed
-        allInsideStats: ['modeStatus', 'statsList', 'targetList'].every(inside),
-        allVisible: ['modeStatus', 'statsList', 'targetList'].every(visible),
+        allInsideStats: ['modeStatus', 'statsList'].every(inside), // ART-21: TARGETS moved to the target label's list
+        allVisible: ['modeStatus', 'statsList'].every(visible),
       };
     });
     assert(result.opsCenterPanelGone, '#opsCenterPanel should no longer exist in the DOM');
@@ -1877,6 +1877,35 @@ test('ART-19: one strip replaces the four - tap a dot to follow it, anywhere els
     assertEqual(followed, r.id, 'tapping the dot follows that missile');
     assertEqual(after.follow, null, 'tapping empty strip stops following');
     assert(after.camX > 18000 * 0.6, `and moves the camera there: ${after.camX}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('ART-21: the target label opens a short list; picking one targets it and STATS no longer carries TARGETS', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#targetLabel');
+    const open = await page.evaluate(() => ({
+      shown: !document.getElementById('targetMenu').hidden,
+      rows: [...document.querySelectorAll('#targetMenu .target-row')].map((r) => r.dataset.target),
+      firstKm: document.querySelector('#targetMenu .target-dist').textContent,
+      inStats: !!document.querySelector('#missionMapWindow #targetList'),
+    }));
+    const pick = open.rows.find((id) => id !== 'O');
+    await page.click(`#targetMenu .target-row[data-target="${pick}"]`);
+    const after = await page.evaluate(() => ({ sel: window.__TEST__.selectedTargetId, shown: !document.getElementById('targetMenu').hidden,
+      label: document.getElementById('targetLabel').textContent }));
+    await page.click('#targetLabel');
+    await page.keyboard.press('Escape');
+    const escClosed = await page.evaluate(() => document.getElementById('targetMenu').hidden);
+    const paused = await page.evaluate(() => window.__TEST__.gameMenuOpen);
+    assert(open.shown, 'the list opens');
+    assert(open.rows.includes('O') && open.rows.length > 5, `Omega and the installations are listed: ${open.rows.length}`);
+    assert(/KM$/.test(open.firstKm), `rows show the distance: ${open.firstKm}`);
+    assert(!open.inStats, 'TARGETS is gone from STATS');
+    assertEqual(after.sel, pick, 'picking a row targets it');
+    assert(!after.shown, 'and closes the list');
+    assert(after.label.startsWith('TARGET: ') && !after.label.includes('NODE OMEGA'), `the label follows: ${after.label}`);
+    assert(escClosed && !paused, 'Esc closes the list without opening the menu');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });

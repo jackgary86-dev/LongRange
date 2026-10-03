@@ -758,10 +758,16 @@ Tickets:
   but the camera eases to your newest shot and to the most urgent
   incoming threat; a manual drag takes over for a few seconds, then
   following resumes.
-- **ART-21** — OPEN — Targeting. Tap any enemy on the field to target it
+- **ART-21** — DONE — Targeting. Tap any enemy on the field to target it
   (Omega by default), with a clear reticle on the current target; a short
   list opens from the target label for picking one that's off screen.
   The TARGETS section leaves STATS.
+  *Done:* tapping any enemy still targets it (LRNA-172); the target label
+  in the bar is now a button that opens a short list above the bar: Omega
+  and every standing installation, nearest first, with HP and distance in
+  km. Picking one targets it and closes the list (Esc or a tap outside
+  also closes it). The current target wears an amber four-bracket reticle
+  with its name. TARGETS left STATS. 68/68.
 - **ART-22** — OPEN — Impacts and feedback. Real explosions, smoke,
   debris and lasting craters; HIT / INTERCEPTED markers and damage
   numbers readable at a glance; screen shake and flash scaled to the

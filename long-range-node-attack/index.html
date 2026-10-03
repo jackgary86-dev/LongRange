@@ -266,8 +266,7 @@
      see #counterOpsBar) - reads at a comfortable measure instead of
      stretching edge-to-edge on a full-screen window sized for far less
      text per line. */
-  #counterCenterModeSection, #counterCenterStatsSection,
-  #counterCenterTargetsSection {
+  #counterCenterModeSection, #counterCenterStatsSection {
     max-width: 480px; margin: 0 auto 18px;
   }
   /* LRNA-154: the actual overflow fix - TARGETS can run to a dozen+ rows
@@ -276,7 +275,6 @@
      230px sidebar. Its own bounded, independently-scrolling region
      means the rest of the screen's layout can no longer move because
      of how many targets happen to be alive right now. */
-  #targetListScroll { max-height: 220px; overflow-y: auto; }
 
 
   /* ART-19: the one strip - both bases, your shots, incoming threats
@@ -310,7 +308,30 @@
     font-size: 10px; letter-spacing: 0.14em; color: var(--m-muted);
     margin-bottom: 6px; white-space: nowrap; overflow: hidden;
   }
-  #targetLabel { color: var(--m-text) !important; overflow: hidden; text-overflow: ellipsis; }
+  /* ART-21: the target label opens the short target list */
+  #targetLabel {
+    pointer-events: auto; cursor: pointer;
+    font: inherit; letter-spacing: inherit; color: var(--m-text);
+    background: none; border: 0; border-bottom: 1px dashed var(--m-line-strong); padding: 0 0 1px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%;
+  }
+  #targetLabel:hover, #targetLabel[aria-expanded="true"] { color: #e3a838; border-bottom-color: #e3a838; }
+  #targetMenu {
+    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    margin-bottom: 6px; width: min(360px, calc(100vw - 16px));
+    max-height: min(46vh, 380px); overflow-y: auto;
+    background: rgba(20,23,18,0.98); border: 1px solid var(--m-line-strong);
+    padding: 8px 8px 6px;
+    font-size: 11px;
+  }
+  #targetMenu[hidden] { display: none; }
+  .tmHead { font-family: var(--m-display); font-weight: 700; font-size: 11px; letter-spacing: 0.2em; color: var(--m-text); padding: 0 4px 6px; border-bottom: 1px solid var(--m-line); margin-bottom: 4px; }
+  .tmHead span { font-family: var(--m-mono); font-weight: 400; letter-spacing: 0.06em; color: var(--m-muted); }
+  #targetMenu .target-row { padding: 7px 6px; gap: 8px; color: var(--m-text); }
+  #targetMenu .target-row:hover { background: rgba(227,168,56,0.1); }
+  #targetMenu .target-row.selected { background: rgba(227,168,56,0.16); outline: 1px solid #e3a838; }
+  #targetMenu .target-hp { color: var(--m-muted); font-size: 10px; }
+  #targetMenu .target-dist { color: var(--m-muted); font-size: 10px; width: 52px; text-align: right; }
   #launchBarHeader { overflow: hidden; text-overflow: ellipsis; }
   #launchBarHeader .hot { color: #e3a838; }
   #launchBarHeader .pips { letter-spacing: 0.25em; color: #e3a838; }
@@ -691,11 +712,6 @@
       <div id="modeStatus">SANDBOX — free play, no timer</div>
     </div>
 
-    <div class="opsSection attackPillar" id="counterCenterTargetsSection">
-      <h3>TARGETS</h3>
-      <div id="targetListScroll"><div id="targetList"></div></div>
-    </div>
-
     <div class="opsSection" id="counterCenterStatsSection">
       <h3>RUN STATS</h3>
       <div id="statsList"></div>
@@ -703,9 +719,14 @@
   </div>
 
   <div id="bottomBar">
+    <!-- ART-21: the short target list, opened from the target label -->
+    <div id="targetMenu" hidden>
+      <div class="tmHead">PICK A TARGET <span>&middot; OR TAP ONE ON THE FIELD</span></div>
+      <div id="targetList" role="listbox"></div>
+    </div>
     <div id="minimapWrap"><canvas id="minimap"></canvas></div>
     <div id="launchBar">
-      <div id="barInfo"><span id="targetLabel">TARGET: NODE OMEGA</span><span id="launchBarHeader">WARHEADS 3/3</span></div>
+      <div id="barInfo"><button id="targetLabel" aria-haspopup="listbox" aria-expanded="false">TARGET: NODE OMEGA &#9662;</button><span id="launchBarHeader">WARHEADS 3/3</span></div>
       <div id="abilityGroups">
         <div class="abilityGroup" data-pillar="attack">
           <div class="abilityGroupHeader">ATTACK <span class="abilityGroupCount">&#9679; <span id="groupTokenAttack">0</span></span></div>
@@ -1030,7 +1051,8 @@
   document.getElementById('menuQuit').addEventListener('click', () => { sfxUi(); quitToMenu(); });
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !running) return;
-    if (missionMapOpen) closeMissionMap();
+    if (!targetMenuEl.hidden) setTargetMenu(false); // ART-21
+    else if (missionMapOpen) closeMissionMap();
     else if (gameMenuOpen) closeGameMenu();
     else openGameMenu();
   });
@@ -3693,18 +3715,19 @@
     let html = '';
     for (const r of rows) {
       const sel = r.id === selectedTargetId ? ' selected' : '';
-      html += `<div class="target-row${sel}" data-target="${r.id}">` +
-              `<span style="color:${r.color}">&#9670;</span>` +
+      // ART-21: distance in km from the Strike Platform (the map is ~18 km wide)
+      html += `<div class="target-row${sel}" role="option" data-target="${r.id}">` +
+              `<span style="color:${r.id === 'O' ? '#c8553d' : '#d0573c'}">&#9670;</span>` +
               `<span class="target-name">${r.name}</span>` +
-              `<span class="target-hp">${r.hp}</span></div>`;
+              `<span class="target-hp">${r.hp} HP</span>` +
+              `<span class="target-dist">${(r.dist / 1000).toFixed(1)} KM</span></div>`;
     }
     targetListEl.innerHTML = html || '<div style="opacity:0.6;">no targets left</div>';
   }
 
   function updateTargetLabel() {
     const t = getTarget(selectedTargetId) || nodeO;
-    targetLabelEl.textContent = `TARGET: ${t.name}`;
-    targetLabelEl.style.color = t.color;
+    targetLabelEl.innerHTML = `TARGET: ${t.name} &#9662;`;
   }
 
   // ART-2: now effectively ENEMY STRIKE's own dedicated look (its only
@@ -4807,13 +4830,27 @@
     if (selTarget && !selTarget.destroyed && !(selTarget.id === 'O' && omegaHealth <= 0)) {
       const sx = selTarget.x - camX;
       if (sx > -40 && sx < VW + 40) {
-        const offset = selTarget.id === 'O' ? (OMEGA_RES * OMEGA_PX_SCALE / 2 + 12) : FIELD_MARKER_OFFSET;
-        const my = selTarget.y - offset - 12;
-        ctx.fillStyle = '#ffe066';
-        ctx.beginPath();
-        ctx.moveTo(sx, my); ctx.lineTo(sx - 6, my - 10); ctx.lineTo(sx + 6, my - 10);
-        ctx.closePath();
-        ctx.fill();
+        // ART-21: an amber reticle - four corner brackets around the
+        // target, gently breathing, with the name above it
+        // world units: the battlefield draws at ZOOM (0.5), so these are twice the on-screen size
+        const r = selTarget.id === 'O' ? (OMEGA_RES * OMEGA_PX_SCALE / 2 + 14) : 34;
+        const cy = selTarget.y;
+        const breathe = 1 + 0.06 * Math.sin(performance.now() / 260);
+        const rr = r * breathe, arm = Math.max(7, rr * 0.35);
+        ctx.save();
+        ctx.strokeStyle = '#e3a838';
+        ctx.lineWidth = 4;
+        for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+          const cx0 = sx + dx * rr, cy0 = cy + dy * rr;
+          ctx.beginPath();
+          ctx.moveTo(cx0, cy0 - dy * arm); ctx.lineTo(cx0, cy0); ctx.lineTo(cx0 - dx * arm, cy0);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#e3a838';
+        ctx.font = 'bold 20px "Courier New", ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`TARGET · ${selTarget.name}`, sx, cy - rr - 12);
+        ctx.restore();
       }
     }
 
@@ -5190,7 +5227,6 @@
     if (!t || t.id === selectedTargetId) return;
     selectedTargetId = t.id;
     sfxUi();
-    spawnFloatText(t.x, t.y - 60, `TARGET: ${t.name}`, '#ffe066');
     renderTargetList();
     updateTargetLabel();
     updateObjectiveHud();
@@ -5379,16 +5415,32 @@
   }
   updatePlaneButtons();
 
+  // ---- ART-21: the short target list, opened from the target label
+  const targetMenuEl = document.getElementById('targetMenu');
+  function setTargetMenu(open) {
+    targetMenuEl.hidden = !open;
+    targetLabelEl.setAttribute('aria-expanded', String(open));
+    if (open) renderTargetList();
+  }
+  targetLabelEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!running) return;
+    sfxUi();
+    setTargetMenu(targetMenuEl.hidden);
+  });
   targetListEl.addEventListener('click', (e) => {
     if (!running) return;
     const row = e.target.closest('.target-row');
     if (!row) return;
     const t = getTarget(row.dataset.target);
     if (!t) return;
-    sfxUi();
-    selectedTargetId = row.dataset.target;
+    if (t.id === selectedTargetId) sfxUi(); else selectTarget(t);
     renderTargetList();
     updateTargetLabel();
+    setTargetMenu(false);
+  });
+  document.addEventListener('click', (e) => {
+    if (!targetMenuEl.hidden && !targetMenuEl.contains(e.target)) setTargetMenu(false);
   });
 
   // ---- INCOMING alert (LRNA-074/#431): flashes the color of the
