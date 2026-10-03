@@ -273,7 +273,7 @@ def main():
 
 # ---- packed game (written by tools/build-installer.py) ----
 # BEGIN PAYLOAD
-PAYLOAD_SOURCE = 'main 8ec41ea 2026-09-29'
+PAYLOAD_SOURCE = 'main 44208a5 2026-10-03'
 PAYLOAD_SIZE = 312381
 PAYLOAD_SHA256 = '22d07a06deabdfc140a33c99626c668ca7a77d18efddc06bb2251fab463c0c07'
 PAYLOAD = """
