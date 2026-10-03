@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the single-file page published as the Claude Artifact demo
-# (https://claude.ai/artifact/Hkw2pPKhxc23GnaDzkGMHJ).
+# (https://claude.ai/artifact/SatBvMP8LH2GaLJAs7z9ee).
 #
 # The artifact host wraps the page in its own <!doctype>/<html>/<head>/<body>,
 # so the demo is index.html with those outer tags removed: everything from

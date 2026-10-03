@@ -16,7 +16,8 @@ Last brought up to date 2026-09-30 (game at LRNA-170).
 | Other pages on that Alert branch | `games/counter-grid/` (Counter Grid: Versus, portal :2010), `games/index.html` (demo landing page), `games/serve.py` |
 | Game Portal build (Connor's server) | Alert branch `claude/zealous-bell-crkaru`: `game-portal/build_bundle.py` packs every game into `game-portal/portal.py` |
 | Arcade 3000 (Nixon's :3000-3011) | `jackgary86-dev/gameportal`, `arcade3000/` |
-| Demo (Claude Artifact) | https://claude.ai/artifact/Hkw2pPKhxc23GnaDzkGMHJ |
+| Play online (GitHub Pages, public) | https://jackgary86-dev.github.io/LongRange/, published from `main` by `.github/workflows/pages.yml` |
+| Demo (Claude Artifact) | https://claude.ai/artifact/SatBvMP8LH2GaLJAs7z9ee (since 2026-10-03; the earlier one, Hkw2pPKhxc23GnaDzkGMHJ, stays at LRNA-170 and is no longer updated) |
 | Cannon project's "Long Range" duel demo (a different game) | https://claude.ai/artifact/S9J6HgwNTPjHvuQ2LX4fYi, built from Alert `claude/loving-cray-ke6qxx` `templates/cannon.html` + `static/css/cannon.css` + `static/js/cannon-game.js` with the CSS/JS inlined |
 
 `LongRange-1.0.0.html` and `FallBackCode.html` next to `index.html` are older
@@ -133,6 +134,17 @@ To run it: in `~/gameportal` on NixonExpress, check out that code (or
 `main` once PR #14 is merged), stop `arcade3000`, run
 `python3 arcade3000/test_arcade.py`, start `arcade3000` again.
 
+## GitHub Pages
+
+`.github/workflows/pages.yml` publishes `index.html` (and the standalone
+installer, as `longrange-installer.py`) to
+https://jackgary86-dev.github.io/LongRange/ on every push to `main` that
+changes either file. It also runs from the Actions tab ("Publish to GitHub
+Pages" -> Run workflow). It needs Pages turned on once, in the repo's
+Settings -> Pages -> Build and deployment -> Source: **GitHub Actions**. The
+page is public; anyone with the address can play. Players' scores and
+settings stay in their own browser.
+
 ## Rebuilding the demo artifact
 
 ```sh
@@ -140,7 +152,7 @@ cd long-range-node-attack
 tools/build-demo.sh            # writes dist/lrna_demo.html (git-ignored)
 ```
 Then ask Claude to publish `dist/lrna_demo.html` with the Artifact tool,
-passing `url: https://claude.ai/artifact/Hkw2pPKhxc23GnaDzkGMHJ` so it updates
+passing `url: https://claude.ai/artifact/SatBvMP8LH2GaLJAs7z9ee` so it updates
 the same page. The artifact host requires the live version to be read in
 full before an update from a new conversation.
 

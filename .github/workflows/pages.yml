@@ -1,0 +1,52 @@
+name: Publish to GitHub Pages
+
+# Publishes the game at https://jackgary86-dev.github.io/LongRange/ whenever
+# it changes on main. Needs Pages turned on once, with "GitHub Actions" as the
+# source (Settings -> Pages -> Build and deployment -> Source).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'long-range-node-attack/index.html'
+      - 'long-range-node-attack/installer/longrange-installer.py'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer carries the current game
+        working-directory: long-range-node-attack
+        run: python3 tools/build-installer.py --check
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp long-range-node-attack/index.html _site/index.html
+          cp long-range-node-attack/installer/longrange-installer.py _site/longrange-installer.py
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
