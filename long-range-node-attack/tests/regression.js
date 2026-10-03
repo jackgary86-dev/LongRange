@@ -2001,4 +2001,63 @@ test('ART-16: the battlefield is open ground in earth tones, not deep space', as
   });
 });
 
+test('ART-22: a hit shows HIT and the damage in health-bar units, shakes and flashes; craters stay; a miss says MISS', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.disableOmegaCounters(); T.neutralizeAutoDefense();
+      for (const f of T.fieldTargets) f.defends = false;
+      const realRandom = Math.random;
+      const fly = (m, roll) => {
+        m.defended = true; m.targetX = m.dest.x;
+        T.setCamX(m.dest.x - innerWidth / T.ZOOM / 2);
+        Math.random = () => roll;
+        for (let i = 0; i < 2000 && T.missiles.some(x => x.id === m.id); i++) T.tickUpdate(0.05);
+        Math.random = realRandom;
+      };
+      const big = T.launchAttack(T.nodeA, T.nodeO, 'large');
+      fly(big, 0.01);
+      const hit = { texts: T.floatingTexts.map(f => f.text), shake: T.camShakeMag, flash: T.impactFlash, craters: T.scorchMarks.length };
+      for (let i = 0; i < 400; i++) T.tickUpdate(0.05); // 20s later
+      const cratersLater = T.scorchMarks.length;
+      const miss = T.launchAttack(T.nodeA, T.nodeO, 'fast');
+      fly(miss, 0.99);
+      const missTexts = T.floatingTexts.map(f => f.text);
+      // an enemy hit on your platform
+      const strike = T.launchAttack(T.nodeO, T.nodeA, 'enemyStrike', T.ENEMY_STRIKE_SIZES.large);
+      strike.dmg = 40;
+      fly(strike, 0.01);
+      return { hit, cratersLater, missTexts, home: { texts: T.floatingTexts.map(f => f.text), flash: T.impactFlash } };
+    });
+    assert(r.hit.texts.includes('HIT -30'), `a 1000-damage LONG RANGE shows as HIT -30 on Omega's 250 bar: ${r.hit.texts}`);
+    assert(r.hit.shake >= 6, `a big hit kicks the camera: ${r.hit.shake}`);
+    assert(r.hit.flash > 0, 'and flashes the screen');
+    assert(r.hit.craters >= 1 && r.cratersLater >= 1, `the crater is still there 20s later: ${r.cratersLater}`);
+    assert(r.missTexts.includes('MISS'), `a miss says MISS: ${r.missTexts}`);
+    assert(r.home.texts.includes('-40'), `a hit on your platform shows its damage: ${r.home.texts}`);
+    assert(r.home.flash > 0.15, `and flashes red: ${r.home.flash}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('ART-22: the siren sounds once when a threat is 3 seconds out', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.disableOmegaCounters(); T.neutralizeAutoDefense();
+      const m = T.launchAttack(T.nodeO, T.nodeA, 'enemyStrike', T.ENEMY_STRIKE_SIZES.medium);
+      m.defended = true;
+      m.age = m.totalSeconds - 5;
+      T.tickUpdate(0.05);
+      const early = !!m.sirenPlayed;
+      m.age = m.totalSeconds - 2.9;
+      T.tickUpdate(0.05);
+      return { early, sounded: !!m.sirenPlayed };
+    });
+    assert(!r.early, 'not at 5 seconds');
+    assert(r.sounded, 'at 3 seconds');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 run();

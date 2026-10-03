@@ -685,7 +685,7 @@ the same** 10.
   Missile / Counter Planes button tests removed, one new LRNA-181 test.
   68/68.
 
-## IN PROGRESS — ART epic 3: in-game GUI redesign (2026-10-03)
+## DONE — ART epic 3: in-game GUI redesign (2026-10-03)
 
 Request: "completely redesign the GUI of the game to work better and play
 better and look better." Asked directly; the owner's answers:
@@ -793,11 +793,24 @@ Tickets:
   km. Picking one targets it and closes the list (Esc or a tap outside
   also closes it). The current target wears an amber four-bracket reticle
   with its name. TARGETS left STATS. 68/68.
-- **ART-22** — OPEN — Impacts and feedback. Real explosions, smoke,
+- **ART-22** — DONE — Impacts and feedback. Real explosions, smoke,
   debris and lasting craters; HIT / INTERCEPTED markers and damage
   numbers readable at a glance; screen shake and flash scaled to the
   weapon; heavier launch and impact sounds and a siren for an imminent
   hit.
+  *Done:* explosions are a white-hot flash, a fireball, a shockwave ring,
+  thrown debris and earth that falls back, and a dark smoke column, all
+  scaled to the weapon. Craters stay on the ground for 45s (fading over
+  the last 10). Every landed hit shows HIT -n in the same units as the
+  health bars (a LONG RANGE on Omega reads HIT -30), hits on your
+  platform show -n in red with a red screen flash, misses say MISS,
+  intercepts say INTERCEPTED BY ... (no crater: they happen in the air).
+  Floating text is larger with a dark outline. On-screen hits kick the
+  camera by weapon size (a smaller kick never cuts a bigger one short)
+  and the big ones flash the screen. Launches add a rocket-motor roar and
+  an ignition thump, impacts a rolling rumble, and a two-tone siren
+  sounds once when a threat is 3 seconds from your platform. 2 new
+  tests. 73/73.
 
 Order: ART-19 + ART-17 + ART-18 together (the declutter, one layout
 pass), then ART-21, ART-20, ART-16, ART-22. Each keeps the suite green and

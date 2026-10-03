@@ -2216,9 +2216,11 @@
   let camShakeTimer = 0;
   let camShakeDuration = 0;
   function triggerCamShake(mag, duration) {
+    // ART-22: a smaller kick never cuts short a bigger one already running
+    if (camShakeTimer > 0 && camShakeMag * (camShakeTimer / Math.max(0.001, camShakeDuration)) > mag) return;
     camShakeMag = mag;
-    camShakeTimer = duration;
     camShakeDuration = duration;
+    camShakeTimer = duration;
   }
   const CAM_SHAKE_LAUNCH_MAG = 4, CAM_SHAKE_LAUNCH_DURATION = 0.25;
   const CAM_SHAKE_IMPACT_MAG = 7, CAM_SHAKE_IMPACT_DURATION = 0.35;
@@ -2427,8 +2429,10 @@
   // which is exactly what a fresh/no-upgrade run already experienced,
   // so nothing needed re-tuning.
 
-  function spawnFloatText(x, y, text, color) {
-    floatingTexts.push({ x, y, text, color, age: 0 });
+  // ART-22: sizes are world units (the battlefield draws at half zoom), so
+  // 22 reads as ~11px on screen; hit markers use bigger ones.
+  function spawnFloatText(x, y, text, color, size) {
+    floatingTexts.push({ x, y, text, color, age: 0, size: size || 22 });
   }
 
   function updateModeStatus() {
@@ -2937,6 +2941,7 @@
     stats.hits += 1;
     earnTokens('attack', Math.round(def.dmg * DMG_TO_COIN_RATIO), m.x, dest.y + m.laneY - 24);
     const justDestroyed = applyDamage(dest, m.x, m.laneY, def.dmg);
+    impactFeedback(dest, m.x, dest.y + m.laneY, def.dmg, blastScale, true); // ART-22
     if (justDestroyed) {
       if (dest.id !== 'O' && selectedTargetId === dest.id) { selectedTargetId = 'O'; updateTargetLabel(); }
       if (dest.id === 'O') onOmegaDestroyedForWaves();
@@ -3122,6 +3127,10 @@
     const p = LAUNCH_PROFILES[kind] || LAUNCH_PROFILES.medium;
     const j = pitchJitter();
     playTone(p.freq * j, p.dur, { type: p.type, sweepTo: p.sweepTo * j, gain: p.gain });
+    // ART-22: the rocket motor itself - a filtered roar that's longer and
+    // lower for the heavier weapons, and a low thump at ignition
+    playNoiseBurst(p.dur * 2.2, { filterFreq: 900 - p.dur * 1200, gain: p.gain * 1.6, decay: 0.8 });
+    playTone(70 * j, 0.18, { type: 'sine', sweepTo: 40, gain: p.gain * 0.9 });
   }
 
   const IMPACT_PROFILES = {
@@ -3141,6 +3150,15 @@
     playTone(p.toneFreq * j, 0.3, { type: 'sine', sweepTo: p.toneSweep, gain: p.toneGain });
     // dedicated sub-bass layer for the punchier low end, louder on bigger blasts
     playTone(p.subFreq, 0.4 + 0.12 * scale, { type: 'sine', sweepTo: p.subFreq * 0.6, gain: p.subGain * scale });
+    // ART-22: the rolling rumble after the bang, longer for bigger blasts
+    playNoiseBurst(0.7 + 0.35 * scale, { filterFreq: 140, gain: 0.25 + 0.12 * scale, decay: 0.6, when: 0.04 });
+  }
+  // ART-22: a two-tone siren when a threat is 3 seconds from your platform
+  function sfxSiren() {
+    for (let i = 0; i < 2; i++) {
+      playTone(880, 0.16, { type: 'square', gain: 0.07, when: i * 0.36 });
+      playTone(660, 0.16, { type: 'square', gain: 0.07, when: i * 0.36 + 0.18 });
+    }
   }
   function sfxMiss() { playNoiseBurst(0.14, { filterFreq: 1800 * pitchJitter(), gain: 0.1 }); }
   function sfxIntercept() { playTone(1200 * pitchJitter(), 0.12, { type: 'square', sweepTo: 1800, gain: 0.14 }); }
@@ -3176,8 +3194,11 @@
     }
   }
 
+  // ART-22: craters stay on the ground for CRATER_LIFE seconds
+  const CRATER_LIFE = 45;
   function spawnScorch(x, radius, color) {
     scorchMarks.push({ x, radius, age: 0, color });
+    if (scorchMarks.length > 80) scorchMarks.shift();
   }
 
   // ---- flak: point-defense-capable nodes (Omega, launchers, sub-bases, AM
@@ -3231,20 +3252,50 @@
     }
   }
 
+  // ART-22: a real explosion - a white-hot flash, a fireball, a pale
+  // shockwave ring, thrown debris and earth, then a dark smoke column
+  // that rises and lingers. Everything scales with the weapon.
   function spawnExplosion(x, y, color, scale, kind) {
     scale = scale || 1;
     sfxImpact(scale, kind);
-    launchRings.push({ x, y, age: 0, color, maxR: 50 + 70 * scale });
-    spawnBurst(x, y, color, Math.round(22 + 26 * scale));
-    spawnBurst(x, y, '#fff2c0', Math.round(6 + 8 * scale));
-    for (let i = 0; i < Math.round(6 + 10 * scale); i++) {
+    launchRings.push({ x, y, age: 0, color: '#f3e7c1', maxR: 50 + 70 * scale });
+    particles.push({ x, y, vx: 0, vy: 0, life: 1, color: '#fff4d6', flash: true, size: 10 + 10 * scale });
+    for (let i = 0; i < Math.round(16 + 20 * scale); i++) { // fireball
       const a = Math.random() * Math.PI * 2;
-      const spd = 10 + Math.random() * 40 * scale;
+      const spd = 20 + Math.random() * 90 * Math.sqrt(scale);
+      particles.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd * 0.7 - 20, life: 0.7 + Math.random() * 0.4,
+        color: Math.random() < 0.5 ? '#ffb347' : '#f0703a', fire: 3 + 3 * scale });
+    }
+    for (let i = 0; i < Math.round(8 + 14 * scale); i++) { // debris and earth, thrown up and falling back
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+      const spd = 60 + Math.random() * 160 * Math.sqrt(scale);
+      particles.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1.1 + Math.random() * 0.5,
+        color: Math.random() < 0.6 ? '#5b4a35' : '#2e2a24', debris: true });
+    }
+    for (let i = 0; i < Math.round(8 + 12 * scale); i++) { // smoke column
       particles.push({
-        x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - 14,
-        life: 1.4 + Math.random() * 0.8, color: '#4a3a66', smoke: true,
+        x: x + (Math.random() - 0.5) * 18 * scale, y: y - Math.random() * 8,
+        vx: (Math.random() - 0.5) * 14, vy: -14 - Math.random() * 22 * scale,
+        life: 1.8 + Math.random() * 1.2 * scale, color: Math.random() < 0.5 ? '#3c362c' : '#5a5246', smoke: true, big: scale,
       });
     }
+  }
+
+  // ---- ART-22: what a landed hit tells you. A HIT marker with the damage
+  // in the same units as the health bars (Omega's on its 250 scale), a
+  // camera kick and flash scaled to the weapon when it's on screen, and a
+  // red flash when it's your Strike Platform taking the hit.
+  let impactFlash = 0, impactFlashColor = '255,236,200';
+  function onScreen(x) { const sx = x - camX; return sx > -40 && sx < vw() + 40; }
+  function impactFeedback(dest, x, y, dmg, scale, isPlayerShot) {
+    const shown = dest.id === 'O' ? Math.max(1, Math.round(dmg * OMEGA_HEALTH_DMG_RATIO)) : Math.round(dmg);
+    const visible = onScreen(x);
+    if (visible) {
+      spawnFloatText(x, y - 46, isPlayerShot ? `HIT -${shown}` : `-${shown}`, isPlayerShot ? '#e3a838' : '#e8735a', 26 + Math.min(14, scale * 5));
+      triggerCamShake(2 + 3 * scale, 0.18 + 0.08 * scale);
+      if (scale >= 1.6) { impactFlash = Math.max(impactFlash, Math.min(0.28, 0.08 * scale)); impactFlashColor = '255,236,200'; }
+    }
+    if (dest.id === 'A') { impactFlash = Math.max(impactFlash, 0.22); impactFlashColor = '208,60,40'; }
   }
 
   // EMP impact: no splash damage, just a bright expanding ring and a burst
@@ -3448,9 +3499,9 @@
             const mx = (m.x + target.x) / 2;
             const my = vh() / 2 + ((m.laneY + target.laneY) / 2);
             sfxIntercept();
-            spawnBurst(mx, my, '#8f6bff', 28);
-            spawnScorch(mx, 34, 'rgba(143,107,255,0.35)');
-            spawnFloatText(mx, my - 20, `INTERCEPTED BY ${describeDefender(m)}`, '#8f6bff'); // LRNA-110
+            spawnBurst(mx, my, '#f3e7c1', 20);
+            spawnBurst(mx, my, '#ffb347', 14);
+            spawnFloatText(mx, my - 20, `INTERCEPTED BY ${describeDefender(m)}`, '#f3e7c1', 24); // LRNA-110, ART-22
             stats.intercepts += 1;
             // LRNA-078/#435: a shot-down plane frees its slot for a rearm,
             // same as one that lands safely - it just skips the "safe
@@ -3504,8 +3555,7 @@
             if (prox <= 18) {
               if (Math.random() < PLANE_TYPES.interceptorJet.hitChance) {
                 sfxIntercept();
-                spawnBurst(m.x, vh() / 2 + m.laneY, '#8f6bff', 26);
-                spawnScorch(m.x, 30, 'rgba(143,107,255,0.35)');
+                spawnBurst(m.x, vh() / 2 + m.laneY, '#f3e7c1', 26);
                 stats.intercepts += 1;
                 toRemove.add(target.id);
               } else {
@@ -3674,6 +3724,8 @@
             spawnScorch(m.x, 24 + 22 * blastScale, m.color + '55');
             justDestroyed = applyDamage(dest, m.x, m.laneY, m.dmg);
           }
+          impactFeedback(dest, m.x, dest.y + m.laneY, m.dmg, m.typeKey === 'emp' ? 1 : m.splitCount > 0 ? 1.7
+            : m.typeKey === 'large' ? 2.6 : m.typeKey === 'medium' ? 1.7 : (m.sizeKey === 'large' ? 2 : m.sizeKey === 'medium' ? 1.4 : 1), isPlayerShot);
           if (justDestroyed && isPlayerShot) {
             if (dest.id !== 'O' && selectedTargetId === dest.id) { selectedTargetId = 'O'; updateTargetLabel(); }
             // LRNA-072/#430: Omega rebuilds stronger instead of staying dead -
@@ -3684,6 +3736,7 @@
         } else {
           spawnBurst(m.x, vh() / 2 + m.laneY, '#8a8a7a', 20);
           spawnScorch(m.x, 22, 'rgba(120,120,110,0.4)');
+          if (dest && onScreen(m.x)) spawnFloatText(m.x, vh() / 2 + m.laneY - 30, 'MISS', '#b9b6a3', 24); // ART-22
         }
         if (followId === m.id) followId = null;
         toRemove.add(m.id);
@@ -3702,6 +3755,7 @@
       camShakeTimer = Math.max(0, camShakeTimer - dt);
       if (camShakeTimer <= 0) camShakeMag = 0;
     }
+    if (impactFlash > 0) impactFlash = Math.max(0, impactFlash - dt * 0.9); // ART-22
 
     // no passive healing on the Strike Platform anymore, per direct
     // request - damage taken is now permanent for the rest of the run
@@ -3723,7 +3777,7 @@
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.x += p.vx * dt; p.y += p.vy * dt;
-      p.vy += (p.smoke ? -10 : p.tracer ? 40 : p.flash ? 0 : 60) * dt;
+      p.vy += (p.smoke ? -10 : p.tracer ? 40 : p.flash ? 0 : p.debris ? 260 : 60) * dt; // ART-22: debris falls back down
       p.life -= dt * (p.smoke ? 0.9 : p.tracer ? 3.2 : p.flash ? 9 : 1.4);
       if (p.life <= 0) particles.splice(i, 1);
     }
@@ -3739,7 +3793,7 @@
 
     for (let i = scorchMarks.length - 1; i >= 0; i--) {
       scorchMarks[i].age += dt;
-      if (scorchMarks[i].age > 10) scorchMarks.splice(i, 1);
+      if (scorchMarks[i].age > CRATER_LIFE) scorchMarks.splice(i, 1);
     }
 
     contactsRenderTimer -= dt;
@@ -4899,7 +4953,7 @@
     for (const s of scorchMarks) {
       const sx = s.x - camX;
       if (sx < -50 || sx > VW + 50) continue;
-      const fade = Math.max(0, 1 - s.age / 10);
+      const fade = Math.max(0, Math.min(1, (CRATER_LIFE - s.age) / 10)); // ART-22: fades over its last 10s
       // ART-16: a dark crater with a lighter thrown-earth rim
       ctx.globalAlpha = fade;
       ctx.fillStyle = 'rgba(120,104,72,0.45)';
@@ -5043,7 +5097,7 @@
         const sx = p.x - camX;
         const t = Math.max(0, p.life);
         ctx.beginPath();
-        ctx.arc(sx, p.y, 2 + 4 * t, 0, Math.PI * 2);
+        ctx.arc(sx, p.y, (p.size || 6) * (0.35 + 0.65 * t), 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.shadowColor = p.color;
         ctx.shadowBlur = 10;
@@ -5069,9 +5123,10 @@
         continue;
       }
       ctx.beginPath();
-      ctx.arc(p.x - camX, p.y, p.smoke ? 5 + (1 - Math.min(1, p.life)) * 6 : 2.4, 0, Math.PI * 2);
+      const grow = p.big ? 1 + p.big * 0.6 : 1; // ART-22: explosion smoke billows larger
+      ctx.arc(p.x - camX, p.y, p.smoke ? (5 + (1 - Math.min(1, p.life)) * 6) * grow : p.fire ? p.fire * (0.4 + Math.max(0, p.life)) : p.debris ? 2.8 : 2.4, 0, Math.PI * 2);
       ctx.fillStyle = p.color;
-      ctx.globalAlpha = Math.max(0, p.life) * (p.smoke ? 0.5 : 1);
+      ctx.globalAlpha = Math.min(1, Math.max(0, p.life)) * (p.smoke ? 0.5 : 1);
       ctx.fill();
       ctx.globalAlpha = 1;
     }
@@ -5080,15 +5135,23 @@
       const sx = ft.x - camX;
       if (sx < -60 || sx > VW + 60) continue;
       const t = ft.age / 1.2;
-      ctx.font = 'bold 13px "Courier New", ui-monospace, monospace';
+      ctx.font = `bold ${ft.size || 22}px "Courier New", ui-monospace, monospace`;
       ctx.textAlign = 'center';
+      ctx.globalAlpha = Math.max(0, 1 - t * t); // ART-22: holds, then fades
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(14,16,10,0.75)'; // dark outline: readable on any ground
+      ctx.strokeText(ft.text, sx, ft.y - t * 40);
       ctx.fillStyle = ft.color;
-      ctx.globalAlpha = Math.max(0, 1 - t);
-      ctx.fillText(ft.text, sx, ft.y - t * 36);
+      ctx.fillText(ft.text, sx, ft.y - t * 40);
       ctx.globalAlpha = 1;
     }
     ctx.restore();
 
+    // ART-22: the impact flash, in screen space over everything
+    if (impactFlash > 0) {
+      ctx.fillStyle = `rgba(${impactFlashColor},${impactFlash.toFixed(3)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
   }
 
   // ---- ART-19: the one strip. Replaces the minimap, zone strip, counter
@@ -5553,6 +5616,7 @@
     }
     const remaining = Math.max(0, target.totalSeconds - target.age);
     const tier = remaining > 20 ? 'green' : remaining > 5 ? 'yellow' : 'red';
+    if (remaining <= 3 && !target.sirenPlayed) { target.sirenPlayed = true; sfxSiren(); } // ART-22
     incomingAlertEl.classList.add(tier, 'hasThreat');
     // LRNA-150: this used to only ever show the single soonest threat, so
     // a real wall of missiles read identically to a lone one - the radar
@@ -5647,6 +5711,9 @@
       openMissionMap: () => openMissionMap(),
       closeMissionMap: () => closeMissionMap(),
       get camShakeMag() { return camShakeMag; },
+      get impactFlash() { return impactFlash; }, // ART-22
+      get scorchMarks() { return scorchMarks; },
+      get floatingTexts() { return floatingTexts; },
       get camShakeTimer() { return camShakeTimer; },
       get followId() { return followId; },
       setFollowId(id) { followId = id; },

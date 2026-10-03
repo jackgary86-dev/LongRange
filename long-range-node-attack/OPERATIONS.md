@@ -37,7 +37,7 @@ Tests:
 cd long-range-node-attack
 npm ci
 npx playwright install chromium    # skip where Chromium is preinstalled
-npm test                           # 69 tests as of LRNA-180
+npm test                           # 73 tests as of ART epic 3
 ```
 Tests drive the game through `window.__TEST__`, which only exists with
 `?test=1` in the URL (or `localStorage.lrna_test_mode = '1'`).
@@ -185,7 +185,12 @@ full before an update from a new conversation.
   opening lock, DRONE, RECON PLANE, INTEL currency, hidden nodes, forward
   defenses or Satellite. PLAY starts the fight at once with two
   currencies (ATTACK, COUNTER). Six missions, the first three built on
-  the field targets. Next up: ART epic 3, the in-game GUI redesign.
+  the field targets. Then LRNA-181: one counter, EMERGENCY COUNTER, 10
+  per game for each side, and ATTACK as the only currency. Then ART epic
+  3 rebuilt the battle screen: corner health bars and one incoming
+  warning, a compact icon bar, one strip instead of four, targeting from
+  a short list, a camera that follows the action, a realistic military
+  map look, and real explosions, hit markers, shake and sound.
 - Connor's server (192.168.1.36) is down, and the NixonExpress hosting was
   down on 2026-09-30, so the game now ships as the standalone installer,
   which doesn't depend on either server.
