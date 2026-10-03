@@ -1,7 +1,7 @@
 # Long Range Node Attack: hosting, deploys and rebuilding from scratch
 
 Everything needed to run, host, deploy or remake this game, in one place.
-Last brought up to date 2026-10-03 (game at LRNA-180).
+Last brought up to date 2026-10-03 (game at LRNA-181 and ART epic 3).
 
 ## Where everything lives
 
