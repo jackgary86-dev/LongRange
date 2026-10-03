@@ -366,6 +366,7 @@
     pointer-events: none;
   }
   #btnTip[hidden] { display: none; }
+  .launchBtn[hidden] { display: none; } /* LRNA-175: not unlocked yet */
 
 
   /* ---- ART epic 2 (ART-9): the menu design system. Tactical/military,
@@ -410,6 +411,25 @@
   .menuScreen[hidden] { display: none; }
   #menuHome { width: min(460px, 100%); align-items: stretch; text-align: center; }
   #menuMissions { width: min(820px, 100%); }
+  /* LRNA-175: the armory - unlocks bought with merit */
+  #menuArmory { width: min(820px, 100%); }
+  .armoryHead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; font-size: 11px; letter-spacing: 0.15em; color: var(--m-muted); }
+  .armoryHead strong { font-family: var(--m-display); font-weight: 700; font-size: 22px; letter-spacing: 0.1em; color: var(--m-accent); }
+  #armoryList { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 10px; }
+  .unlockBtn { pointer-events: auto; cursor: pointer; display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 12px 14px;
+    color: var(--m-text); font-family: var(--m-mono); background: var(--m-panel); border: 1px solid var(--m-line); border-left: 3px solid var(--m-line-strong); border-radius: 2px; }
+  .unlockBtn .uName { display: flex; justify-content: space-between; gap: 10px; font-family: var(--m-display); font-weight: 700; font-size: 16px; letter-spacing: 0.12em; }
+  .unlockBtn .uKind { font-family: var(--m-mono); font-weight: 400; font-size: 10px; letter-spacing: 0.2em; color: var(--m-muted); }
+  .unlockBtn .uDesc { font-size: 11px; line-height: 1.45; opacity: 0.85; }
+  .unlockBtn .uState { font-size: 11px; letter-spacing: 0.15em; color: var(--m-muted); }
+  .unlockBtn.buyable { border-left-color: var(--m-accent); }
+  .unlockBtn.buyable .uState { color: var(--m-accent); }
+  .unlockBtn.buyable:hover { border-color: var(--m-accent); background: #191c16; }
+  .unlockBtn.owned { border-left-color: #8fa86a; cursor: default; }
+  .unlockBtn.owned .uState { color: #8fa86a; }
+  .unlockBtn:disabled:not(.owned) { cursor: default; opacity: 0.6; }
+  .unlockBtn:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; }
+  .armoryNote { font-size: 11px; line-height: 1.5; color: var(--m-muted); }
   .mEyebrow { font-size: 11px; letter-spacing: 0.35em; color: var(--m-accent); }
   #overlay h1 {
     margin: 0;
@@ -598,7 +618,7 @@
     .tpLabel { display: none; }
     #abilityGroups { flex-direction: column; gap: 5px; }
     .abilityGroupButtons { gap: 4px; }
-    .abilityGroup[data-pillar="attack"] .abilityGroupButtons { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .abilityGroup[data-pillar="attack"] .abilityGroupButtons { display: grid; grid-template-columns: repeat(var(--attackCols, 6), minmax(0, 1fr)); } /* LRNA-175: set from what's unlocked */
     .launchBtn { width: auto; min-width: 0; min-height: 54px; padding: 9px 1px 3px; }
     .btnIcon { width: 28px; height: 14px; }
     .btnLabel { font-size: 9px; letter-spacing: 0.04em; }
@@ -734,6 +754,14 @@
               <span class="btnKey">3</span><span class="btnLabel">LONG</span>
               <span class="btnDmg">500</span><span class="btnEta">30s</span>
             </button>
+            <button class="launchBtn" data-type="cluster" hidden>
+              <span class="btnKey">5</span><span class="btnLabel">CLUSTER</span>
+              <span class="btnDmg">750</span><span class="btnEta">24s</span>
+            </button>
+            <button class="launchBtn" data-type="emp" hidden>
+              <span class="btnKey">6</span><span class="btnLabel">EMP</span>
+              <span class="btnDmg">500</span><span class="btnEta">18s</span>
+            </button>
           </div>
         </div>
         <!-- LRNA-181: one counter - EMERGENCY COUNTER, 15 per game (LRNA-185) -->
@@ -759,11 +787,12 @@
     <section class="menuScreen" id="menuHome" data-menu="home">
       <div class="mEyebrow">ORBITAL SIEGE PROTOCOL</div>
       <h1><span>LONG RANGE</span> <span class="accent">NODE ATTACK</span></h1>
-      <div class="mStatus"><span id="bestWaveLabel">BEST WAVE <strong id="bestWaveValue">1</strong></span><span>MISSION STARS <strong id="missionStarsTotal">0/18</strong></span></div>
+      <div class="mStatus"><span id="bestWaveLabel">BEST WAVE <strong id="bestWaveValue">1</strong></span><span>MISSION STARS <strong id="missionStarsTotal">0/18</strong></span><span>MERIT <strong id="meritTotal">0</strong></span></div>
       <hr class="mRule">
       <div class="mActions">
         <button id="startGameBtn" class="mBtn primary">PLAY</button>
         <button class="mBtn" data-goto="missions" id="missionsBtn">MISSIONS</button>
+        <button class="mBtn" data-goto="armory" id="armoryBtn">ARMORY</button>
       </div>
       <div class="mSetupLine">SETUP <strong id="setupSummary">NORMAL</strong></div>
       <div class="mLinks">
@@ -808,6 +837,14 @@
       <div id="missionList"></div>
     </section>
 
+    <!-- LRNA-175: unlocks between games, bought with merit -->
+    <section class="menuScreen" id="menuArmory" data-menu="armory" hidden>
+      <div class="mHead"><button class="mLink" data-goto="home">&#9666; BACK</button><h2>ARMORY</h2></div>
+      <div class="armoryHead"><span>MERIT <strong id="armoryMerit">0</strong></span><span>EARN IT: 1 PER WAVE CLEARED AND 3 PER OMEGA KILL IN ENDLESS, 5 PER NEW MISSION STAR</span></div>
+      <div id="armoryList"></div>
+      <p class="armoryNote">Every game starts with FAST and MEDIUM missiles and the GML, MG AA and COUNTER BATTERY defenses. What you unlock is yours for good, and every game still starts fresh with it.</p>
+    </section>
+
     <!-- ART-13: a short, current how-to-play -->
     <section class="menuScreen" id="menuHowto" data-menu="howto" hidden>
       <div class="mHead"><button class="mLink" data-goto="home">&#9666; BACK</button><h2>HOW TO PLAY</h2></div>
@@ -825,7 +862,10 @@
         <p class="howText"><strong>CURRENCY</strong> &mdash; <span style="color:#ff5a36">ATTACK</span> pays for warheads and strike planes. It trickles in, and hits pay back part of their cost.</p>
       </div>
       <div class="mPanel">
-        <p class="howText"><strong>CONTROLS</strong> &mdash; drag or arrow keys to look around, tap a missile to follow it, keys 1-3 fire missiles, 4 fires the Emergency Counter, R restarts.</p>
+        <p class="howText"><strong>ARMORY</strong> &mdash; you start with FAST and MEDIUM. Waves cleared, Omega kills and mission stars earn MERIT between games; spend it in the ARMORY on LONG RANGE, CLUSTER, EMP, strike planes and more defenses.</p>
+      </div>
+      <div class="mPanel">
+        <p class="howText"><strong>CONTROLS</strong> &mdash; drag or arrow keys to look around, tap a missile to follow it, keys 1-3 fire missiles, 4 fires the Emergency Counter, 5 and 6 fire CLUSTER and EMP once unlocked, R restarts.</p>
       </div>
     </section>
   </div>
@@ -1609,13 +1649,8 @@
     // health, not the player's node-count/health-pool damage tiers above.
     enemyStrike: { label: 'STRIKE', names: ['REAPER', 'JAVELIN', 'SCYTHE', 'TALON'], eta: 14, dmg: 14, radius: 6, color: '#d8613f', peak: 200 },
   };
-  // LRNA-143: CLUSTER/EMP stay fully defined above (tests still exercise
-  // them directly, and a future pass may want to bring them back) but
-  // have no launch-bar button - removed deliberately, per direct request
-  // (see the SHORTCUT_KEYS comment below). This is the one place that
-  // now needs to know that, instead of the exclusion being re-derived
-  // implicitly wherever launch-bar types get filtered.
-  const UI_DISABLED_TYPES = ['cluster', 'emp'];
+  // LRNA-175: CLUSTER and EMP are back on the bar as ARMORY unlocks (they
+  // had no button since LRNA-143).
 
   // Omega's strikes vary in size like the player's own arsenal - FAST ones are
   // too quick for the Strike Platform's Emergency Counter system to lock onto,
@@ -1840,6 +1875,66 @@
   })();
 
 
+  // ---- LRNA-175: UNLOCKS BETWEEN GAMES. Merit is earned at the end of a
+  // game (endless: waves cleared and Omega kills; missions: each new
+  // star) and spent in the ARMORY. Anything not listed here is in the
+  // starter kit: FAST, MEDIUM and the GML / MG AA / COUNTER BATTERY
+  // defenses. Unlocks are kept per browser and never reset between games.
+  const UNLOCKS_KEY = 'lrna_unlocks_v1';
+  const MERIT_PER_WAVE = 1, MERIT_PER_OMEGA_KILL = 3, MERIT_PER_STAR = 5;
+  const UNLOCKS = [
+    { key: 'large', kind: 'MISSILE', cost: 10 },
+    { key: 'cluster', kind: 'MISSILE', cost: 20, needs: 'large' },
+    { key: 'emp', kind: 'MISSILE', cost: 20, needs: 'large' },
+    { key: 'strikeFighter', kind: 'PLANE', cost: 15, needs: 'large' },
+    { key: 'strikeBomber', kind: 'PLANE', cost: 25, needs: 'strikeFighter' },
+    { key: 'heavyBomber', kind: 'PLANE', cost: 35, needs: 'strikeBomber' },
+    { key: 'gu', kind: 'DEFENSE', cost: 10 },
+    { key: 'base', kind: 'DEFENSE', cost: 15 },
+  ];
+  let unlockState = { merit: 0, owned: [] };
+  function loadUnlocks() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(UNLOCKS_KEY));
+      if (saved && typeof saved.merit === 'number' && Array.isArray(saved.owned)) {
+        unlockState = { merit: Math.max(0, Math.floor(saved.merit)), owned: saved.owned.filter(k => UNLOCKS.some(u => u.key === k)) };
+        return;
+      }
+    } catch (e) { /* fall through */ }
+    // first time with unlocks: credit what this browser already earned
+    // (mission stars and the best wave) so a returning player isn't sent
+    // back to zero
+    let merit = 0;
+    try {
+      const stars = JSON.parse(localStorage.getItem('lrna_mission_stars_v1')) || {};
+      merit += Object.values(stars).reduce((n, v) => n + (+v || 0), 0) * MERIT_PER_STAR;
+      merit += Math.max(0, (parseInt(localStorage.getItem('lrna_best_wave_v1'), 10) || 1) - 1) * MERIT_PER_WAVE;
+    } catch (e) { /* ignore */ }
+    unlockState = { merit, owned: [] };
+    saveUnlocks();
+  }
+  function saveUnlocks() { trySaveStorage(UNLOCKS_KEY, JSON.stringify(unlockState)); }
+  function isUnlocked(key) {
+    return !UNLOCKS.some(u => u.key === key) || unlockState.owned.includes(key);
+  }
+  function canBuyUnlock(key) {
+    const u = UNLOCKS.find(x => x.key === key);
+    return !!u && !isUnlocked(key) && (!u.needs || isUnlocked(u.needs)) && unlockState.merit >= u.cost;
+  }
+  function buyUnlock(key) {
+    if (!canBuyUnlock(key)) return false;
+    unlockState.merit -= UNLOCKS.find(x => x.key === key).cost;
+    unlockState.owned.push(key);
+    saveUnlocks();
+    return true;
+  }
+  function awardMerit(n) {
+    n = Math.max(0, Math.floor(n));
+    if (n) { unlockState.merit += n; saveUnlocks(); }
+    return n;
+  }
+  loadUnlocks();
+
   // ---- LOADOUT NODES (LRNA-070, issue #427): 3 point-defense nodes the
   // player picks and places at fixed corridor fractions before every run
   // (Start screen), independent of the always-on AM batteries above.
@@ -1903,12 +1998,14 @@
       engages: () => true,
     },
   };
-  let loadout = ['gml', 'mgaa', 'cb'];
+  const DEFAULT_LOADOUT = ['gml', 'mgaa', 'cb'];
+  let loadout = DEFAULT_LOADOUT.slice();
   function loadLoadout() {
     try {
       const saved = JSON.parse(localStorage.getItem(LOADOUT_KEY));
-      // LRNA-180: a slot holding a removed node (Satellite) goes back to its default
-      if (Array.isArray(saved) && saved.length === 3) loadout = saved.map((k, i) => LOADOUT_NODE_TYPES[k] ? k : loadout[i]);
+      // LRNA-180: a slot holding a removed node (Satellite) goes back to its default;
+      // LRNA-175: so does one holding a node that isn't unlocked
+      if (Array.isArray(saved) && saved.length === 3) loadout = saved.map((k, i) => LOADOUT_NODE_TYPES[k] && isUnlocked(k) ? k : DEFAULT_LOADOUT[i]);
     } catch (e) { /* private/blocked storage: keep the default loadout */ }
   }
   function saveLoadout() {
@@ -2098,11 +2195,14 @@
     const st = missionState();
     running = false;
     setPaused(false);
-    let stars = 0, bestNote = '';
+    let stars = 0, bestNote = '', merit = 0;
     if (won) {
       stars = m.stars(st);
       const best = loadMissionStars();
-      if (stars > (best[m.id] || 0)) { best[m.id] = stars; saveMissionStars(best); bestNote = 'new'; }
+      if (stars > (best[m.id] || 0)) {
+        merit = awardMerit((stars - (best[m.id] || 0)) * MERIT_PER_STAR); // LRNA-175: only new stars pay
+        best[m.id] = stars; saveMissionStars(best); bestNote = 'new';
+      }
     }
     showResult({
       kind: 'MISSION', title: won ? 'MISSION COMPLETE' : 'MISSION FAILED', won, missionId: m.id,
@@ -2112,6 +2212,7 @@
         ['TIME', `${fmtTime(st.time)}${m.limit ? ` / ${fmtTime(m.limit)}` : ''}`],
         ['NODES DESTROYED', st.fieldKills], ['WAVES CLEARED', st.wavesCleared],
         ['WARHEADS FIRED', stats.fired.toLocaleString()],
+        ['MERIT EARNED', meritRowText(merit)],
       ],
     });
     activeMission = null;
@@ -2168,6 +2269,12 @@
       .catch(() => {});
   }
 
+  // LRNA-175: the result screen's merit line, with a nudge when the
+  // ARMORY has something the player can now afford
+  function meritRowText(n) {
+    const ready = UNLOCKS.some(u => canBuyUnlock(u.key));
+    return `+${n} (${unlockState.merit} total)${ready ? ' · ARMORY READY' : ''}`;
+  }
   function triggerRunEnd() {
     if (activeMission) { endMission(false, 'The Strike Platform was destroyed.'); return; } // LRNA-174
     running = false;
@@ -2176,10 +2283,13 @@
     if (newBest) bestWave = currentWave;
     saveBestWave();
     postArcadeScore(currentWave); // this mode's existing score is "waves survived" (LRNA-072)
+    // LRNA-175: merit for the waves cleared and the times Omega fell
+    const merit = awardMerit(Math.max(0, currentWave - 1) * MERIT_PER_WAVE + omegaRebuildCount * MERIT_PER_OMEGA_KILL);
     showResult({
       kind: 'ENDLESS', title: 'STRIKE PLATFORM LOST', won: false,
       head: `WAVE ${currentWave}`, sub: newBest ? 'NEW BEST' : `BEST WAVE ${bestWave}`,
       rows: [
+        ['MERIT EARNED', meritRowText(merit)],
         ['WARHEADS FIRED', stats.fired.toLocaleString()],
         ['ENEMY SHOTS INTERCEPTED', stats.intercepts.toLocaleString()],
         ['DIFFICULTY', DIFFICULTIES[difficulty].label],
@@ -2964,6 +3074,7 @@
     const def = PLANE_TYPES[key];
     const slot = planeSlots[key];
     if (!def || !slot || slot.state !== 'ready') return;
+    if (!isUnlocked(key)) return; // LRNA-175
     if (tokens[def.pillar] < def.cost) return;
     const dest = key === 'interceptorJet' ? null : (getTarget(selectedTargetId) || nodeO);
     let seekTargetId = null;
@@ -5363,6 +5474,7 @@
   function startDemo(initial) {
     if (running) return;
     initAudio();
+    applyUnlocksToBar(); // LRNA-175
     reset(initial);
     running = true;
     setPaused(false); // LRNA-119: never start a fresh run already paused
@@ -5396,13 +5508,20 @@
 
   const loadoutSelectEls = Array.from(document.querySelectorAll('.loadoutSelect'));
   const startGameBtnEl = document.getElementById('startGameBtn');
+  // LRNA-175: nodes not unlocked yet show as locked and can't be picked
+  function renderLoadoutOptions() {
+    loadoutSelectEls.forEach(sel => {
+      sel.innerHTML = Object.values(LOADOUT_NODE_TYPES)
+        .map(def => `<option value="${def.key}"${isUnlocked(def.key) ? '' : ' disabled'}>${def.label}${isUnlocked(def.key) ? '' : ' (LOCKED)'}</option>`) // ART-11: role shows under the select
+        .join('');
+      sel.value = loadout[parseInt(sel.dataset.slot, 10)];
+    });
+  }
+  renderLoadoutOptions();
   loadoutSelectEls.forEach(sel => {
-    sel.innerHTML = Object.values(LOADOUT_NODE_TYPES)
-      .map(def => `<option value="${def.key}">${def.label}</option>`) // ART-11: role shows under the select
-      .join('');
     const slot = parseInt(sel.dataset.slot, 10);
-    sel.value = loadout[slot];
     sel.addEventListener('change', () => {
+      if (!isUnlocked(sel.value)) { sel.value = loadout[slot]; return; }
       loadout[slot] = sel.value;
       saveLoadout();
       renderMenuHome(); // ART-11
@@ -5436,6 +5555,7 @@
     for (const sc of document.querySelectorAll('#overlay .menuScreen')) sc.hidden = sc.dataset.menu !== name;
     overlay.scrollTop = 0;
     if (name === 'home') renderMenuHome();
+    if (name === 'armory') renderArmory(); // LRNA-175
     if (overlay.contains(document.activeElement)) {
       const first = document.querySelector(`#overlay .menuScreen[data-menu="${name}"] button`);
       if (first) first.focus({ preventScroll: true });
@@ -5451,6 +5571,8 @@
     const stars = loadMissionStars();
     document.getElementById('missionStarsTotal').textContent =
       `${MISSIONS.reduce((n, m) => n + (stars[m.id] || 0), 0)}/${MISSIONS.length * 3}`;
+    document.getElementById('meritTotal').textContent = unlockState.merit; // LRNA-175
+    document.getElementById('armoryBtn').textContent = UNLOCKS.some(u => canBuyUnlock(u.key)) ? 'ARMORY · READY' : 'ARMORY';
   }
   overlay.addEventListener('click', (e) => {
     const go = e.target.closest('[data-goto]');
@@ -5577,6 +5699,7 @@
   const launchButtons = Array.from(document.querySelectorAll('.launchBtn[data-type]'));
   function attemptFire(typeKey) {
     if (paused) return; // LRNA-119
+    if (!isUnlocked(typeKey)) return; // LRNA-175
     const cost = TYPES[typeKey].cost;
     const pillar = ABILITY_PILLARS[typeKey];
     const dest = getTarget(selectedTargetId) || nodeO;
@@ -5608,6 +5731,8 @@
     strikeFighter: '<path d="M31 8 21 6.5 15 1h-3l3 5.5H7L4 3H2l1.5 5L2 13h2l3-3.5h8l-3 5.5h3l6-5.5z"/>',
     strikeBomber: '<path d="M31 8 23 6.5 14 .5H10l5 6H6L3 3.5H1L2.5 8 1 12.5h2L6 9.5h9l-5 6h4l9-6z"/>',
     heavyBomber: '<path d="M31 8 24 6.3 13 0H8l6 6.3H5L2 3H0l1.5 5L0 13h2l3-3.3h9l-6 6.3h5l11-6.3z"/><path d="M11 3.2h3v1.6h-3zM11 11.2h3v1.6h-3z"/>',
+    cluster: '<path d="M2 8 5 5h14l5 3-5 3H5z"/><circle cx="26" cy="4" r="2"/><circle cx="29" cy="8" r="2"/><circle cx="26" cy="12" r="2"/>',
+    emp: '<path d="M2 8 5 5h16l6 3-6 3H5z"/><path d="M27 1l-3 6h3l-3 8 7-9h-3l2-5z"/>',
     emergency: '<circle cx="16" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.2 0h1.6v5h-1.6zM15.2 11h1.6v5h-1.6zM6 7.2h5v1.6H6zM21 7.2h5v1.6h-5z"/>',
   };
   const PLANE_SHORT = { strikeFighter: 'FIGHTER', strikeBomber: 'BOMBER', heavyBomber: 'HEAVY' };
@@ -5703,6 +5828,55 @@
   }
   updatePlaneButtons();
 
+  // ---- LRNA-175: only what's unlocked is on the bar. The phone grid
+  // takes one column per button, all in one row.
+  function applyUnlocksToBar() {
+    let shown = 0;
+    for (const b of launchButtons) { b.hidden = !isUnlocked(b.dataset.type); if (!b.hidden) shown += 1; }
+    for (const [key, b] of Object.entries(planeButtonEls)) { b.hidden = !isUnlocked(key); if (!b.hidden) shown += 1; }
+    document.getElementById('planeButtons-attack').style.setProperty('--attackCols', shown);
+  }
+  applyUnlocksToBar();
+
+  // ---- LRNA-175: the ARMORY screen
+  function unlockInfo(key) {
+    if (TYPES[key]) {
+      const t = TYPES[key];
+      const what = key === 'cluster' ? `Splits into ${t.splitCount} warheads, ${t.dmg} damage in all`
+        : key === 'emp' ? `${t.dmg} damage, and blacks out all of Omega's defenses for ${EMP_JAM_DURATION}s`
+        : `${t.dmg} damage`;
+      return { label: t.label, desc: `${what}. ${t.eta}s flight, ${t.cost} ATTACK.` };
+    }
+    if (PLANE_TYPES[key]) {
+      const p = PLANE_TYPES[key];
+      return { label: p.label, desc: `${p.dmg} damage, ${p.eta}s flight, ${p.cost} ATTACK. Flies out, then rearms - not a warhead.` };
+    }
+    const n = LOADOUT_NODE_TYPES[key];
+    return { label: n.label, desc: `Corridor defense: ${n.desc}.` };
+  }
+  function renderArmory() {
+    document.getElementById('armoryMerit').textContent = unlockState.merit;
+    document.getElementById('armoryList').innerHTML = UNLOCKS.map((u) => {
+      const info = unlockInfo(u.key);
+      const owned = isUnlocked(u.key);
+      const blocked = u.needs && !isUnlocked(u.needs);
+      const buyable = canBuyUnlock(u.key);
+      const state = owned ? 'UNLOCKED' : blocked ? `NEEDS ${unlockInfo(u.needs).label}` : `${buyable ? 'UNLOCK · ' : ''}${u.cost} MERIT`;
+      return `<button class="unlockBtn${owned ? ' owned' : buyable ? ' buyable' : ''}" data-unlock="${u.key}"${buyable ? '' : ' disabled'}>` +
+        `<span class="uName"><span>${info.label}</span><span class="uKind">${u.kind}</span></span>` +
+        `<span class="uDesc">${info.desc}</span><span class="uState">${state}</span></button>`;
+    }).join('');
+  }
+  document.getElementById('armoryList').addEventListener('click', (e) => {
+    const btn = e.target.closest('.unlockBtn');
+    if (!btn || !buyUnlock(btn.dataset.unlock)) return;
+    sfxUi();
+    renderArmory();
+    renderLoadoutOptions();
+    applyUnlocksToBar();
+    renderMenuHome();
+  });
+
 
   // ---- INCOMING alert (LRNA-074/#431): flashes the color of the
   // soonest inbound threat's time-to-impact - green >20s, yellow 5-20s,
@@ -5746,11 +5920,10 @@
   // the Emergency Counter (LRNA-181).
   // CLUSTER/EMP removed for now (direct request), so ATTACK only
   // contributes FAST/MEDIUM/LARGE here.
-  const SHORTCUT_KEYS = ['1', '2', '3', '4'];
-  const shortcutButtons = [
-    ...launchButtons.filter(b => ['fast', 'medium', 'large'].includes(b.dataset.type)),
-    emergencyBtnEl,
-  ];
+  // LRNA-175: 5 and 6 fire CLUSTER and EMP once they're unlocked
+  const SHORTCUT_KEYS = ['1', '2', '3', '4', '5', '6'];
+  const byType = (k) => launchButtons.find(b => b.dataset.type === k);
+  const shortcutButtons = [byType('fast'), byType('medium'), byType('large'), emergencyBtnEl, byType('cluster'), byType('emp')];
   window.addEventListener('keydown', (e) => {
     if (!running) return;
     // OS-level key-repeat while a shortcut is held would otherwise
@@ -5760,7 +5933,7 @@
     const idx = SHORTCUT_KEYS.indexOf(e.key);
     if (idx === -1) return;
     const btn = shortcutButtons[idx];
-    if (btn && !btn.disabled) btn.click();
+    if (btn && !btn.disabled && !btn.hidden) btn.click();
   });
 
   window.addEventListener('resize', resize);
@@ -5821,7 +5994,6 @@
       setMuted: (v) => setMuted(v),
       get masterGainValue() { return masterGain ? masterGain.gain.value : null; },
       get MASTER_VOLUME() { return MASTER_VOLUME; },
-      get UI_DISABLED_TYPES() { return UI_DISABLED_TYPES; },
       get missionMapOpen() { return missionMapOpen; },
       get gameMenuOpen() { return gameMenuOpen; }, // ART-14
       openMissionMap: () => openMissionMap(),
@@ -5885,6 +6057,15 @@
       get waveStrikesLaunched() { return waveStrikesLaunched; },
       get waveStrikesTotal() { return waveStrikesTotal; },
       get currentWave() { return currentWave; },
+      // LRNA-175 unlocks
+      get unlockState() { return unlockState; },
+      get UNLOCKS() { return UNLOCKS; },
+      isUnlocked: (k) => isUnlocked(k),
+      buyUnlock: (k) => buyUnlock(k),
+      get loadout() { return loadout; },
+      get omegaRebuildCount() { return omegaRebuildCount; },
+      set omegaRebuildCount(v) { omegaRebuildCount = v; },
+      set currentWaveForTest(v) { currentWave = v; },
       get ENEMY_STRIKE_SIZES() { return ENEMY_STRIKE_SIZES; },
       fireCounter: (origin, targetId, source) => fireCounter(origin, targetId, source),
       fireEmergencyCounter: () => fireEmergencyCounter(),

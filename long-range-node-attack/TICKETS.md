@@ -568,12 +568,49 @@ missions.
     mission. 74/74.
   - Next: more missions once these are playtested, and LRNA-175 spends
     stars on unlocks.
-- **LRNA-175** — OPEN — Unlocks between games: new weapons and loadout
+- **LRNA-175** — DONE (2026-10-03) — Unlocks between games: new weapons and loadout
   nodes. Earn points from missions (stars) and endless runs; spend them to
   unlock weapons (LONG RANGE, then CLUSTER and EMP back on the bar, then
   attack planes) and loadout nodes (Satellite, Base, Ground Units). Every
   game still starts fair within what's unlocked. Open: starting set
   (proposal: FAST, MEDIUM, DRONE; GML and MG AA nodes), and costs.
+  - Built: **MERIT** is earned when a game ends - endless pays 1 per wave
+    cleared and 3 per Omega kill; a mission pays 5 per *new* star (a
+    replay at the same stars pays nothing). It's spent on the new
+    **ARMORY** screen (home: PLAY / MISSIONS / ARMORY; the home status
+    line shows MERIT, and the button reads "ARMORY · READY" when
+    something is affordable). Result screens show "MERIT EARNED +n (total)".
+  - Starter kit (decided): FAST and MEDIUM, and the GML / MG AA / COUNTER
+    BATTERY defenses - the old default loadout stays whole, so a fresh
+    player's setup is unchanged. DRONE and Satellite no longer exist
+    (LRNA-180).
+  - Unlocks and costs: LONG RANGE 10; CLUSTER 20 and EMP 20 (need LONG
+    RANGE; both back on the bar on keys 5 and 6); STRIKE FIGHTER 15
+    (needs LONG RANGE) → STRIKE BOMBER 25 → HEAVY BOMBER 35; GROUND UNITS
+    10, BASE 15. 150 in all. Kept in `lrna_unlocks_v1`.
+  - Locked weapons aren't on the bar at all, and can't be fired by key or
+    code; the phone bar sizes its one row to what's unlocked (2 to 8
+    buttons, still one row at 390px, bar 223px). Locked defenses show
+    "(LOCKED)" and can't be picked in SETUP; a saved loadout holding one
+    goes back to that slot's default.
+  - A returning player isn't sent to zero: the first load credits 5 per
+    mission star already earned plus 1 per wave of their best run.
+  - Balance (simulator, new `SIM_UNLOCKS=starter`, 96 games, 15-min cap):
+    a fresh player can win. Normal, starter kit: first Omega kill ~6:00-
+    7:40 with the node plans (all-nodes-first 8/8 kill Omega, 5/8 last the
+    cap; omega-only 4/8). Hard starter is hard (fast-nodes 7/8 kill Omega,
+    the rest 0-2/8). A Normal game earns ~12 merit, so LONG RANGE comes
+    after the first game and the whole armory in ~10-12 games plus
+    missions (up to 90 merit from 18 stars). Fully unlocked (144 games)
+    still plays as recorded for LRNA-190: Normal first kill 3:01-3:58 on
+    every plan but fast-spam, node plans outlast omega-only (fast-nodes
+    11:21 and 3.2 kills, all-nodes-first 12:39).
+  - UI_DISABLED_TYPES (LRNA-143) is gone; its test is now "CLUSTER and
+    EMP are on the bar once unlocked". The suite plays fully unlocked by
+    default (`withGame(fn, { unlocks: 'starter' | [...], merit })`).
+  - Tests (6 new): fresh-player bar and setup, endless merit, mission
+    merit only for new stars, armory purchase order reaching the bar and
+    setup, returning-player credit, CLUSTER/EMP keys. 87/87.
 - **LRNA-176** — OPEN — Omega boss phases. Omega changes tactics at
   75/50/25% health (e.g. faster strikes, a shield burst, launching its own
   planes), announced on screen, so a fight builds instead of repeating.

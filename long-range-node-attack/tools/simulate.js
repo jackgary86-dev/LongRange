@@ -23,6 +23,9 @@ const STRATEGIES = pickList('SIM_STRATEGIES', ['omega', 'fast-spam', 'radar-firs
 const DIFFICULTIES = pickList('SIM_DIFFICULTIES', ['easy', 'normal', 'hard']);
 const ALL_SKILLS = { sharp: 1.0, casual: 0.35 }; // chance per decision to react with the Emergency Counter
 const SKILLS = Object.fromEntries(pickList('SIM_SKILLS', Object.keys(ALL_SKILLS)).map((k) => [k, ALL_SKILLS[k]]));
+// LRNA-175: SIM_UNLOCKS=starter plays as a fresh player (FAST, MEDIUM and the
+// starter defenses only); the default is everything unlocked
+const UNLOCKS = process.env.SIM_UNLOCKS === 'starter' ? [] : ['large', 'cluster', 'emp', 'strikeFighter', 'strikeBomber', 'heavyBomber', 'gu', 'base'];
 const GAME = 'file://' + path.resolve(process.env.SIM_GAME || path.join(__dirname, '..', 'index.html')) + '?test=1';
 
 // runs inside the page: one whole game
@@ -67,9 +70,10 @@ async function playGame({ strategy, reflex, minutes }) {
       if (strategy === 'fast-nodes' && want !== 'O') {
         T.attemptFire('fast'); // LRNA-190: FAST at the nodes, planes and heavy missiles at Omega
       } else if (strategy !== 'fast-spam') {
-        for (const k of ['heavyBomber', 'strikeBomber', 'strikeFighter']) if (T.planeSlots[k].state === 'ready') T.firePlane(k);
+        for (const k of ['heavyBomber', 'strikeBomber', 'strikeFighter']) if (T.isUnlocked(k) && T.planeSlots[k].state === 'ready') T.firePlane(k);
         const a = T.tokens.attack;
-        T.attemptFire(a >= 500 ? 'large' : a >= 300 ? 'medium' : 'fast');
+        // the biggest unlocked missile affordable
+        T.attemptFire(a >= 500 && T.isUnlocked('large') ? 'large' : a >= 300 ? 'medium' : 'fast');
       } else {
         T.attemptFire('fast');
       }
@@ -109,12 +113,15 @@ async function playGame({ strategy, reflex, minutes }) {
 
 async function runOne(browser, cfg) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-  await ctx.addInitScript((difficulty) => {
+  await ctx.addInitScript(([difficulty, owned]) => {
     window.__simClock = 0;
     performance.now = () => window.__simClock;
     window.requestAnimationFrame = () => 0; // no render loop: the bot drives time
-    try { localStorage.setItem('lrna_difficulty_v1', difficulty); localStorage.setItem('lrna_muted_v1', '1'); } catch (e) {}
-  }, cfg.difficulty);
+    try {
+      localStorage.setItem('lrna_difficulty_v1', difficulty); localStorage.setItem('lrna_muted_v1', '1');
+      localStorage.setItem('lrna_unlocks_v1', JSON.stringify({ merit: 0, owned }));
+    } catch (e) {}
+  }, [cfg.difficulty, UNLOCKS]);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));

@@ -30,7 +30,11 @@ function assertEqual(actual, expected, msg) {
 // Launches a fresh, isolated page with a clean save, starts the game, and
 // hands it to `fn(page, errors)`. `errors` collects any uncaught page
 // exceptions so tests can assert zero-errors as part of their checks.
-async function withGame(fn, { viewport, skipStart } = {}) {
+// LRNA-175: every unlockable item, which the suite gets by default so the
+// older tests can fire any weapon; pass { unlocks: 'starter' } to play as
+// a fresh player, or an array of keys for a partial set.
+const ALL_UNLOCKS = ['large', 'cluster', 'emp', 'strikeFighter', 'strikeBomber', 'heavyBomber', 'gu', 'base'];
+async function withGame(fn, { viewport, skipStart, unlocks = 'all', merit = 0 } = {}) {
   const browser = await chromium.launch({
     executablePath,
     args: ['--disable-background-timer-throttling'],
@@ -40,7 +44,11 @@ async function withGame(fn, { viewport, skipStart } = {}) {
   page.on('pageerror', (err) => errors.push(err.message));
   try {
     await page.goto(GAME_URL);
-    await page.evaluate(() => localStorage.clear());
+    const owned = unlocks === 'all' ? ALL_UNLOCKS : unlocks === 'starter' ? [] : unlocks;
+    await page.evaluate(([owned, merit]) => {
+      localStorage.clear();
+      localStorage.setItem('lrna_unlocks_v1', JSON.stringify({ merit, owned }));
+    }, [owned, merit]);
     await page.reload();
     await page.waitForTimeout(300);
     if (!skipStart) {
@@ -84,4 +92,5 @@ async function run() {
   process.exitCode = failed > 0 ? 1 : 0;
 }
 
-module.exports = { withGame, assert, assertEqual, test, run, GAME_URL };
+module.exports = {
+  ALL_UNLOCKS, withGame, assert, assertEqual, test, run, GAME_URL };

@@ -813,25 +813,155 @@ test('LRNA-166/184: passive income is 35/s and a hit pays back a quarter of its 
   });
 });
 
-test('LRNA-143: UI_DISABLED_TYPES is the single source of truth for launch-bar-less weapon types', async () => {
+test('LRNA-143/175: CLUSTER and EMP are back on the bar once unlocked, on keys 5 and 6', async () => {
   await withGame(async (page, errors) => {
-    const result = await page.evaluate(() => {
+    const r = await page.evaluate(() => {
       const T = window.__TEST__;
-      const launchBarTypes = Array.from(document.querySelectorAll('.launchBtn[data-type]')).map(b => b.dataset.type);
-      return {
-        disabled: T.UI_DISABLED_TYPES,
-        launchBarTypes,
-        clusterStillFunctional: !!T.TYPES.cluster && T.TYPES.cluster.dmg > 0,
-        empStillFunctional: !!T.TYPES.emp && T.TYPES.emp.dmg > 0,
-      };
+      T.freezeWaves(); T.clearMissiles();
+      T.tokens.attack = 5000;
+      const visible = Array.from(document.querySelectorAll('#planeButtons-attack .launchBtn')).filter((b) => !b.hidden).length;
+      return { visible, cluster: !document.querySelector('.launchBtn[data-type="cluster"]').hidden,
+        emp: !document.querySelector('.launchBtn[data-type="emp"]').hidden };
     });
-    for (const key of result.disabled) {
-      assert(!result.launchBarTypes.includes(key), `${key} is listed as UI-disabled but still has a launch bar button`);
-    }
-    assert(result.clusterStillFunctional, 'CLUSTER should stay fully defined/usable even though it has no button');
-    assert(result.empStillFunctional, 'EMP should stay fully defined/usable even though it has no button');
+    await page.waitForTimeout(150); // the bar re-enables on the next frame
+    await page.keyboard.press('5');
+    await page.waitForTimeout(400);
+    await page.keyboard.press('6');
+    await page.waitForTimeout(100);
+    const fired = await page.evaluate(() => window.__TEST__.missiles.filter((m) => m.originId === 'A').map((m) => m.typeKey));
+    assert(r.cluster && r.emp, 'both buttons show when unlocked');
+    assertEqual(r.visible, 8, 'all 3 missiles, CLUSTER, EMP and the 3 planes');
+    assert(fired.includes('cluster') && fired.includes('emp'), 'keys 5 and 6 fire them: ' + fired);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
+});
+
+test('LRNA-175: a fresh player starts with FAST, MEDIUM and the 3 starter defenses only', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      T.tokens.attack = 5000;
+      const shown = Array.from(document.querySelectorAll('#planeButtons-attack .launchBtn')).filter((b) => !b.hidden)
+        .map((b) => b.dataset.type || b.dataset.plane);
+      T.attemptFire('large');
+      T.firePlane('heavyBomber');
+      const sel = document.querySelector('.loadoutSelect[data-slot="0"]');
+      const locked = Array.from(sel.options).filter((o) => o.disabled).map((o) => o.value);
+      return { shown, fired: T.missiles.filter((m) => m.originId === 'A').length,
+        locked, merit: T.unlockState.merit, cols: getComputedStyle(document.getElementById('planeButtons-attack')).getPropertyValue('--attackCols').trim() };
+    });
+    await page.keyboard.press('3');
+    await page.waitForTimeout(100);
+    const afterKey = await page.evaluate(() => window.__TEST__.missiles.filter((m) => m.originId === 'A').length);
+    assertEqual(r.shown.join(','), 'fast,medium', 'only FAST and MEDIUM on the bar');
+    assertEqual(r.cols, '2', 'the phone grid sizes to what is shown');
+    assertEqual(r.fired, 0, 'locked LONG RANGE and HEAVY BOMBER do not fire from code');
+    assertEqual(afterKey, 0, 'key 3 does nothing while LONG RANGE is locked');
+    assertEqual(r.locked.join(','), 'gu,base', 'GROUND UNITS and BASE are locked in setup');
+    assertEqual(r.merit, 0, 'no merit yet');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { unlocks: 'starter' });
+});
+
+test('LRNA-175: endless runs pay 1 merit per wave cleared and 3 per Omega kill', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves();
+      T.currentWaveForTest = 6;
+      T.omegaRebuildCount = 2;
+      T.triggerRunEnd();
+      return { merit: T.unlockState.merit, saved: JSON.parse(localStorage.getItem('lrna_unlocks_v1')).merit,
+        body: document.getElementById('waveResultBody').textContent };
+    });
+    assertEqual(r.merit, 11, '5 waves cleared + 2 kills x 3');
+    assertEqual(r.saved, 11, 'merit is saved');
+    assert(r.body.includes('MERIT EARNED+11 (11 total) · ARMORY READY'), r.body);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { unlocks: 'starter' });
+});
+
+test('LRNA-175: missions pay 5 merit per new star, nothing for a replay at the same stars', async () => {
+  await withGame(async (page, errors) => {
+    const win = async () => {
+      await page.click('#missionsBtn');
+      await page.click('.missionBtn[data-mission="first-strike"]');
+      await page.waitForTimeout(150);
+      return page.evaluate(() => {
+        const T = window.__TEST__;
+        T.freezeWaves();
+        const nodes = T.fieldTargets.filter((t) => t.baseNode);
+        T.damageNode(nodes[0].id, 1000); T.damageNode(nodes[1].id, 1000); T.tickUpdate(0.05);
+        return T.unlockState.merit;
+      });
+    };
+    const first = await win();
+    await page.click('#waveResultClose');
+    const again = await win();
+    assertEqual(first, 15, '3 new stars x 5');
+    assertEqual(again, 15, 'the same 3 stars again pay nothing');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { unlocks: 'starter', skipStart: true });
+});
+
+test('LRNA-175: the ARMORY sells unlocks in order, and they reach the bar and setup', async () => {
+  await withGame(async (page, errors) => {
+    await page.click('#armoryBtn');
+    const before = await page.evaluate(() => ({
+      merit: document.getElementById('armoryMerit').textContent,
+      cards: Array.from(document.querySelectorAll('.unlockBtn')).map((b) => [b.dataset.unlock, b.disabled, b.querySelector('.uState').textContent]),
+    }));
+    await page.click('.unlockBtn[data-unlock="large"]');
+    await page.click('.unlockBtn[data-unlock="cluster"]');
+    await page.click('.unlockBtn[data-unlock="gu"]');
+    const after = await page.evaluate(() => ({
+      merit: window.__TEST__.unlockState.merit,
+      owned: window.__TEST__.unlockState.owned.join(','),
+      emp: document.querySelector('.unlockBtn[data-unlock="emp"] .uState').textContent,
+      saved: JSON.parse(localStorage.getItem('lrna_unlocks_v1')).owned.join(','),
+      guLocked: document.querySelector('.loadoutSelect option[value="gu"]').disabled,
+    }));
+    await page.click('#menuArmory .mHead .mLink');
+    const home = await page.evaluate(() => ({ merit: document.getElementById('meritTotal').textContent, btn: document.getElementById('armoryBtn').textContent }));
+    await page.click('#startGameBtn');
+    await page.waitForTimeout(200);
+    const bar = await page.evaluate(() => Array.from(document.querySelectorAll('#planeButtons-attack .launchBtn')).filter((b) => !b.hidden).map((b) => b.dataset.type || b.dataset.plane).join(','));
+    const card = (k) => before.cards.find((c) => c[0] === k);
+    assertEqual(before.merit, '40', 'merit shown');
+    assert(!card('large')[1] && card('large')[2].includes('UNLOCK · 10 MERIT'), 'LONG RANGE is buyable: ' + card('large'));
+    assert(card('cluster')[1] && card('cluster')[2] === 'NEEDS LONG RANGE', 'CLUSTER needs LONG RANGE first: ' + card('cluster'));
+    assert(card('heavyBomber')[1] && card('heavyBomber')[2] === 'NEEDS STRIKE BOMBER', 'HEAVY BOMBER needs the STRIKE BOMBER');
+    assertEqual(after.owned, 'large,cluster,gu', 'bought in order');
+    assertEqual(after.merit, 0, '40 - 10 - 20 - 10');
+    assertEqual(after.saved, 'large,cluster,gu', 'saved');
+    assert(after.emp.includes('20 MERIT') && !after.emp.startsWith('UNLOCK'), 'EMP is now unlocked for purchase but unaffordable: ' + after.emp);
+    assert(!after.guLocked, 'GROUND UNITS can be picked in setup now');
+    assertEqual(home.merit, '0', 'home shows the merit left');
+    assertEqual(home.btn, 'ARMORY', 'nothing affordable left');
+    assertEqual(bar, 'fast,medium,large,cluster', 'the new weapons are on the bar');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { unlocks: 'starter', merit: 40, skipStart: true });
+});
+
+test('LRNA-175: a returning player is credited for stars and best wave already earned', async () => {
+  await withGame(async (page, errors) => {
+    await page.evaluate(() => {
+      localStorage.removeItem('lrna_unlocks_v1');
+      localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'first-strike': 3, 'blind-omega': 1 }));
+      localStorage.setItem('lrna_best_wave_v1', '9');
+      localStorage.setItem('lrna_loadout_v1', JSON.stringify(['base', 'mgaa', 'gu']));
+    });
+    await page.reload();
+    await page.waitForTimeout(200);
+    const r = await page.evaluate(() => ({ merit: window.__TEST__.unlockState.merit, home: document.getElementById('meritTotal').textContent,
+      loadout: window.__TEST__.loadout.join(','), btn: document.getElementById('armoryBtn').textContent }));
+    assertEqual(r.merit, 28, '4 stars x 5 + 8 waves');
+    assertEqual(r.home, '28', 'shown on the home screen');
+    assertEqual(r.btn, 'ARMORY · READY', 'the ARMORY button says something is affordable');
+    assertEqual(r.loadout, 'gml,mgaa,cb', 'locked defenses in a saved loadout go back to the defaults');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
 });
 
 test('LRNA-144: a failed localStorage write surfaces a visible warning instead of failing silently', async () => {
@@ -1115,7 +1245,7 @@ test('LRNA-156/ART-14: Esc closes STATS and resumes; a pause made outside STATS 
   });
 });
 
-test('LRNA-168/ART-18: on a phone the six attack buttons share one row, the counter spans the width, and the bar stays slim', async () => {
+test('LRNA-168/ART-18/175: on a phone all eight attack buttons share one row, the counter spans the width, and the bar stays slim', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {
       const rect = (el) => el.getBoundingClientRect();
@@ -1125,8 +1255,8 @@ test('LRNA-168/ART-18: on a phone the six attack buttons share one row, the coun
         attackRows: new Set(tops).size, attackButtons: tops.length, emWidth: em.width, scrollWidth: document.documentElement.scrollWidth };
     });
     assert(r.barHeight < r.viewport * 0.28, `the bottom bar should take under 28% of an 844px phone screen (was ~40%): ${r.barHeight}px`);
-    assertEqual(r.attackButtons, 6, 'ATTACK has its 3 missiles and 3 planes');
-    assertEqual(r.attackRows, 1, 'all six in one row');
+    assertEqual(r.attackButtons, 8, 'ATTACK has its 5 missiles and 3 planes (all unlocked, LRNA-175)');
+    assertEqual(r.attackRows, 1, 'all eight in one row');
     assert(r.emWidth > 300, `EMERGENCY spans the width: ${r.emWidth}px`);
     assert(r.scrollWidth <= 390, `no sideways scroll: ${r.scrollWidth}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
@@ -1470,7 +1600,7 @@ test('LRNA-087: a fast-moving missile spawns speed-line streak particles, a slow
   });
 });
 
-test('ART-10: the home screen is PLAY + MISSIONS on a solid backdrop and fits one screen', async () => {
+test('ART-10: the home screen is PLAY + MISSIONS + ARMORY on a solid backdrop and fits one screen', async () => {
   for (const viewport of [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 1280, height: 800 }]) {
     await withGame(async (page, errors) => {
       const r = await page.evaluate(() => {
@@ -1485,8 +1615,8 @@ test('ART-10: the home screen is PLAY + MISSIONS on a solid backdrop and fits on
           lore: !!document.querySelector('#overlay .tag, #overlay .featuring, #entrance, #loadout') };
       });
       const size = `${viewport.width}x${viewport.height}`;
-      assertEqual(JSON.stringify(r.big), JSON.stringify(['PLAY', 'MISSIONS']), `${size}: the two main buttons`);
-      assert(r.controls <= 4, `${size}: home has at most 4 controls (was 13): ${r.controls}`);
+      assertEqual(JSON.stringify(r.big), JSON.stringify(['PLAY', 'MISSIONS', 'ARMORY']), `${size}: the main buttons (ARMORY since LRNA-175)`);
+      assert(r.controls <= 5, `${size}: home has at most 5 controls (was 13; ARMORY added in LRNA-175): ${r.controls}`);
       assert(!r.scrolls, `${size}: home fits without scrolling`);
       assert(r.corners.every(Boolean), `${size}: the menu covers the screen: ${JSON.stringify(r.corners)}`);
       assert(!r.lore, `${size}: the old lore text, chips and ENTRANCE box are gone`);
@@ -1831,11 +1961,11 @@ test('ART-18: desktop bar - one row of icon buttons with cost, a cooldown fill, 
         bar: document.getElementById('bottomBar').offsetHeight,
       };
     });
-    assertEqual(r.count, 7, 'six attack buttons and the counter');
+    assertEqual(r.count, 9, 'eight attack buttons (all unlocked, LRNA-175) and the counter');
     assertEqual(r.tops, 1, 'all in one row');
-    assertEqual(r.icons, 7, 'every button has an icon');
-    assertEqual(r.costs.join(','), '100,300,500,150,350,550', 'each attack button shows its cost');
-    assertEqual(r.tips, 7, 'every button carries its details');
+    assertEqual(r.icons, 9, 'every button has an icon');
+    assertEqual(r.costs.join(','), '100,300,500,750,500,150,350,550', 'each attack button shows its cost');
+    assertEqual(r.tips, 9, 'every button carries its details');
     assert(r.cd > 0 && r.cd <= 1 && /REARM/.test(r.fighterEta), `a rearming plane shows a cooldown fill: ${r.cd} ${r.fighterEta}`);
     assert(r.bar < 800 * 0.22, `the bar is slim: ${r.bar}px`);
     // long-press: the details show and the weapon doesn't fire
