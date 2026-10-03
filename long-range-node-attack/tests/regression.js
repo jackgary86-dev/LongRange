@@ -1178,32 +1178,32 @@ test('LRNA-170: the HUD shows the address the game was opened from', async () =>
   }, { skipStart: true });
 });
 
-test('LRNA-172: on a phone a tap on a field target targets it', async () => {
+test('LRNA-172/183: on a phone a tap on one of Omega\'s nodes targets it', async () => {
   await withGame(async (page, errors) => {
     const pos = await page.evaluate(() => {
       const T = window.__TEST__;
       T.freezeWaves(); T.clearMissiles();
-      const node = T.fieldTargets.find((t) => !t.destroyed);
+      const node = T.fieldTargets.find((t) => t.baseNode && !t.destroyed);
       T.setCamX(node.x - (window.innerWidth / T.ZOOM) / 2);
       const rect = document.getElementById('game').getBoundingClientRect();
       return { x: rect.left + (node.x - T.camX) * T.ZOOM, y: rect.top + node.y * T.ZOOM, id: node.id };
     });
     await page.mouse.click(pos.x, pos.y);
     const sel = await page.evaluate(() => window.__TEST__.selectedTargetId);
-    assertEqual(sel, pos.id, 'tapping the field target targets it');
+    assertEqual(sel, pos.id, 'tapping the node targets it');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { viewport: { width: 390, height: 844 } });
 });
 
 test('LRNA-174: the start screen lists the missions with saved stars', async () => {
   await withGame(async (page, errors) => {
-    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'silence-the-launchers': 2 })));
+    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'blind-omega': 2 })));
     await page.reload();
     await page.waitForTimeout(300);
     const r = await page.evaluate(() => Array.from(document.querySelectorAll('#missionList .missionBtn')).map((b) => ({
       id: b.dataset.mission, stars: b.querySelector('.mStars').textContent })));
     assertEqual(r.length, 6, 'six missions listed');
-    assertEqual(r.find((m) => m.id === 'silence-the-launchers').stars, '★★☆', 'saved stars shown');
+    assertEqual(r.find((m) => m.id === 'blind-omega').stars, '★★☆', 'saved stars shown');
     assertEqual(r.find((m) => m.id === 'first-strike').stars, '☆☆☆', 'unplayed mission shows empty stars');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
@@ -1556,7 +1556,7 @@ test('ART-11: setup changes show on the home summary line, with each slot\'s rol
 
 test('ART-12: home shows the mission stars total', async () => {
   await withGame(async (page, errors) => {
-    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'silence-the-launchers': 2, 'first-strike': 3 })));
+    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'blind-omega': 2, 'first-strike': 3 })));
     await page.reload();
     await page.waitForTimeout(300);
     assertEqual(await page.$eval('#missionStarsTotal', (e) => e.textContent), '5/18', 'stars total');
@@ -1638,12 +1638,12 @@ test('ART-15: an endless run ends on one result layout with RETRY and MENU', asy
 test('ART-15: a mission win offers NEXT MISSION, RETRY replays the same mission', async () => {
   await withGame(async (page, errors) => {
     await page.click('#missionsBtn');
-    await page.click('.missionBtn[data-mission="silence-the-launchers"]');
+    await page.click('.missionBtn[data-mission="blind-omega"]');
     await page.waitForTimeout(150);
     const win = async () => page.evaluate(() => {
       const T = window.__TEST__;
       T.freezeWaves();
-      for (const t of T.fieldTargets.filter((f) => f.kind === 'launcher')) T.damageNode(t.id, 1000);
+      for (const t of T.fieldTargets.filter((f) => f.baseNode && f.kind === 'radarNode')) T.damageNode(t.id, 1000);
       T.tickUpdate(0.05);
       return { title: document.getElementById('waveResultTitle').textContent,
         next: !document.getElementById('resultNext').hidden };
@@ -1665,8 +1665,8 @@ test('ART-15: a mission win offers NEXT MISSION, RETRY replays the same mission'
       return { title: document.getElementById('waveResultTitle').textContent, next: !document.getElementById('resultNext').hidden }; });
     assertEqual(first.title, 'MISSION COMPLETE', 'won');
     assert(first.next, 'NEXT MISSION shows after a win');
-    assertEqual(retried, 'silence-the-launchers', 'RETRY replays the same mission');
-    assertEqual(next, 'smash-the-sub-bases', 'NEXT MISSION starts mission 3');
+    assertEqual(retried, 'blind-omega', 'RETRY replays the same mission');
+    assertEqual(next, 'cut-the-supply', 'NEXT MISSION starts mission 3');
     assertEqual(last.title, 'MISSION COMPLETE', 'last mission won');
     assert(!last.next, 'the last mission has no NEXT MISSION');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
@@ -1717,7 +1717,7 @@ test('LRNA-180: a saved loadout with a Satellite falls back to that slot\'s defa
   }, { skipStart: true });
 });
 
-test('LRNA-180: FIRST STRIKE counts destroyed installations; SMASH THE SUB-BASES needs both sub-bases', async () => {
+test('LRNA-183: FIRST STRIKE needs 2 of Omega\'s nodes; CUT THE SUPPLY all 3 missile nodes', async () => {
   await withGame(async (page, errors) => {
     await page.click('#missionsBtn');
     await page.click('.missionBtn[data-mission="first-strike"]');
@@ -1725,32 +1725,30 @@ test('LRNA-180: FIRST STRIKE counts destroyed installations; SMASH THE SUB-BASES
     const first = await page.evaluate(() => {
       const T = window.__TEST__;
       T.freezeWaves();
-      const small = T.fieldTargets.filter((t) => t.kind === 'infantry' || t.kind === 'vehicle');
-      for (const t of small.slice(0, 4)) T.damageNode(t.id, 1000);
-      T.tickUpdate(0.05);
+      const nodes = T.fieldTargets.filter((t) => t.baseNode);
+      T.damageNode(nodes[0].id, 1000); T.tickUpdate(0.05);
       const mid = { active: T.activeMission?.id, hud: document.getElementById('objectiveHud').textContent };
-      T.damageNode(small[4].id, 1000);
-      T.tickUpdate(0.05);
-      return { mid, title: document.getElementById('waveResultTitle').textContent, active: T.activeMission };
+      T.damageNode(nodes[1].id, 1000); T.tickUpdate(0.05);
+      return { mid, title: document.getElementById('waveResultTitle').textContent };
     });
     await page.click('#waveResultClose');
     await page.click('#missionsBtn');
-    await page.click('.missionBtn[data-mission="smash-the-sub-bases"]');
+    await page.click('.missionBtn[data-mission="cut-the-supply"]');
     await page.waitForTimeout(150);
-    const subs = await page.evaluate(() => {
+    const supply = await page.evaluate(() => {
       const T = window.__TEST__;
       T.freezeWaves();
-      const [a, b] = T.fieldTargets.filter((t) => t.kind === 'subbase');
-      T.damageNode(a.id, 5000); T.tickUpdate(0.05);
-      const one = T.activeMission?.id;
-      T.damageNode(b.id, 5000); T.tickUpdate(0.05);
-      return { one, title: document.getElementById('waveResultTitle').textContent };
+      const ms = T.fieldTargets.filter((t) => t.baseNode && t.kind === 'missileNode');
+      T.damageNode(ms[0].id, 1000); T.damageNode(ms[1].id, 1000); T.tickUpdate(0.05);
+      const two = T.activeMission?.id;
+      T.damageNode(ms[2].id, 1000); T.tickUpdate(0.05);
+      return { two, title: document.getElementById('waveResultTitle').textContent };
     });
-    assertEqual(first.mid.active, 'first-strike', 'four down, still running');
-    assert(first.mid.hud.includes('INSTALLATIONS 4/5'), first.mid.hud);
-    assertEqual(first.title, 'MISSION COMPLETE', 'the fifth completes it');
-    assertEqual(subs.one, 'smash-the-sub-bases', 'one sub-base is not enough');
-    assertEqual(subs.title, 'MISSION COMPLETE', 'both complete it');
+    assertEqual(first.mid.active, 'first-strike', 'one down, still running');
+    assert(first.mid.hud.includes('NODES 1/2'), first.mid.hud);
+    assertEqual(first.title, 'MISSION COMPLETE', 'the second completes it');
+    assertEqual(supply.two, 'cut-the-supply', 'two missile nodes are not enough');
+    assertEqual(supply.title, 'MISSION COMPLETE', 'all three complete it');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
 });
@@ -1882,31 +1880,45 @@ test('ART-19: one strip replaces the four - tap a dot to follow it, anywhere els
   });
 });
 
-test('ART-21: the target label opens a short list; picking one targets it and STATS no longer carries TARGETS', async () => {
+test('LRNA-183: only three targets - OMEGA, RADAR, MISSILE buttons; scenery cannot be targeted', async () => {
   await withGame(async (page, errors) => {
-    await page.click('#targetLabel');
-    const open = await page.evaluate(() => ({
-      shown: !document.getElementById('targetMenu').hidden,
-      rows: [...document.querySelectorAll('#targetMenu .target-row')].map((r) => r.dataset.target),
-      firstKm: document.querySelector('#targetMenu .target-dist').textContent,
-      inStats: !!document.querySelector('#missionMapWindow #targetList'),
+    const start = await page.evaluate(() => ({
+      buttons: [...document.querySelectorAll('.targetBtn')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
+      checked: document.querySelector('.targetBtn[aria-checked="true"]').dataset.pick,
+      list: !!document.getElementById('targetMenu') || !!document.getElementById('targetLabel'),
+      scenery: (() => { const T = window.__TEST__; const sc = T.fieldTargets.find((t) => !t.baseNode); return { target: T.getTarget ? T.getTarget(sc.id) : null, defends: T.fieldTargets.some((t) => t.defends) }; })(),
     }));
-    const pick = open.rows.find((id) => id !== 'O');
-    await page.click(`#targetMenu .target-row[data-target="${pick}"]`);
-    const after = await page.evaluate(() => ({ sel: window.__TEST__.selectedTargetId, shown: !document.getElementById('targetMenu').hidden,
-      label: document.getElementById('targetLabel').textContent }));
-    await page.click('#targetLabel');
-    await page.keyboard.press('Escape');
-    const escClosed = await page.evaluate(() => document.getElementById('targetMenu').hidden);
-    const paused = await page.evaluate(() => window.__TEST__.gameMenuOpen);
-    assert(open.shown, 'the list opens');
-    assert(open.rows.includes('O') && open.rows.length > 5, `Omega and the installations are listed: ${open.rows.length}`);
-    assert(/KM$/.test(open.firstKm), `rows show the distance: ${open.firstKm}`);
-    assert(!open.inStats, 'TARGETS is gone from STATS');
-    assertEqual(after.sel, pick, 'picking a row targets it');
-    assert(!after.shown, 'and closes the list');
-    assert(after.label.startsWith('TARGET: ') && !after.label.includes('NODE OMEGA'), `the label follows: ${after.label}`);
-    assert(escClosed && !paused, 'Esc closes the list without opening the menu');
+    await page.click('.targetBtn[data-pick="radarNode"]');
+    const radar = await page.evaluate(() => ({ sel: window.__TEST__.selectedTargetId, checked: document.querySelector('.targetBtn[aria-checked="true"]').dataset.pick }));
+    // destroying it moves the aim to the other radar node, then back to Omega
+    const after = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.disableOmegaCounters();
+      const kill = (id) => {
+        const t = T.fieldTargets.find((f) => f.id === id);
+        const m = T.launchAttack(T.nodeA, t, 'large'); m.defended = true; m.targetX = t.x;
+        const real = Math.random; Math.random = () => 0.01;
+        for (let i = 0; i < 2000 && T.missiles.some((x) => x.id === m.id); i++) T.tickUpdate(0.05);
+        Math.random = real;
+        return T.selectedTargetId;
+      };
+      const first = T.selectedTargetId;
+      const second = kill(first);
+      const third = kill(second);
+      return { first, second, third, radarDisabled: document.querySelector('.targetBtn[data-pick="radarNode"]').disabled };
+    });
+    await page.click('.targetBtn[data-pick="O"]');
+    const back = await page.evaluate(() => window.__TEST__.selectedTargetId);
+    assertEqual(start.buttons.join('|'), 'OMEGA|RADAR 2|MISSILE 3', 'three buttons with node counts');
+    assertEqual(start.checked, 'O', 'Omega to start');
+    assert(!start.list, 'the old target label and list are gone');
+    assert(!start.scenery.defends, 'scenery does not shoot');
+    assertEqual(start.scenery.target, null, 'scenery cannot be targeted');
+    assert(/^er\d$/.test(radar.sel) && radar.checked === 'radarNode', `RADAR aims at the nearest radar node: ${JSON.stringify(radar)}`);
+    assert(/^er\d$/.test(after.second) && after.second !== after.first, `after a kill it moves to the next radar node: ${JSON.stringify(after)}`);
+    assertEqual(after.third, 'O', 'with none left it goes back to Omega');
+    assert(after.radarDisabled, 'and RADAR greys out');
+    assertEqual(back, 'O', 'OMEGA picks Omega');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
@@ -2070,12 +2082,12 @@ test('LRNA-182: both bases have 3 missile and 2 radar nodes; the bar buttons aim
         omNearOmega: om.every((n) => n.x > T.nodeO.x - 600), plNearHome: T.playerNodes.every((n) => n.x < T.nodeA.x + 600),
         tag: document.getElementById('omegaNodeStatus').textContent };
     });
-    await page.click('.nodeTargetBtn[data-kind="radarNode"]');
+    await page.click('.targetBtn[data-pick="radarNode"]');
     const aimed = await page.evaluate(() => window.__TEST__.selectedTargetId);
     const after = await page.evaluate(() => {
       const T = window.__TEST__;
       for (const n of T.fieldTargets.filter((t) => t.baseNode && t.kind === 'radarNode')) T.damageNode(n.id, 1000);
-      return { disabled: document.querySelector('.nodeTargetBtn[data-kind="radarNode"]').disabled,
+      return { disabled: document.querySelector('.targetBtn[data-pick="radarNode"]').disabled,
         tag: document.getElementById('omegaNodeStatus').textContent };
     });
     assertEqual(before.om.join(','), '3,2', "Omega's nodes");

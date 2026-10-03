@@ -75,13 +75,6 @@
   /* LRNA-182: missile and radar nodes standing (MSL n/3 · RDR n/2) */
   #playerNodeStatus, #omegaNodeStatus { color: var(--m-text); }
   #playerNodeStatus .down, #omegaNodeStatus .down { color: #d0573c; }
-  .nodeTargetBtn {
-    pointer-events: auto; cursor: pointer;
-    font: inherit; font-size: 9.5px; letter-spacing: 0.12em; color: var(--m-text);
-    background: #1a1e17; border: 1px solid var(--m-line-strong); border-radius: 2px; padding: 3px 8px;
-  }
-  .nodeTargetBtn:hover:not(:disabled) { border-color: #e3a838; color: #e3a838; }
-  .nodeTargetBtn:disabled { opacity: 0.4; cursor: default; }
   /* Omega's counter stock (LRNA-116/165/181) and its two jam timers (LRNA-075/151) */
   #omegaCounterStatus { color: var(--m-muted); }
   #omegaCounterStatus .ready { color: var(--m-text); }
@@ -176,21 +169,9 @@
     border-bottom: 1px solid var(--green-dim);
     padding-bottom: 4px;
   }
-  .target-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 2px;
-    cursor: pointer;
-    border-radius: 2px;
-  }
-  .target-row:hover { background: rgba(255,255,255,0.08); }
-  .target-row.selected { background: rgba(53,230,255,0.16); outline: 1px solid var(--green); }
-  .target-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .stats-row { display: flex; align-items: center; justify-content: space-between; padding: 3px 2px; }
   .stats-label { opacity: 0.7; }
   .stats-value { color: var(--green); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .target-hp { font-size: 9px; opacity: 0.85; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
   /* LRNA-050: Operations Center sections recolored by pillar where one
      applies - TARGETS is what Attack picks a target from, recolored to
@@ -319,30 +300,19 @@
     font-size: 10px; letter-spacing: 0.14em; color: var(--m-muted);
     margin-bottom: 6px; white-space: nowrap; overflow: hidden;
   }
-  /* ART-21: the target label opens the short target list */
-  #targetLabel {
+  /* LRNA-183: three target buttons - OMEGA, RADAR, MISSILE */
+  #targetPick { display: flex; align-items: center; gap: 4px; }
+  .tpLabel { color: var(--m-muted); margin-right: 4px; }
+  .targetBtn {
     pointer-events: auto; cursor: pointer;
-    font: inherit; letter-spacing: inherit; color: var(--m-text);
-    background: none; border: 0; border-bottom: 1px dashed var(--m-line-strong); padding: 0 0 1px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%;
+    font: inherit; font-family: var(--m-display); font-weight: 700; font-size: 11px; letter-spacing: 0.14em;
+    color: var(--m-text); background: #1a1e17;
+    border: 1px solid var(--m-line-strong); border-radius: 2px; padding: 4px 10px; min-height: 26px;
   }
-  #targetLabel:hover, #targetLabel[aria-expanded="true"] { color: #e3a838; border-bottom-color: #e3a838; }
-  #targetMenu {
-    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-    margin-bottom: 6px; width: min(360px, calc(100vw - 16px));
-    max-height: min(46vh, 380px); overflow-y: auto;
-    background: rgba(20,23,18,0.98); border: 1px solid var(--m-line-strong);
-    padding: 8px 8px 6px;
-    font-size: 11px;
-  }
-  #targetMenu[hidden] { display: none; }
-  .tmHead { font-family: var(--m-display); font-weight: 700; font-size: 11px; letter-spacing: 0.2em; color: var(--m-text); padding: 0 4px 6px; border-bottom: 1px solid var(--m-line); margin-bottom: 4px; }
-  .tmHead span { font-family: var(--m-mono); font-weight: 400; letter-spacing: 0.06em; color: var(--m-muted); }
-  #targetMenu .target-row { padding: 7px 6px; gap: 8px; color: var(--m-text); }
-  #targetMenu .target-row:hover { background: rgba(227,168,56,0.1); }
-  #targetMenu .target-row.selected { background: rgba(227,168,56,0.16); outline: 1px solid #e3a838; }
-  #targetMenu .target-hp { color: var(--m-muted); font-size: 10px; }
-  #targetMenu .target-dist { color: var(--m-muted); font-size: 10px; width: 52px; text-align: right; }
+  .targetBtn:hover:not(:disabled) { border-color: #e3a838; }
+  .targetBtn[aria-checked="true"] { background: #e3a838; border-color: #e3a838; color: #191306; }
+  .targetBtn:disabled { opacity: 0.35; cursor: default; }
+  .tpCount { font-family: var(--m-mono); font-weight: 400; font-size: 10px; letter-spacing: 0; opacity: 0.8; }
   #launchBarHeader { overflow: hidden; text-overflow: ellipsis; }
   #launchBarHeader .hot { color: #e3a838; }
   #launchBarHeader .pips { letter-spacing: 0.25em; color: #e3a838; }
@@ -624,7 +594,8 @@
     #minimapWrap { height: 26px; }
     #launchBar { padding: 4px 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
     #barInfo { font-size: 9px; gap: 8px; margin-bottom: 4px; }
-    .nodeTargetBtn { font-size: 8.5px; padding: 2px 5px; }
+    .targetBtn { font-size: 10px; padding: 4px 7px; letter-spacing: 0.08em; }
+    .tpLabel { display: none; }
     #abilityGroups { flex-direction: column; gap: 5px; }
     .abilityGroupButtons { gap: 4px; }
     .abilityGroup[data-pillar="attack"] .abilityGroupButtons { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
@@ -734,14 +705,18 @@
   </div>
 
   <div id="bottomBar">
-    <!-- ART-21: the short target list, opened from the target label -->
-    <div id="targetMenu" hidden>
-      <div class="tmHead">PICK A TARGET <span>&middot; OR TAP ONE ON THE FIELD</span></div>
-      <div id="targetList" role="listbox"></div>
-    </div>
     <div id="minimapWrap"><canvas id="minimap"></canvas></div>
     <div id="launchBar">
-      <div id="barInfo"><button id="targetLabel" aria-haspopup="listbox" aria-expanded="false">TARGET: NODE OMEGA &#9662;</button><button class="nodeTargetBtn" data-kind="missileNode" title="Aim at Omega's nearest missile node - each one destroyed shrinks and slows its waves">MISSILE NODES</button><button class="nodeTargetBtn" data-kind="radarNode" title="Aim at Omega's nearest radar node - each one destroyed blinds its defenses">RADAR NODES</button><span id="launchBarHeader">WARHEADS 3/3</span></div>
+      <div id="barInfo">
+        <!-- LRNA-183: only three targets - Omega, its radar nodes, its missile nodes -->
+        <div id="targetPick" role="radiogroup" aria-label="Target">
+          <span class="tpLabel">TARGET</span>
+          <button class="targetBtn" data-pick="O" role="radio" title="Node Omega itself">OMEGA</button>
+          <button class="targetBtn" data-pick="radarNode" role="radio" title="Omega's nearest radar node - each one destroyed blinds its defenses">RADAR <span class="tpCount"></span></button>
+          <button class="targetBtn" data-pick="missileNode" role="radio" title="Omega's nearest missile node - each one destroyed shrinks and slows its waves">MISSILE <span class="tpCount"></span></button>
+        </div>
+        <span id="launchBarHeader">WARHEADS 3/3</span>
+      </div>
       <div id="abilityGroups">
         <div class="abilityGroup" data-pillar="attack">
           <div class="abilityGroupHeader">ATTACK <span class="abilityGroupCount">&#9679; <span id="groupTokenAttack">0</span></span></div>
@@ -838,13 +813,13 @@
       <div class="mHead"><button class="mLink" data-goto="home">&#9666; BACK</button><h2>HOW TO PLAY</h2></div>
       <div class="mPanel">
         <ol class="howSteps">
-          <li><span><strong>ATTACK</strong> Node Omega from the first second. Missiles and strike planes cost ATTACK; tap any enemy on the battlefield, or pick one in STATS, to aim at it.</span></li>
+          <li><span><strong>ATTACK</strong> from the first second. Pick a target - OMEGA, RADAR or MISSILE on the bar, or tap one on the field - then fire missiles and strike planes (they cost ATTACK).</span></li>
           <li><span><strong>DEFEND</strong> against what Omega sends back in waves. Your ground defenses fire on their own; EMERGENCY COUNTER is yours to fire at any threat in its last 5 seconds. You get 10 per game, and so does Omega.</span></li>
           <li><span><strong>BREAK</strong> Omega. It rebuilds stronger each time it falls; the run ends when your Strike Platform does.</span></li>
         </ol>
       </div>
       <div class="mPanel">
-        <p class="howText"><strong>NODES</strong> &mdash; each base has 3 missile nodes and 2 radar nodes in front of it. Knock out Omega's missile nodes and its waves shrink; knock out its radar and its defenses go blind (MISSILE NODES and RADAR NODES on the bar aim at them). Omega hits yours too: lose missile nodes and your income drops, lose radar and you see threats later.</p>
+        <p class="howText"><strong>NODES</strong> &mdash; each base has 3 missile nodes and 2 radar nodes in front of it. Knock out Omega's missile nodes and its waves shrink; knock out its radar and its defenses go blind. Omega hits yours too: lose missile nodes and your income drops, lose radar and you see threats later.</p>
       </div>
       <div class="mPanel">
         <p class="howText"><strong>CURRENCY</strong> &mdash; <span style="color:#ff5a36">ATTACK</span> pays for warheads and strike planes. It trickles in, and hits pay back part of their cost.</p>
@@ -874,8 +849,6 @@
     document.getElementById('hudHostLine').hidden = !host;
     if (host) document.getElementById('hudHost').textContent = host;
   })();
-  const targetListEl = document.getElementById('targetList');
-  const targetLabelEl = document.getElementById('targetLabel');
   const launchBarHeaderEl = document.getElementById('launchBarHeader');
   // LRNA-154: #opsCenterPanel is gone - #opsCenterBtn now just opens the
   // same merged #missionMapWindow the bottom bar's #counterMissileBtn
@@ -1069,8 +1042,7 @@
   document.getElementById('menuQuit').addEventListener('click', () => { sfxUi(); quitToMenu(); });
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !running) return;
-    if (!targetMenuEl.hidden) setTargetMenu(false); // ART-21
-    else if (missionMapOpen) closeMissionMap();
+    if (missionMapOpen) closeMissionMap();
     else if (gameMenuOpen) closeGameMenu();
     else openGameMenu();
   });
@@ -1731,8 +1703,10 @@
   const FIELD_KIND_DEFS = {
     infantry: { label: 'INFANTRY SQUAD', color: '#c9a184', maxHealth: 40,   defends: false },
     vehicle:  { label: 'VEHICLE',        color: '#bf8a5e', maxHealth: 120,  defends: false },
-    launcher: { label: 'LAUNCHER',       color: '#c45a42', maxHealth: 350,  defends: true },
-    subbase:  { label: 'SUB-BASE',       color: '#b04c3a', maxHealth: 1400, defends: true },
+    // LRNA-183: these four are scenery now - nothing aims at them and they
+    // don't shoot; the only targets are Omega and its radar and missile nodes
+    launcher: { label: 'LAUNCHER',       color: '#c45a42', maxHealth: 350,  defends: false },
+    subbase:  { label: 'SUB-BASE',       color: '#b04c3a', maxHealth: 1400, defends: false },
     // LRNA-182: the nodes in front of each base
     missileNode: { label: 'MISSILE NODE', color: '#c96a4a', maxHealth: 400, defends: false },
     radarNode:   { label: 'RADAR NODE',   color: '#cf8a5c', maxHealth: 400, defends: false },
@@ -2046,20 +2020,20 @@
   // stars from a time: 3 at or under t3, 2 at or under t2, else 1
   const starsByTime = (t, t3, t2) => (t <= t3 ? 3 : t <= t2 ? 2 : 1);
   const MISSIONS = [
-    // LRNA-180: the first three were recon missions; these use the
-    // installations along Omega's side of the corridor instead.
-    { id: 'first-strike', name: 'FIRST STRIKE', goal: 'Destroy 5 enemy installations.',
+    // LRNA-183: the first three are about Omega's nodes (the installations
+    // they used to need are scenery now)
+    { id: 'first-strike', name: 'FIRST STRIKE', goal: "Destroy any 2 of Omega's nodes.",
       limit: 150, starsHint: '3★ under 1:00, 2★ under 1:40',
-      progress: (st) => `INSTALLATIONS ${Math.min(5, st.fieldKills)}/5`, done: (st) => st.fieldKills >= 5,
+      progress: (st) => `NODES ${Math.min(2, st.fieldKills)}/2`, done: (st) => st.fieldKills >= 2,
       stars: (st) => starsByTime(st.time, 60, 100) },
-    { id: 'silence-the-launchers', name: 'SILENCE THE LAUNCHERS', goal: 'Destroy all 3 launchers.',
+    { id: 'blind-omega', name: 'BLIND OMEGA', goal: 'Destroy both radar nodes.',
       limit: 300, starsHint: '3★ under 2:30, 2★ under 4:00',
-      progress: (st) => `LAUNCHERS ${Math.min(3, st.kindKills.launcher || 0)}/3`,
-      done: (st) => (st.kindKills.launcher || 0) >= 3, stars: (st) => starsByTime(st.time, 150, 240) },
-    { id: 'smash-the-sub-bases', name: 'SMASH THE SUB-BASES', goal: 'Destroy both sub-bases.',
+      progress: (st) => `RADAR ${Math.min(2, st.kindKills.radarNode || 0)}/2`,
+      done: (st) => (st.kindKills.radarNode || 0) >= 2, stars: (st) => starsByTime(st.time, 150, 240) },
+    { id: 'cut-the-supply', name: 'CUT THE SUPPLY', goal: 'Destroy all 3 missile nodes.',
       limit: 420, starsHint: '3★ under 4:00, 2★ under 5:30',
-      progress: (st) => `SUB-BASES ${Math.min(2, st.kindKills.subbase || 0)}/2`,
-      done: (st) => (st.kindKills.subbase || 0) >= 2, stars: (st) => starsByTime(st.time, 240, 330) },
+      progress: (st) => `MISSILE ${Math.min(3, st.kindKills.missileNode || 0)}/3`,
+      done: (st) => (st.kindKills.missileNode || 0) >= 3, stars: (st) => starsByTime(st.time, 240, 330) },
     { id: 'hold-the-line', name: 'HOLD THE LINE', goal: 'Survive 5 waves.',
       limit: 0, starsHint: '3★ above 200 hull, 2★ above 120',
       progress: (st) => `WAVES ${Math.min(5, st.wavesCleared)}/5`, done: (st) => st.wavesCleared >= 5,
@@ -2120,7 +2094,7 @@
       sub: m.name + (bestNote ? ' · NEW BEST' : ''),
       rows: [
         ['TIME', `${fmtTime(st.time)}${m.limit ? ` / ${fmtTime(m.limit)}` : ''}`],
-        ['INSTALLATIONS DESTROYED', st.fieldKills], ['WAVES CLEARED', st.wavesCleared],
+        ['NODES DESTROYED', st.fieldKills], ['WAVES CLEARED', st.wavesCleared],
         ['WARHEADS FIRED', stats.fired.toLocaleString()],
       ],
     });
@@ -2252,7 +2226,7 @@
   function getTarget(id) {
     if (id === 'A') return nodeA;
     if (id === 'O') return nodeO;
-    return fieldTargets.find(t => t.id === id) || null;
+    return fieldTargets.find(t => t.id === id && t.baseNode) || null; // LRNA-183: Omega and its nodes only
   }
 
   function getDefender(id) {
@@ -3025,7 +2999,7 @@
     const justDestroyed = applyDamage(dest, m.x, m.laneY, def.dmg);
     impactFeedback(dest, m.x, dest.y + m.laneY, def.dmg, blastScale, true); // ART-22
     if (justDestroyed) {
-      if (dest.id !== 'O' && selectedTargetId === dest.id) { selectedTargetId = 'O'; updateTargetLabel(); }
+      retargetAfterKill(dest); // LRNA-183
       if (dest.id === 'O') onOmegaDestroyedForWaves();
     }
   }
@@ -3809,7 +3783,7 @@
           impactFeedback(dest, m.x, dest.y + m.laneY, m.dmg, m.typeKey === 'emp' ? 1 : m.splitCount > 0 ? 1.7
             : m.typeKey === 'large' ? 2.6 : m.typeKey === 'medium' ? 1.7 : (m.sizeKey === 'large' ? 2 : m.sizeKey === 'medium' ? 1.4 : 1), isPlayerShot);
           if (justDestroyed && isPlayerShot) {
-            if (dest.id !== 'O' && selectedTargetId === dest.id) { selectedTargetId = 'O'; updateTargetLabel(); }
+            retargetAfterKill(dest); // LRNA-183
             // LRNA-072/#430: Omega rebuilds stronger instead of staying dead -
             // this is an endless waves mode, not a single-kill win condition.
             if (dest.id === 'O') onOmegaDestroyedForWaves();
@@ -3886,31 +3860,19 @@
   }
 
 
+  // LRNA-183: the three target buttons - which one is picked, how many of
+  // each node kind are left, and which are spent
   function renderTargetList() {
-    const rows = [];
-    if (omegaHealth > 0) {
-      rows.push({
-        id: 'O', name: nodeO.name, color: nodeO.color,
-        hp: `${Math.round(omegaHealth)}/${PLAYER_MAX_HEALTH}`,
-        dist: nodeO.x - nodeA.x,
-      });
+    const cur = getTarget(selectedTargetId);
+    const pick = !cur || cur.id === 'O' ? 'O' : cur.kind;
+    for (const b of document.querySelectorAll('.targetBtn')) {
+      const kind = b.dataset.pick;
+      b.setAttribute('aria-checked', String(kind === pick));
+      if (kind === 'O') { b.disabled = omegaHealth <= 0; continue; }
+      const left = standing(omegaNodes(), kind);
+      b.disabled = left === 0;
+      b.querySelector('.tpCount').textContent = left;
     }
-    for (const t of fieldTargets) {
-      if (t.destroyed) continue;
-      rows.push({ id: t.id, name: t.name, color: t.color, hp: `${Math.ceil(t.health)}/${t.maxHealth}`, dist: t.x - nodeA.x });
-    }
-    rows.sort((a, b) => a.dist - b.dist);
-    let html = '';
-    for (const r of rows) {
-      const sel = r.id === selectedTargetId ? ' selected' : '';
-      // ART-21: distance in km from the Strike Platform (the map is ~18 km wide)
-      html += `<div class="target-row${sel}" role="option" data-target="${r.id}">` +
-              `<span style="color:${r.id === 'O' ? '#c8553d' : '#d0573c'}">&#9670;</span>` +
-              `<span class="target-name">${r.name}</span>` +
-              `<span class="target-hp">${r.hp} HP</span>` +
-              `<span class="target-dist">${(r.dist / 1000).toFixed(1)} KM</span></div>`;
-    }
-    targetListEl.innerHTML = html || '<div style="opacity:0.6;">no targets left</div>';
   }
 
   // ---- LRNA-182: the node readouts and the two target buttons
@@ -3923,27 +3885,31 @@
     const p = document.getElementById('playerNodeStatus'), o = document.getElementById('omegaNodeStatus');
     if (p) p.innerHTML = nodeTag(playerNodes);
     if (o) o.innerHTML = nodeTag(omegaNodes());
-    for (const b of document.querySelectorAll('.nodeTargetBtn')) {
-      b.disabled = standing(omegaNodes(), b.dataset.kind) === 0;
-      const word = b.dataset.kind === 'missileNode' ? (isMobileViewport() ? 'MSL' : 'MISSILE') : (isMobileViewport() ? 'RDR' : 'RADAR');
-      b.textContent = `${word} NODES`;
-    }
+    renderTargetList(); // LRNA-183
   }
-  function aimAtNodes(kind) {
-    const next = omegaNodes().filter(n => n.kind === kind && !n.destroyed).sort((a, b) => a.x - b.x)[0];
-    if (next) selectTarget(next);
+  // the nearest standing Omega node of a kind (nearest to you)
+  function nextNode(kind) { return omegaNodes().filter(n => n.kind === kind && !n.destroyed).sort((a, b) => a.x - b.x)[0] || null; }
+  function pickTarget(kind) {
+    const t = kind === 'O' ? nodeO : nextNode(kind);
+    if (!t) return;
+    if (t.id === selectedTargetId) { sfxUi(); return; }
+    selectTarget(t);
   }
-  document.getElementById('barInfo').addEventListener('click', (e) => {
-    const b = e.target.closest('.nodeTargetBtn');
+  document.getElementById('targetPick').addEventListener('click', (e) => {
+    const b = e.target.closest('.targetBtn');
     if (!b || !running || b.disabled) return;
     e.stopPropagation();
-    aimAtNodes(b.dataset.kind);
+    pickTarget(b.dataset.pick);
   });
-
-  function updateTargetLabel() {
-    const t = getTarget(selectedTargetId) || nodeO;
-    targetLabelEl.innerHTML = `TARGET: ${t.name} &#9662;`;
+  // after a kill, stay on the same kind of node while any are left
+  function retargetAfterKill(dest) {
+    if (dest.id === 'O' || selectedTargetId !== dest.id) return;
+    const next = dest.baseNode ? nextNode(dest.kind) : null;
+    selectedTargetId = next ? next.id : 'O';
+    updateTargetLabel();
   }
+
+  function updateTargetLabel() { renderTargetList(); } // LRNA-183: the buttons are the label
 
   // ART-2: now effectively ENEMY STRIKE's own dedicated look (its only
   // remaining caller in drawIcon, since FAST/MEDIUM/LARGE/CLUSTER/EMP
@@ -4553,6 +4519,7 @@
     }
     ctx.restore();
 
+    if (!t.baseNode && t.faction === 'enemy') return; // LRNA-183: scenery - no bar, no label
     if (!t.destroyed) {
       const w = 22;
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -5317,8 +5284,9 @@
     mctx.fillRect(nodeO.x * scale - 3, 4, 6, MH - 8);
     // installations and ground defenses
     for (const t of fieldTargets) {
-      mctx.fillStyle = t.destroyed ? 'rgba(90,90,82,0.6)' : 'rgba(200,85,61,0.75)';
-      mctx.fillRect(t.x * scale - 1, cy + 4, 2, 3);
+      if (!t.baseNode) continue; // LRNA-183: scenery isn't on the strip
+      mctx.fillStyle = t.destroyed ? 'rgba(90,90,82,0.6)' : 'rgba(200,85,61,0.85)';
+      mctx.fillRect(t.x * scale - 1, cy + 4, 3, 4);
     }
     mctx.fillStyle = 'rgba(157,179,94,0.6)';
     for (const n of amNodes) mctx.fillRect(n.x * scale - 1, cy + 4, 2, 3);
@@ -5511,7 +5479,7 @@
       const d = Math.hypot(t.x - wx, t.y - wy);
       if (d < radius && d < bestDist) { best = t; bestDist = d; }
     };
-    for (const t of fieldTargets) if (!t.destroyed) consider(t, 35);
+    for (const t of fieldTargets) if (t.baseNode && !t.destroyed) consider(t, 35); // LRNA-183
     if (omegaHealth > 0) consider(nodeO, OMEGA_RES * OMEGA_PX_SCALE / 2);
     return best;
   }
@@ -5706,33 +5674,6 @@
   }
   updatePlaneButtons();
 
-  // ---- ART-21: the short target list, opened from the target label
-  const targetMenuEl = document.getElementById('targetMenu');
-  function setTargetMenu(open) {
-    targetMenuEl.hidden = !open;
-    targetLabelEl.setAttribute('aria-expanded', String(open));
-    if (open) renderTargetList();
-  }
-  targetLabelEl.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (!running) return;
-    sfxUi();
-    setTargetMenu(targetMenuEl.hidden);
-  });
-  targetListEl.addEventListener('click', (e) => {
-    if (!running) return;
-    const row = e.target.closest('.target-row');
-    if (!row) return;
-    const t = getTarget(row.dataset.target);
-    if (!t) return;
-    if (t.id === selectedTargetId) sfxUi(); else selectTarget(t);
-    renderTargetList();
-    updateTargetLabel();
-    setTargetMenu(false);
-  });
-  document.addEventListener('click', (e) => {
-    if (!targetMenuEl.hidden && !targetMenuEl.contains(e.target)) setTargetMenu(false);
-  });
 
   // ---- INCOMING alert (LRNA-074/#431): flashes the color of the
   // soonest inbound threat's time-to-impact - green >20s, yellow 5-20s,
@@ -5832,6 +5773,7 @@
       get amNodes() { return amNodes; },
       get fieldTargets() { return fieldTargets; },
       get playerNodes() { return playerNodes; }, // LRNA-182
+      getTarget: (id) => getTarget(id), // LRNA-183
       omegaWaveFactor: () => omegaWaveFactor(),
       omegaSight: () => omegaSight(),
       playerIncomeFactor: () => playerIncomeFactor(),

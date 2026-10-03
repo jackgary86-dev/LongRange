@@ -883,6 +883,25 @@ buttons**.
   NODES paragraph in HOW TO PLAY. 4 new tests. 77/77. No mission added
   yet.
 
+## DONE — LRNA-183: only three targets - Omega, Radar, Missile (2026-10-03)
+
+Request: "Target - only have 3 targets - Omega / Radar / Missile." Asked
+directly: the other installations stay **as scenery**, and the picker is
+**three buttons**.
+
+- **LRNA-183** — DONE — The target label and its list are replaced by
+  three buttons on the bar: OMEGA, RADAR n, MISSILE n (n = Omega's nodes
+  of that kind still standing). RADAR and MISSILE aim at the nearest
+  standing node of that kind; after a kill the aim moves to the next one
+  of the same kind, and back to Omega when none are left (the button
+  greys out). Tapping Omega or one of its nodes on the field still works.
+  Infantry, vehicles, launchers and sub-bases are scenery: not targetable,
+  no health bars or labels, off the strip, and launchers and sub-bases no
+  longer shoot. Missions 1-3 move onto the nodes: FIRST STRIKE (any 2
+  nodes, 2:30), BLIND OMEGA (both radar nodes, 5:00), CUT THE SUPPLY (all
+  3 missile nodes, 7:00). Tests: the target-list test replaced by a
+  three-button test, mission tests moved to the new missions. 77/77.
+
 ## OPEN — Counter Center Restructuring
 
 Direct request from a live design-review session (2026-09-29), working from
