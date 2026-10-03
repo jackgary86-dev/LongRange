@@ -639,6 +639,72 @@ attack each other."
   text is left in the game; the 6 missions all play without recon; the
   suite is green; installer, Alert copy, demo and Pages are updated.
 
+## OPEN — ART epic 3: in-game GUI redesign (2026-10-03)
+
+Request: "completely redesign the GUI of the game to work better and play
+better and look better." Asked directly; the owner's answers:
+
+- Problems with today's screen: all four - too cluttered, hard to read
+  what's happening, awkward controls, and a dated neon look that doesn't
+  match the new tactical menus.
+- Look: **realistic military**, drawn as **detailed vector art** in code
+  (shaded silhouettes, stays offline and crisp at any size).
+- Controls: a **compact bottom bar**.
+- Devices: **phone and desktop equally**.
+- Camera: **side-scrolling, following the action**.
+- Always on screen: **both health bars, money/ammo, the incoming
+  warning** (the wave/mission line is not required to stay).
+- Strips: the minimap, zone strip, counter lane and radar lane **merge
+  into one**.
+- Feel: **bigger impacts, clear hit/miss, sound design, screen shake and
+  flash** (all four).
+- Targeting: **tap on the field, plus a short list**.
+- Health bars: **top corners**.
+- Order: **after LRNA-180** (recon removal deletes UI this would
+  otherwise restyle).
+
+Tickets:
+
+- **ART-16** — OPEN — Battlefield art, realistic military. Replace the
+  starfield, nebulae and neon/pixel sprites with vector art: a ground
+  band with terrain and craters, muted military colors, the Strike
+  Platform as a launch site and Omega as a fortified bunker complex,
+  shaded silhouettes for infantry, vehicles, launchers, sub-bases, the
+  defense nodes, every missile and every plane. Omega's damage shows on
+  the bunker itself.
+- **ART-17** — OPEN — HUD. Two big health bars in the top corners (your
+  Strike Platform left, Omega right) and one incoming warning with time
+  to impact. Everything else in the HUD goes or moves (currency moves
+  onto the bottom bar, the objective line becomes small or optional). Uses
+  the ART-9 tokens so the battle matches the menus.
+- **ART-18** — OPEN — Compact bottom bar. One slim row of big icon
+  buttons (attack weapons, then counters) with cost and ammo on each
+  button and a cooldown fill; details on hover (desktop) or long-press
+  (phone). One currency readout per group. Replaces the three labelled
+  groups, the WARHEADS header line and the text-heavy buttons. Fits a
+  phone in portrait without covering the battlefield.
+- **ART-19** — OPEN — One strip. The minimap, zone strip, counter lane
+  and Radar Lane panel become a single thin strip: both bases, your
+  shots, incoming threats (with the nearest highlighted), the camera's
+  view box; tap or drag it to move the camera.
+- **ART-20** — OPEN — Camera follows the action. Side-scrolling stays,
+  but the camera eases to your newest shot and to the most urgent
+  incoming threat; a manual drag takes over for a few seconds, then
+  following resumes.
+- **ART-21** — OPEN — Targeting. Tap any enemy on the field to target it
+  (Omega by default), with a clear reticle on the current target; a short
+  list opens from the target label for picking one that's off screen.
+  The TARGETS section leaves STATS.
+- **ART-22** — OPEN — Impacts and feedback. Real explosions, smoke,
+  debris and lasting craters; HIT / INTERCEPTED markers and damage
+  numbers readable at a glance; screen shake and flash scaled to the
+  weapon; heavier launch and impact sounds and a siren for an imminent
+  hit.
+
+Order: ART-19 + ART-17 + ART-18 together (the declutter, one layout
+pass), then ART-21, ART-20, ART-16, ART-22. Each keeps the suite green and
+gets desktop (1280x800) and phone (390x844) screenshot checks.
+
 ## OPEN — Counter Center Restructuring
 
 Direct request from a live design-review session (2026-09-29), working from
