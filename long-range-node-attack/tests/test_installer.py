@@ -27,14 +27,19 @@ GAME = (ROOT / "index.html").read_bytes()
 failures = []
 
 
-def check(cond, msg):
+def check(cond, msg, detail=""):
     print(("  ok   " if cond else "  FAIL ") + msg)
     if not cond:
         failures.append(msg)
+        if detail:
+            print("       " + detail.strip().replace("\n", "\n       "))
+        if os.environ.get("GITHUB_ACTIONS"):
+            # Shows up as an annotation on the run, readable without the log.
+            print(f"::error title=installer check::{msg} {detail.strip()[-300:]}".replace("\n", " | "))
 
 
-def run(*args, home):
-    env = dict(os.environ, HOME=str(home), XDG_DATA_HOME=str(home / ".local" / "share"))
+def run(*args, home, **extra_env):
+    env = dict(os.environ, HOME=str(home), XDG_DATA_HOME=str(home / ".local" / "share"), **extra_env)
     return subprocess.run([sys.executable, str(INSTALLER), *args], env=env,
                           capture_output=True, text=True, timeout=60)
 
@@ -100,19 +105,21 @@ with tempfile.TemporaryDirectory() as tmp:
     check(body == GAME, f"--serve answers http://127.0.0.1:{port}/ with the game")
     r2 = run("--serve", "--port", str(port), home=home)
     check(r2.returncode != 0 and "Something else is using it" in (r2.stderr + r2.stdout),
-          "a second --serve on a busy port explains the clash instead of a traceback")
+          "a second --serve on a busy port explains the clash instead of a traceback", r2.stdout + r2.stderr)
     proc.terminate()
     out, _ = proc.communicate(timeout=10)
     check(f":{port}/" in out, "--serve prints the address to open")
 
-    print("service (refusal paths only)")
-    r = run("--service", home=home)
-    check(r.returncode != 0 or "starts on every boot" in r.stdout,
-          "--service either sets up systemd or explains why it can't")
+    print("service (refusal path only)")
+    # An empty PATH hides systemctl, so this never installs a real service, even on a
+    # machine that has systemd and password-free sudo (GitHub's runners do).
+    r = run("--service", home=home, PATH="")
+    check(r.returncode != 0 and "needs Linux with systemd" in (r.stdout + r.stderr),
+          "--service without systemd explains why it can't", r.stdout + r.stderr)
 
     print("uninstall")
     r = run("--uninstall", home=home)
-    check(r.returncode == 0, "uninstall exits 0")
+    check(r.returncode == 0, "uninstall exits 0", r.stdout + r.stderr)
     check(not inst.exists() and not menu.exists() and not desk.exists(), "install folder and both shortcuts removed")
 
     print("Windows and macOS shortcuts (simulated)")
