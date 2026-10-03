@@ -45,7 +45,8 @@ test('LRNA-123: planes complete their flight and land (no NaN-velocity stuck pla
 
 test('LRNA-124: Satellite can only be selected in one loadout slot at a time', async () => {
   await withGame(async (page) => {
-    // the loadout selects only exist on the pre-start screen
+    // the loadout selects live on the pre-start SETUP screen (ART-11)
+    await page.click('#menuHome [data-goto="setup"]');
     await page.selectOption('.loadoutSelect[data-slot="0"]', 'satellite');
     let dialogMessage = null;
     page.once('dialog', async (d) => { dialogMessage = d.message(); await d.accept(); });
@@ -702,7 +703,9 @@ test('LRNA-140: enemy strike damage scales with difficulty', async () => {
   // other, since the size roll is randomized independently each time.
   for (const [difficulty, expectedMult] of [['easy', 0.75], ['normal', 1.0], ['hard', 1.5]]) {
     await withGame(async (page, errors) => {
+      await page.click('#menuHome [data-goto="setup"]'); // ART-11
       await page.click(`[data-difficulty="${difficulty}"]`);
+      await page.click('#menuSetup .mBtn[data-goto="home"]');
       await page.click('#startGameBtn');
       await page.waitForTimeout(150);
       const result = await page.evaluate(() => {
@@ -1275,7 +1278,9 @@ test('LRNA-080: discovering a hidden node unlocks the opening and Wave 1 begins'
 
 test('LRNA-080: Satellite no longer auto-reveals SEEK AND DESTROY nodes (still reveals AntiPlane)', async () => {
   await withGame(async (page, errors) => {
+    await page.click('#menuHome [data-goto="setup"]');
     await page.selectOption('.loadoutSelect[data-slot="0"]', 'satellite');
+    await page.click('#menuSetup .mBtn[data-goto="home"]');
     await page.click('#startGameBtn');
     await page.waitForTimeout(200);
     const result = await page.evaluate(() => {
@@ -1332,7 +1337,9 @@ test('LRNA-080: SEEK AND DESTROY nodes carry a recon zone boundary for the pre-d
 
 test('LRNA-049: Base loadout node fires a volley at every inbound threat at once, not just one', async () => {
   await withGame(async (page, errors) => {
+    await page.click('#menuHome [data-goto="setup"]');
     await page.selectOption('.loadoutSelect[data-slot="0"]', 'base');
+    await page.click('#menuSetup .mBtn[data-goto="home"]');
     await page.click('#startGameBtn');
     await page.waitForTimeout(200);
     const result = await page.evaluate(() => {
@@ -1652,7 +1659,8 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
   });
 }
 
-test('LRNA-170: the HUD and ENTRANCE box show the address the game was opened from', async () => {
+test('LRNA-170: the HUD shows the address the game was opened from', async () => {
+  // ART-10 removed the start screen's ENTRANCE box; the HUD line keeps the address.
   const fs = require('fs');
   const path = require('path');
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -1660,10 +1668,6 @@ test('LRNA-170: the HUD and ENTRANCE box show the address the game was opened fr
     const read = () => page.evaluate(() => ({
       hud: document.getElementById('hudHost').textContent,
       hudShown: !document.getElementById('hudHostLine').hidden,
-      entrance: document.getElementById('entranceHost').textContent,
-      entranceShown: !!document.getElementById('entrance').offsetParent,
-      path: document.getElementById('entrancePath').textContent,
-      pathShown: !document.getElementById('entrancePath').hidden,
       stale: document.body.innerText.includes('192.168.1.36'),
     }));
     const asFile = await read(); // the harness opens it as file://
@@ -1674,14 +1678,11 @@ test('LRNA-170: the HUD and ENTRANCE box show the address the game was opened fr
     await serve('http://gameserver.lan:8080/**');
     await page.goto('http://gameserver.lan:8080/long-range-node-attack/index.html');
     const inFolder = await read();
-    assert(!asFile.hudShown && !asFile.entranceShown, `opened as a file there is no address to show: ${JSON.stringify(asFile)}`);
+    assert(!asFile.hudShown, `opened as a file there is no address to show: ${JSON.stringify(asFile)}`);
     assert(!asFile.stale, 'the old fixed 192.168.1.36 address should be gone');
     assertEqual(atRoot.hud, '192.168.1.89:2001', 'HUD address');
-    assertEqual(atRoot.entrance, '192.168.1.89:2001', 'ENTRANCE address');
-    assert(atRoot.hudShown && atRoot.entranceShown && !atRoot.pathShown, `served from the root: address shown, no path line: ${JSON.stringify(atRoot)}`);
+    assert(atRoot.hudShown, `served over http the address shows: ${JSON.stringify(atRoot)}`);
     assertEqual(inFolder.hud, 'gameserver.lan:8080', 'any host and port');
-    assertEqual(inFolder.path, '/long-range-node-attack/', 'the folder it was opened from, without index.html');
-    assert(inFolder.pathShown, 'the path line should show when the game is in a folder');
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   }, { skipStart: true });
 });
@@ -1831,6 +1832,30 @@ test('LRNA-172: on a phone the contact list starts collapsed and a tap on a foun
   }, { viewport: { width: 390, height: 844 } });
 });
 
+test('LRNA-172: a tap on the RADAR LANE panel\'s empty space reaches a forward defense under it', async () => {
+  await withGame(async (page, errors) => {
+    const pos = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      const node = T.antiPlaneNodes[0];
+      node.discovered = true;
+      const panel = document.getElementById('contacts').getBoundingClientRect();
+      const rect = document.getElementById('game').getBoundingClientRect();
+      // put the node under the panel's bottom-left padding, clear of its header and lane dots
+      const sx = panel.left + 4, sy = panel.bottom - 3;
+      T.setCamX(node.x - (sx - rect.left) / T.ZOOM);
+      node.y = (sy - rect.top) / T.ZOOM;
+      const el = document.elementFromPoint(sx, sy);
+      return { x: sx, y: sy, id: node.id, onPanel: document.getElementById('contacts').contains(el) };
+    });
+    await page.mouse.click(pos.x, pos.y);
+    const sel = await page.evaluate(() => window.__TEST__.selectedTargetId);
+    assert(pos.onPanel, 'the tap point is on the panel');
+    assertEqual(sel, pos.id, 'the tap still targets the defense under the panel');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { viewport: { width: 390, height: 844 } });
+});
+
 test('LRNA-174: the start screen lists the missions with saved stars', async () => {
   await withGame(async (page, errors) => {
     await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'blind-the-radar': 2 })));
@@ -1847,6 +1872,7 @@ test('LRNA-174: the start screen lists the missions with saved stars', async () 
 
 test('LRNA-174: BLIND THE RADAR completes when both radar defenses fall, with stars saved', async () => {
   await withGame(async (page, errors) => {
+    await page.click('#missionsBtn');
     await page.click('.missionBtn[data-mission="blind-the-radar"]');
     await page.waitForTimeout(200);
     const r = await page.evaluate(() => {
@@ -1879,6 +1905,7 @@ test('LRNA-174: BLIND THE RADAR completes when both radar defenses fall, with st
 
 test('LRNA-174: running out of time fails the mission and saves nothing', async () => {
   await withGame(async (page, errors) => {
+    await page.click('#missionsBtn');
     await page.click('.missionBtn[data-mission="first-contact"]');
     await page.waitForTimeout(200);
     const r = await page.evaluate(() => {
@@ -1900,6 +1927,7 @@ test('LRNA-174: running out of time fails the mission and saves nothing', async 
 
 test('LRNA-174: mission setups - HOLD THE LINE skips recon, NO SAFETY NET has no Emergency Counters; endless clears the mission', async () => {
   await withGame(async (page, errors) => {
+    await page.click('#missionsBtn');
     await page.click('.missionBtn[data-mission="hold-the-line"]');
     await page.waitForTimeout(200);
     const hold = await page.evaluate(() => ({ locked: window.__TEST__.openingLocked }));
@@ -1909,6 +1937,7 @@ test('LRNA-174: mission setups - HOLD THE LINE skips recon, NO SAFETY NET has no
     await page.evaluate(() => window.__TEST__.missionStats.wavesCleared = 5);
     await page.waitForTimeout(200);
     await page.click('#waveResultClose');
+    await page.click('#missionsBtn');
     await page.click('.missionBtn[data-mission="no-safety-net"]');
     await page.waitForTimeout(200);
     const net = await page.evaluate(() => ({ emergency: window.__TEST__.counterAmmo.emergency,
@@ -2243,6 +2272,100 @@ test('LRNA-087: a fast-moving missile spawns speed-line streak particles, a slow
     assertEqual(result.tracersAfterSlow, 0, `a slow (100) missile should not spawn a speed-line streak: ${JSON.stringify(result)}`);
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
+});
+
+test('ART-10: the home screen is PLAY + MISSIONS on a solid backdrop and fits one screen', async () => {
+  for (const viewport of [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+    await withGame(async (page, errors) => {
+      const r = await page.evaluate(() => {
+        const ov = document.getElementById('overlay');
+        const visible = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.offsetParent);
+        const big = visible('#overlay .mBtn').map((b) => b.textContent.trim());
+        const controls = visible('#overlay button, #overlay select').length;
+        // a solid backdrop: the overlay itself is what sits under each corner, not the HUD
+        const corners = [[2, 2], [innerWidth - 3, 2], [2, innerHeight - 3], [innerWidth - 3, innerHeight - 3]]
+          .map(([x, y]) => ov.contains(document.elementFromPoint(x, y)));
+        return { big, controls, scrolls: ov.scrollHeight > ov.clientHeight, corners,
+          lore: !!document.querySelector('#overlay .tag, #overlay .featuring, #entrance, #loadout') };
+      });
+      const size = `${viewport.width}x${viewport.height}`;
+      assertEqual(JSON.stringify(r.big), JSON.stringify(['PLAY', 'MISSIONS']), `${size}: the two main buttons`);
+      assert(r.controls <= 4, `${size}: home has at most 4 controls (was 13): ${r.controls}`);
+      assert(!r.scrolls, `${size}: home fits without scrolling`);
+      assert(r.corners.every(Boolean), `${size}: the menu covers the screen: ${JSON.stringify(r.corners)}`);
+      assert(!r.lore, `${size}: the old lore text, chips and ENTRANCE box are gone`);
+      assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+    }, { viewport, skipStart: true });
+  }
+});
+
+test('ART-10..13: menu screens open from home, BACK and Esc return, and a finished run lands on home', async () => {
+  await withGame(async (page, errors) => {
+    const shown = () => page.evaluate(() => [...document.querySelectorAll('#overlay .menuScreen')]
+      .filter((s) => !s.hidden).map((s) => s.dataset.menu).join(','));
+    const seen = {};
+    for (const name of ['setup', 'missions', 'howto']) {
+      await page.click(`#menuHome [data-goto="${name}"]`);
+      seen[name] = await shown();
+      await page.click(`#overlay .menuScreen[data-menu="${name}"] .mHead [data-goto="home"]`);
+      seen[name + 'Back'] = await shown();
+    }
+    await page.click('#missionsBtn');
+    await page.keyboard.press('Escape');
+    seen.esc = await shown();
+    await page.click('#menuHome [data-goto="howto"]');
+    const howto = await page.$eval('#menuHowto', (e) => e.innerText);
+    await page.click('#menuHowto [data-goto="home"]');
+    await page.click('#missionsBtn');
+    await page.click('.missionBtn[data-mission="first-contact"]');
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { const T = window.__TEST__; T.freezeWaves(); T.missionStats.time = 149.99; T.tickUpdate(0.05); });
+    await page.click('#waveResultClose');
+    seen.afterRun = await shown();
+    for (const name of ['setup', 'missions', 'howto']) {
+      assertEqual(seen[name], name, `${name} opens on its own`);
+      assertEqual(seen[name + 'Back'], 'home', `BACK from ${name}`);
+    }
+    assertEqual(seen.esc, 'home', 'Esc goes back home');
+    assertEqual(seen.afterRun, 'home', 'closing a result shows the home screen');
+    for (const word of ['FIND', 'DESTROY', 'ATTACK', 'DEFEND', 'CURRENCY', 'CONTROLS']) assert(howto.includes(word), `how to play covers ${word}`);
+    assert(howto.length < 1400, `how to play stays short: ${howto.length} chars`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('ART-11: setup changes show on the home summary line, with each slot\'s role under its pick', async () => {
+  await withGame(async (page, errors) => {
+    const before = await page.$eval('#setupSummary', (e) => e.textContent);
+    await page.click('#menuHome [data-goto="setup"]');
+    await page.click('.difficultyBtn[data-difficulty="hard"]');
+    await page.selectOption('.loadoutSelect[data-slot="1"]', 'satellite');
+    const r = await page.evaluate(() => ({
+      options: [...document.querySelectorAll('.loadoutSelect[data-slot="0"] option')].map((o) => o.textContent),
+      role1: document.querySelector('.slotRole[data-role="1"]').textContent,
+    }));
+    await page.click('#menuSetup .mBtn[data-goto="home"]');
+    const after = await page.$eval('#setupSummary', (e) => e.textContent);
+    await page.reload();
+    await page.waitForTimeout(300);
+    const reloaded = await page.$eval('#setupSummary', (e) => e.textContent);
+    assertEqual(before, 'NORMAL · GML / MG AA / CTR BTY', 'default summary');
+    assertEqual(after, 'HARD · GML / SAT / CTR BTY', 'summary follows the picks');
+    assertEqual(reloaded, after, 'and survives a reload');
+    assert(r.options.every((t) => !t.includes('—')), `options are plain names now: ${r.options.join(', ')}`);
+    assert(r.role1.length > 5, `the role line describes the pick: ${r.role1}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
+});
+
+test('ART-12: home shows the mission stars total', async () => {
+  await withGame(async (page, errors) => {
+    await page.evaluate(() => localStorage.setItem('lrna_mission_stars_v1', JSON.stringify({ 'blind-the-radar': 2, 'first-contact': 3 })));
+    await page.reload();
+    await page.waitForTimeout(300);
+    assertEqual(await page.$eval('#missionStarsTotal', (e) => e.textContent), '5/18', 'stars total');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  }, { skipStart: true });
 });
 
 run();
