@@ -40,6 +40,7 @@ def check(cond, msg, detail=""):
 
 def run(*args, home, **extra_env):
     env = dict(os.environ, HOME=str(home), XDG_DATA_HOME=str(home / ".local" / "share"), **extra_env)
+    env.pop("PYTHONUNBUFFERED", None)  # behave like a normal machine, where output to a pipe is buffered
     return subprocess.run([sys.executable, str(INSTALLER), *args], env=env,
                           capture_output=True, text=True, timeout=60)
 
@@ -77,6 +78,7 @@ with tempfile.TemporaryDirectory() as tmp:
     copy = dl / "longrange-installer.py"
     copy.write_bytes(INSTALLER.read_bytes())
     env = dict(os.environ, HOME=str(home), XDG_DATA_HOME=str(home / ".local" / "share"))
+    env.pop("PYTHONUNBUFFERED", None)
     r = subprocess.run([sys.executable, str(copy), "--no-open"], env=env, capture_output=True, text=True, timeout=60)
     inst = home / ".local" / "share" / "longrange-node-attack"
     check(r.returncode == 0, f"install exits 0 ({r.stderr.strip()[-200:]})")

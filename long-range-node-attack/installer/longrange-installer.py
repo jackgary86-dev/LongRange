@@ -161,6 +161,9 @@ def cmd_serve(args):
     for a in lan_addresses() or ["<this computer's address>"]:
         print(f"  http://{a}:{args.port}/")
     print(f"  http://localhost:{args.port}/ (this computer)")
+    # Show the addresses now, even when output goes to a pipe or a service log
+    # (Python would otherwise hold them in a buffer until it exits).
+    sys.stdout.flush()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
