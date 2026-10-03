@@ -836,6 +836,85 @@ test('LRNA-143/175: CLUSTER and EMP are back on the bar once unlocked, on keys 5
   });
 });
 
+test('LRNA-176: at 75% Omega goes to RAPID FIRE - announced, on the HUD, and its wave strikes come 15% faster', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.clearMissiles();
+      T.startWave(1);
+      const real = Math.random;
+      Math.random = () => 0.5;
+      T.waveStrikeTimer = 0; T.tickUpdate(0.05);
+      const gap0 = T.waveStrikeTimer;
+      T.omegaHealthForTest = Math.floor(T.PLAYER_MAX_HEALTH * 0.74);
+      T.tickUpdate(0.05);
+      const phase = T.omegaPhase;
+      T.waveStrikeTimer = 0; T.tickUpdate(0.05);
+      const gap1 = T.waveStrikeTimer;
+      Math.random = real;
+      T.updateOmegaCountersHud && T.updateOmegaCountersHud();
+      return { phase, gap0, gap1, texts: T.floatingTexts.map((f) => f.text),
+        objective: document.getElementById('objectiveHud').textContent,
+        tag: document.getElementById('omegaPhaseTag').textContent, tagShown: !document.getElementById('omegaPhaseTag').hidden };
+    });
+    assertEqual(r.phase, 1, 'phase II');
+    assert(r.texts.includes('OMEGA PHASE II — RAPID FIRE'), 'announced: ' + r.texts);
+    assert(r.objective.includes('RAPID FIRE'), 'objective line: ' + r.objective);
+    assert(r.tagShown && r.tag === 'RAPID FIRE', 'HUD tag: ' + r.tag);
+    assert(Math.abs(r.gap1 / r.gap0 - 0.85) < 0.02, `strike gap x0.85: ${r.gap0} -> ${r.gap1}`);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-176: at 50% SHIELD BURST blocks all damage for 6 seconds', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles();
+      T.omegaHealthForTest = Math.floor(T.PLAYER_MAX_HEALTH * 0.49); // crosses 75% and 50% in one go
+      T.tickUpdate(0.05);
+      const phase = T.omegaPhase, shield = T.omegaShieldTimer;
+      const hp0 = T.omegaHealth;
+      T.applyDamage(T.nodeO, T.nodeO.x, 0, 1000);
+      const hpShielded = T.omegaHealth;
+      const tag = (T.updateOmegaCountersHud && T.updateOmegaCountersHud(), document.getElementById('omegaPhaseTag').textContent);
+      for (let i = 0; i < 125; i++) T.tickUpdate(0.05);
+      T.applyDamage(T.nodeO, T.nodeO.x, 0, 100);
+      return { phase, shield, hp0, hpShielded, hpAfter: T.omegaHealth, shieldAfter: T.omegaShieldTimer, tag };
+    });
+    assertEqual(r.phase, 2, 'phase III (both thresholds crossed)');
+    assert(r.shield > 5.9, 'a 6 second shield: ' + r.shield);
+    assertEqual(r.hpShielded, r.hp0, 'a hit on the shield does nothing');
+    assert(/^SHIELD \d+s$/.test(r.tag), 'HUD shows the shield countdown: ' + r.tag);
+    assertEqual(r.shieldAfter, 0, 'the shield drops after 6s');
+    assert(r.hpAfter < r.hp0, 'damage lands again after it drops');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-176: at 25% LAST STAND fires a 2-strike salvo, and a rebuilt Omega starts over', async () => {
+  await withGame(async (page, errors) => {
+    const r = await page.evaluate(() => {
+      const T = window.__TEST__;
+      T.freezeWaves(); T.clearMissiles(); T.neutralizeAutoDefense(); T.disableOmegaCounters();
+      T.omegaHealthForTest = Math.floor(T.PLAYER_MAX_HEALTH * 0.2);
+      for (let i = 0; i < 50; i++) T.tickUpdate(0.05); // 2.5s: both out
+      const salvo = T.missiles.filter((m) => m.typeKey === 'enemyStrike');
+      const phase = T.omegaPhase;
+      T.onOmegaDestroyedForWaves();
+      return { phase, salvo: salvo.length, toPlatform: salvo.every((m) => m.destId === 'A'),
+        waveCounted: salvo.some((m) => m.waveNum != null),
+        after: { phase: T.omegaPhase, shield: T.omegaShieldTimer, salvo: T.omegaSalvoLeft } };
+    });
+    assertEqual(r.phase, 3, 'phase IV');
+    assertEqual(r.salvo, 2, 'two salvo strikes');
+    assert(r.toPlatform, 'aimed at the Strike Platform');
+    assert(!r.waveCounted, 'not part of the wave count');
+    assertEqual(JSON.stringify(r.after), JSON.stringify({ phase: 0, shield: 0, salvo: 0 }), 'a rebuilt Omega starts at phase I');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
 test('LRNA-177: DECOY has no warhead and draws Omega\'s fire unless its radar sees through it', async () => {
   await withGame(async (page, errors) => {
     const r = await page.evaluate(() => {

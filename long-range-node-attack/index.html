@@ -77,6 +77,8 @@
   #playerNodeStatus .down, #omegaNodeStatus .down { color: #d0573c; }
   /* Omega's counter stock (LRNA-116/165/181) and its two jam timers (LRNA-075/151) */
   #omegaCounterStatus { color: var(--m-muted); }
+  #omegaPhaseTag { color: #ff5a36; font-weight: 700; } /* LRNA-176 */
+  #omegaPhaseTag[hidden] { display: none; }
   #omegaCounterStatus .ready { color: var(--m-text); }
   #omegaCounterStatus .out { color: #d0573c; }
   #pointDefenseJamStatus { color: #e3a838; animation: omegaJamPulse 0.9s infinite; }
@@ -657,7 +659,7 @@
     <div class="panel hpPanel right">
       <div class="hpHead"><span class="hpNum" id="oHealth">250</span><span class="hpName">NODE OMEGA</span></div>
       <div class="hpBar"><div class="hpFill" id="oBar"></div></div>
-      <div class="hpTags"><span id="omegaNodeStatus">MSL 3/3 &middot; RDR 2/2</span><span id="omegaCounterStatus"></span><span id="pointDefenseJamStatus" class="hidden">POINT DEFENSE JAMMED 0:15</span><span id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</span></div>
+      <div class="hpTags"><span id="omegaPhaseTag" hidden></span><span id="omegaNodeStatus">MSL 3/3 &middot; RDR 2/2</span><span id="omegaCounterStatus"></span><span id="pointDefenseJamStatus" class="hidden">POINT DEFENSE JAMMED 0:15</span><span id="omegaJamStatus" class="hidden">COUNTERS JAMMED 0:15</span></div>
     </div>
   </div>
 
@@ -872,7 +874,7 @@
         <ol class="howSteps">
           <li><span><strong>ATTACK</strong> from the first second. Pick a target - OMEGA, RADAR or MISSILE on the bar, or tap one on the field - then fire missiles and strike planes (they cost ATTACK).</span></li>
           <li><span><strong>DEFEND</strong> against what Omega sends back in waves. Your ground defenses fire on their own; EMERGENCY COUNTER is yours to fire at any threat in its last 5 seconds. You get 15 per game, and so does Omega.</span></li>
-          <li><span><strong>BREAK</strong> Omega. It rebuilds stronger each time it falls; the run ends when your Strike Platform does.</span></li>
+          <li><span><strong>BREAK</strong> Omega. It fights harder as it falls - faster at 75%, a shield at 50%, a last-stand salvo at 25% - and rebuilds stronger each time; the run ends when your Strike Platform does.</span></li>
         </ol>
       </div>
       <div class="mPanel">
@@ -1316,6 +1318,21 @@
   let omegaHealth = PLAYER_MAX_HEALTH;
   const OMEGA_REBUILD_INVULN = 0.5; // Invulnerability window after rebuild (LRNA-125)
   let omegaInvulnTimer = 0;
+  // ---- LRNA-176: OMEGA BOSS PHASES. Each Omega life gets harder as it
+  // falls: at 75% it fires faster, at 50% it throws up a shield, at 25%
+  // it makes a last stand (an extra salvo at you). Announced on screen;
+  // reset when it rebuilds. Strengths tuned with the simulator - see the ticket.
+  const OMEGA_PHASES = [
+    { at: 1, name: '' },
+    { at: 0.75, name: 'RAPID FIRE', note: 'STRIKES 15% FASTER' },
+    { at: 0.5, name: 'SHIELD BURST', note: 'SHIELDED 6s' },
+    { at: 0.25, name: 'LAST STAND', note: 'SALVO INBOUND' },
+  ];
+  const PHASE_RAPID_MULT = 0.85;      // gap between wave strikes from RAPID FIRE on
+  const PHASE_SHIELD_SECONDS = 6;
+  const PHASE_SALVO = 2;             // LAST STAND's extra strikes, one every PHASE_SALVO_GAP
+  const PHASE_SALVO_GAP = 0.6;
+  let omegaPhase = 0, omegaShieldTimer = 0, omegaSalvoLeft = 0, omegaSalvoTimer = 0;
 
   function damageOmegaAt(offsetX, offsetY, nodeCount) {
     const rx = OMEGA_RES / 2 + offsetX / OMEGA_PX_SCALE;
@@ -1379,6 +1396,10 @@
     if (dest.id === 'O') {
       // Skip damage during rebuild invulnerability window (LRNA-125)
       if (omegaInvulnTimer > 0) return false;
+      if (omegaShieldTimer > 0) { // LRNA-176
+        spawnFloatText(dest.x + (Math.random() - 0.5) * 60, dest.y - 90, 'SHIELDED', '#9fd4e8', 22);
+        return false;
+      }
       const wasAlive = omegaHealth > 0;
       damageOmegaAt(x - dest.x, laneY, dmg); // cosmetic crumble only
       omegaHealth = Math.max(0, omegaHealth - Math.max(1, Math.round(dmg * OMEGA_HEALTH_DMG_RATIO)));
@@ -2274,7 +2295,7 @@
       const clock = activeMission.limit ? ` · ${fmtTime(activeMission.limit - st.time)} LEFT` : '';
       text = `${isMobileViewport() ? '' : 'MISSION · '}${activeMission.name} · ${activeMission.progress(st)}${clock}`;
     } else {
-      text = `DESTROY NODE OMEGA${omegaRebuildCount ? ` · DESTROYED ${omegaRebuildCount}×` : ''}`;
+      text = `DESTROY NODE OMEGA${omegaPhase ? ` · ${OMEGA_PHASES[omegaPhase].name}` : ''}${omegaRebuildCount ? ` · DESTROYED ${omegaRebuildCount}×` : ''}`; // LRNA-176: its phase
     }
     if (text !== lastObjectiveText) {
       el.textContent = text;
@@ -2354,6 +2375,7 @@
     buildOmegaBase();
     nodeO.hitChance = Math.min(OMEGA_HIT_CHANCE_CAP, (nodeO.hitChance || COUNTER.hitChance * DIFFICULTIES[difficulty].interceptMult) + 0.05);
     omegaInvulnTimer = OMEGA_REBUILD_INVULN; // Add invulnerability window (LRNA-125)
+    resetOmegaPhase(); // LRNA-176: a fresh Omega starts at phase I
     // LRNA-189: Omega rebuilds its radar and missile nodes with it, so
     // clearing them once isn't a permanent win - each round starts again
     let rebuilt = 0;
@@ -2363,13 +2385,43 @@
     updateNodeHud();
     updateObjectiveHud();
   }
+  // LRNA-176: enter each phase Omega's health has crossed (a big hit can
+  // cross two), then run the shield and the LAST STAND salvo
+  function updateOmegaPhase(dt) {
+    if (omegaShieldTimer > 0) omegaShieldTimer = Math.max(0, omegaShieldTimer - dt);
+    if (omegaHealth <= 0) return;
+    const frac = omegaHealth / PLAYER_MAX_HEALTH;
+    while (omegaPhase < OMEGA_PHASES.length - 1 && frac <= OMEGA_PHASES[omegaPhase + 1].at) enterOmegaPhase(omegaPhase + 1);
+    if (omegaSalvoLeft > 0) {
+      omegaSalvoTimer -= dt;
+      if (omegaSalvoTimer <= 0) {
+        omegaSalvoLeft -= 1;
+        omegaSalvoTimer = PHASE_SALVO_GAP;
+        launchEnemyStrike(nodeO, nodeA); // not part of the wave count
+      }
+    }
+  }
+  function enterOmegaPhase(p) {
+    omegaPhase = p;
+    const ph = OMEGA_PHASES[p];
+    if (p === 2) omegaShieldTimer = PHASE_SHIELD_SECONDS;
+    if (p === 3) { omegaSalvoLeft = PHASE_SALVO; omegaSalvoTimer = 0.4; }
+    spawnFloatText(nodeO.x, nodeO.y - 200 - p * 6, `OMEGA PHASE ${'I'.repeat(p + 1).replace('IIII', 'IV')} — ${ph.name}`, '#ff5a36', 30);
+    spawnFloatText(nodeO.x, nodeO.y - 168, ph.note, '#e3a838', 22);
+    sfxEliteStinger();
+    lastObjectiveText = '';
+    updateObjectiveHud();
+  }
+  function resetOmegaPhase() { omegaPhase = 0; omegaShieldTimer = 0; omegaSalvoLeft = 0; omegaSalvoTimer = 0; }
+
   function updateWaveDirector(dt) {
     if (omegaHealth <= 0) return; // mid-rebuild this frame, applyDamage's caller handles it
     if (waveState === 'active') {
       if (waveStrikesLaunched < waveStrikesTotal) {
         waveStrikeTimer -= dt;
         if (waveStrikeTimer <= 0 && activeCount('O') < MAX_ACTIVE) {
-          waveStrikeTimer = ENEMY_STRIKE_INTERVAL() / omegaWaveFactor(); // LRNA-182: fewer missile nodes, slower waves
+          waveStrikeTimer = ENEMY_STRIKE_INTERVAL() / omegaWaveFactor() // LRNA-182: fewer missile nodes, slower waves
+            * (omegaPhase >= 1 ? PHASE_RAPID_MULT : 1); // LRNA-176: RAPID FIRE
           // LRNA-182: some strikes go after your missile and radar nodes
           // LRNA-187: Omega works one of your nodes at a time - the most damaged
           // standing one - instead of spreading hits over all five
@@ -2691,6 +2743,7 @@
     for (const t of [...fieldTargets, ...playerNodes]) { t.health = t.maxHealth; t.destroyed = false; t.impacts = 0; } // LRNA-182: yours too
     empGlobalJamTimer = 0;
     omegaInvulnTimer = 0; // Reset Omega invulnerability timer (LRNA-125)
+    resetOmegaPhase(); // LRNA-176
     initLoadoutNodes();
     // Omega's own interceptor chance vs the player's outgoing missiles
     // (getDefender('O') -> fireCounter, otherwise COUNTER.hitChance)
@@ -3075,6 +3128,12 @@
   }
 
   function updateOmegaCountersHud() {
+    const phaseEl = document.getElementById('omegaPhaseTag'); // LRNA-176
+    if (phaseEl) {
+      phaseEl.hidden = !omegaPhase;
+      const t = omegaPhase ? (omegaShieldTimer > 0 ? `SHIELD ${Math.ceil(omegaShieldTimer)}s` : OMEGA_PHASES[omegaPhase].name) : '';
+      if (phaseEl.textContent !== t) phaseEl.textContent = t;
+    }
     // LRNA-151: empGlobalJamTimer (point defense/flak - LRNA-037) and
     // omegaCountersJamTimer (Omega's Counter Missile/Planes - LRNA-075)
     // are two independent timers; previously only the latter had a HUD
@@ -3649,6 +3708,7 @@
 
     if (empGlobalJamTimer > 0) empGlobalJamTimer = Math.max(0, empGlobalJamTimer - dt);
     if (omegaInvulnTimer > 0) omegaInvulnTimer = Math.max(0, omegaInvulnTimer - dt); // LRNA-125
+    updateOmegaPhase(dt); // LRNA-176
 
     for (const m of missiles) {
       // LRNA-078/#435: planes are a separate arsenal with their own
@@ -4550,6 +4610,17 @@
       OMEGA_RES * OMEGA_PX_SCALE, OMEGA_RES * OMEGA_PX_SCALE
     );
     ctx.restore();
+    if (alive && omegaShieldTimer > 0) { // LRNA-176: SHIELD BURST dome
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 160);
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, omegaShieldTimer) * (0.35 + 0.25 * pulse);
+      ctx.fillStyle = '#9fd4e8';
+      ctx.beginPath(); ctx.arc(sx, nodeO.y, halfDraw + 26, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = Math.min(1, omegaShieldTimer) * 0.9;
+      ctx.strokeStyle = '#d8f2fb'; ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
     if (alive && empGlobalJamTimer > 0) drawJamIndicator(sx, nodeO.y, halfDraw + 10);
     // LRNA-075/#432: a second, separate ring (pink, further out) for the
     // new counters-only jam, distinct from the point-defense jam above -
@@ -6056,6 +6127,17 @@
       get tokens() { return tokens; },
       get omegaHealth() { return omegaHealth; },
       get omegaInvulnTimer() { return omegaInvulnTimer; },
+      get omegaPhase() { return omegaPhase; },
+      get omegaShieldTimer() { return omegaShieldTimer; },
+      get omegaSalvoLeft() { return omegaSalvoLeft; },
+      set omegaHealthForTest(v) { omegaHealth = v; },
+      get PLAYER_MAX_HEALTH() { return PLAYER_MAX_HEALTH; },
+      get DIFFICULTIES() { return DIFFICULTIES; },
+      get difficulty() { return difficulty; },
+      get waveStrikeTimer() { return waveStrikeTimer; },
+      set waveStrikeTimer(v) { waveStrikeTimer = v; },
+      applyDamage: (dest, x, laneY, dmg) => applyDamage(dest, x, laneY, dmg),
+      onOmegaDestroyedForWaves: () => onOmegaDestroyedForWaves(),
       get emergencyCooldown() { return emergencyCooldown; },
       get running() { return running; },
       get paused() { return paused; },

@@ -611,9 +611,36 @@ missions.
   - Tests (6 new): fresh-player bar and setup, endless merit, mission
     merit only for new stars, armory purchase order reaching the bar and
     setup, returning-player credit, CLUSTER/EMP keys. 87/87.
-- **LRNA-176** — OPEN — Omega boss phases. Omega changes tactics at
+- **LRNA-176** — DONE (2026-10-03) — Omega boss phases. Omega changes tactics at
   75/50/25% health (e.g. faster strikes, a shield burst, launching its own
   planes), announced on screen, so a fight builds instead of repeating.
+  - Built: four phases per Omega life, reset when it rebuilds.
+    - **II · RAPID FIRE** (75%): its wave strikes come 15% faster.
+    - **III · SHIELD BURST** (50%): a 6-second shield - a glowing dome on
+      Omega; hits on it show "SHIELDED" and do nothing.
+    - **IV · LAST STAND** (25%): an extra 2-strike salvo at the Strike
+      Platform, outside the wave count.
+    - Each is announced over Omega ("OMEGA PHASE II — RAPID FIRE" and
+      what it does) with the elite-wave sting, and shown on the objective
+      line and as a red tag on Omega's HUD bar (the shield shows its
+      countdown). A big hit that crosses two thresholds enters both.
+      HOW TO PLAY's BREAK step says what to expect.
+  - Tuned with the simulator (Normal, 16-24 games per variant): the
+    shield alone costs nothing; faster strikes are what bite. A first
+    cut (30% faster, 3-strike salvo, LAST STAND strikes +25%) cut
+    fast-nodes survival from ~9-11 min to 6:48, so it shipped at 15% /
+    2 strikes / no damage bonus.
+  - Full run, 144 games, 15-min cap - Normal: first Omega kill 2:53-4:01
+    on every plan but fast-spam (unchanged), node plans still beat
+    omega-only (fast-nodes 8:36 and 2.2 kills, all-nodes-first 8:12,
+    omega 4:55). Runs are shorter than before (fast-nodes 9-11 min, all-
+    nodes-first 12:39) - the fight builds, as asked. Hard: fast-nodes
+    8/8 kill Omega, 5:00.
+  - Tests (3 new): RAPID FIRE (announced, objective line, HUD tag,
+    strike gap x0.85), SHIELD BURST (crossing 75% and 50% at once, hits
+    blocked for 6s, then land), LAST STAND (2-strike salvo at the
+    platform, not in the wave count; a rebuilt Omega starts at phase I).
+    94/94.
 - **LRNA-177** — DONE (2026-10-03, missiles) — More weapons and units, each with a clear counter.
   Comes after LRNA-175 so new ones arrive as unlocks.
   - Asked: "Proceed adding missile types." Three new missiles, each an
