@@ -437,6 +437,28 @@
   .unlockBtn:disabled:not(.owned) { cursor: default; opacity: 0.6; }
   .unlockBtn:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; }
   .armoryNote { font-size: 11px; line-height: 1.5; color: var(--m-muted); }
+  /* LRNA-178: 2 players on the LAN - the code swap screen */
+  #menuVersus { width: min(620px, 100%); }
+  .vsStep { display: flex; flex-direction: column; gap: 8px; }
+  .vsStep[hidden] { display: none; }
+  .vsCode { width: 100%; box-sizing: border-box; min-height: 74px; resize: vertical; padding: 8px 10px;
+    font-family: var(--m-mono); font-size: 11px; line-height: 1.35; word-break: break-all;
+    color: var(--m-text); background: var(--m-bg); border: 1px solid var(--m-line-strong); border-radius: 2px; }
+  .vsCode:focus { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+  .vsRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #vsStatus { min-height: 16px; }
+  #vsStatus.err { color: #e8735a; }
+  /* LRNA-178: the Omega player's bar replaces the attack bar on their device */
+  #omegaBar { background: rgba(14,16,12,0.96); padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  #omegaBar[hidden], body.versus-guest #launchBar { display: none; }
+  #omegaBarInfo { display: flex; justify-content: center; align-items: center; gap: 14px; margin-bottom: 6px; font-size: 10px; letter-spacing: 0.14em; color: var(--m-muted); flex-wrap: wrap; }
+  #omegaPurse { color: #e8735a; font-size: 12px; }
+  #omegaButtons { display: flex; gap: 6px; justify-content: center; }
+  #omegaButtons .launchBtn, #omegaEcBtn { flex: 0 1 110px; width: auto; min-width: 0; }
+  #omegaEcBtn { position: relative; min-height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    font-family: var(--m-mono); color: var(--m-text); background: #1a1e17; border: 1px solid var(--m-line-strong); border-radius: 2px; cursor: pointer; }
+  #omegaEcBtn:disabled { opacity: 0.42; cursor: default; }
+  #omegaEcBtn.ready { border-color: #d0573c; background: rgba(208,87,60,0.35); }
   .mEyebrow { font-size: 11px; letter-spacing: 0.35em; color: var(--m-accent); }
   #overlay h1 {
     margin: 0;
@@ -801,6 +823,24 @@
         </div>
       </div>
     </div>
+    <!-- LRNA-178: on the Omega player's device this replaces the attack bar -->
+    <div id="omegaBar" hidden>
+      <div id="omegaBarInfo">
+        <div id="omegaAim" role="radiogroup" aria-label="Aim">
+          <span class="tpLabel">AIM</span>
+          <button class="targetBtn" data-aim="A" role="radio" aria-checked="true">PLATFORM</button>
+          <button class="targetBtn" data-aim="missileNode" role="radio">MISSILE <span class="tpCount"></span></button>
+          <button class="targetBtn" data-aim="radarNode" role="radio">RADAR <span class="tpCount"></span></button>
+        </div>
+        <span>NODE OMEGA <span id="omegaPurse">&#9679; 0</span></span>
+      </div>
+      <div id="omegaButtons">
+        <button class="launchBtn" data-strike="fast"><span class="btnKey">1</span><span class="btnLabel">FAST</span><span class="btnDmg">150</span><span class="btnEta">9s</span></button>
+        <button class="launchBtn" data-strike="medium"><span class="btnKey">2</span><span class="btnLabel">MEDIUM</span><span class="btnDmg">300</span><span class="btnEta">14s</span></button>
+        <button class="launchBtn" data-strike="large"><span class="btnKey">3</span><span class="btnLabel">HEAVY</span><span class="btnDmg">500</span><span class="btnEta">20s</span></button>
+        <button id="omegaEcBtn" disabled><span class="btnKey">4</span><span class="ammoLeft" id="omegaEcAmmo">15 LEFT</span><span class="btnLabel">EMERGENCY</span><span class="btnEta" id="omegaEcStatus">no target</span></button>
+      </div>
+    </div>
   </div>
   <div id="btnTip" hidden></div>
 
@@ -820,7 +860,35 @@
       <div class="mLinks">
         <button class="mLink" data-goto="setup">CHANGE SETUP</button>
         <button class="mLink" data-goto="howto">HOW TO PLAY</button>
+        <button class="mLink" data-goto="versus" id="versusBtn">2 PLAYERS</button>
       </div>
+    </section>
+
+    <!-- LRNA-178: two players on the LAN, a direct link between the two browsers -->
+    <section class="menuScreen" id="menuVersus" data-menu="versus" hidden>
+      <div class="mHead"><button class="mLink" data-goto="home" id="vsBack">&#9666; BACK</button><h2>2 PLAYERS</h2></div>
+      <p class="armoryNote">Two devices on the same Wi-Fi: one hosts and plays the Strike Platform, the other joins and plays Node Omega. No server - the two devices swap a code each way once (copy it and send it in a message, then paste it on the other device).</p>
+      <div class="mActions" id="vsChoose">
+        <button class="mBtn primary" id="vsHostBtn">HOST &middot; STRIKE PLATFORM</button>
+        <button class="mBtn" id="vsJoinBtn">JOIN &middot; NODE OMEGA</button>
+      </div>
+      <div class="vsStep" id="vsHost" hidden>
+        <div class="mLabel">1 &middot; SEND THIS CODE TO THE OTHER PLAYER</div>
+        <textarea class="vsCode" id="vsOfferOut" readonly placeholder="making a code..."></textarea>
+        <div class="vsRow"><button class="mLink" id="vsCopyOffer">COPY CODE</button></div>
+        <div class="mLabel">2 &middot; PASTE THEIR REPLY CODE</div>
+        <textarea class="vsCode" id="vsAnswerIn" placeholder="LRNA1-..."></textarea>
+        <button class="mBtn primary" id="vsConnect">CONNECT</button>
+      </div>
+      <div class="vsStep" id="vsJoin" hidden>
+        <div class="mLabel">1 &middot; PASTE THE HOST'S CODE</div>
+        <textarea class="vsCode" id="vsOfferIn" placeholder="LRNA1-..."></textarea>
+        <button class="mBtn primary" id="vsMakeAnswer">JOIN</button>
+        <div class="mLabel">2 &middot; SEND THIS REPLY CODE BACK</div>
+        <textarea class="vsCode" id="vsAnswerOut" readonly></textarea>
+        <div class="vsRow"><button class="mLink" id="vsCopyAnswer">COPY CODE</button></div>
+      </div>
+      <div class="mSetupLine" id="vsStatus"></div>
     </section>
 
     <!-- ART-11: setup - difficulty and the 3 corridor defense slots -->
@@ -1005,6 +1073,7 @@
   const waveResultBodyEl = document.getElementById('waveResultBody');
   const waveResultCloseBtn = document.getElementById('waveResultClose');
   waveResultCloseBtn.addEventListener('click', () => {
+    if (lastResultVersus && net.role) leaveVersus(); // LRNA-178: MENU ends the link
     waveResultEl.classList.add('hidden');
     overlay.classList.remove('hidden');
     renderBestWaveLabel();
@@ -1015,8 +1084,13 @@
   // fresh endless run), NEXT MISSION shows after a mission win when there
   // is one, MENU goes home.
   let lastResultMissionId = null;
-  function showResult({ kind, title, won, head, sub, rows, missionId }) {
+  let lastResultVersus = false;
+  function showResult({ kind, title, won, head, sub, rows, missionId, versus: isVersus }) {
     lastResultMissionId = missionId || null;
+    lastResultVersus = !!isVersus; // LRNA-178
+    const retryEl = document.getElementById('resultRetry');
+    retryEl.hidden = false;
+    retryEl.textContent = 'RETRY';
     document.getElementById('resultKind').textContent = kind;
     const titleEl = document.getElementById('waveResultTitle');
     titleEl.textContent = title;
@@ -1033,6 +1107,7 @@
   document.getElementById('resultRetry').addEventListener('click', () => {
     waveResultEl.classList.add('hidden');
     sfxUi();
+    if (lastResultVersus) { if (net.connected && net.role === 'host') startVersusHost(); else { overlay.classList.remove('hidden'); showMenu('home'); } return; } // LRNA-178
     if (lastResultMissionId) startMission(lastResultMissionId);
     else { activeMission = null; startDemo(); }
   });
@@ -1073,7 +1148,7 @@
     menuPausedGame = false;
   }
   function restartRun() {
-    if (!running) return;
+    if (!running || versus) return; // LRNA-178: no restart mid-versus
     closeGameMenu(false);
     if (missionMapOpen) closeMissionMap();
     reset();
@@ -1081,6 +1156,7 @@
     setPaused(false);
   }
   function quitToMenu() {
+    if (versus) leaveVersus(); // LRNA-178
     closeGameMenu(false);
     if (missionMapOpen) closeMissionMap();
     running = false;
@@ -1359,6 +1435,18 @@
   let omegaHealth = PLAYER_MAX_HEALTH;
   const OMEGA_REBUILD_INVULN = 0.5; // Invulnerability window after rebuild (LRNA-125)
   let omegaInvulnTimer = 0;
+  // ---- LRNA-178: two players on the LAN. The host's device runs the real
+  // game as the Strike Platform; the guest plays Node Omega remotely: it
+  // sends commands (strikes, its Emergency Counter) and draws the host's
+  // state, sent ~15 times a second. Omega's waves are off in a versus game.
+  let versus = false;
+  const net = { role: null, pc: null, ch: null, connected: false };
+  let netFxOut = [], netFxDepth = 0, netSnapTimer = 0, lastSnapshot = null;
+  const NET_SNAP_INTERVAL = 1 / 15;
+  const OMEGA_STRIKE_COSTS = { fast: 150, medium: 300, large: 500 };
+  const OMEGA_START_TOKENS = 500;
+  const OMEGA_STRIKE_GAP = 0.35;
+  let omegaTokens = 0, omegaStrikeGap = 0;
   // ---- LRNA-176: OMEGA BOSS PHASES. Each Omega life gets harder as it
   // falls: at 75% it fires faster, at 50% it throws up a shield, at 25%
   // it makes a last stand (an extra salvo at you). Announced on screen;
@@ -1785,8 +1873,8 @@
   function pickEnemyStrikeClass() {
     return Math.random() < 0.5 ? 'missile' : 'plane';
   }
-  function launchEnemyStrike(origin, dest) {
-    const sizeKey = pickEnemyStrikeSize();
+  function launchEnemyStrike(origin, dest, forcedSize) {
+    const sizeKey = forcedSize || pickEnemyStrikeSize(); // LRNA-178: the Omega player picks it
     const weaponClass = pickEnemyStrikeClass();
     const missile = launchAttack(origin, dest, 'enemyStrike', ENEMY_STRIKE_SIZES[sizeKey]);
     missile.sizeKey = sizeKey;
@@ -1940,6 +2028,7 @@
   // your radar: with both up you see every threat; one down, only once it's
   // in the last 60% of its flight; both down, only in its last 5 seconds
   function threatSeen(m) {
+    if (net.role === 'guest') return true; // LRNA-178: Omega sees its own strikes
     const radars = standing(playerNodes, 'radarNode');
     if (radars >= 2) return true;
     const left = m.totalSeconds - m.age;
@@ -2336,7 +2425,9 @@
       const clock = activeMission.limit ? ` · ${fmtTime(activeMission.limit - st.time)} LEFT` : '';
       text = `${isMobileViewport() ? '' : 'MISSION · '}${activeMission.name} · ${activeMission.progress(st)}${clock}`;
     } else {
-      text = `DESTROY NODE OMEGA${omegaPhase ? ` · ${OMEGA_PHASES[omegaPhase].name}` : ''}${omegaRebuildCount ? ` · DESTROYED ${omegaRebuildCount}×` : ''}`; // LRNA-176: its phase
+      text = versus ? (net.role === 'guest' ? 'YOU ARE NODE OMEGA · DESTROY THE STRIKE PLATFORM' : 'VERSUS · DESTROY NODE OMEGA')
+        + (omegaPhase ? ` · ${OMEGA_PHASES[omegaPhase].name}` : '') // LRNA-178
+        : `DESTROY NODE OMEGA${omegaPhase ? ` · ${OMEGA_PHASES[omegaPhase].name}` : ''}${omegaRebuildCount ? ` · DESTROYED ${omegaRebuildCount}×` : ''}`; // LRNA-176: its phase
     }
     if (text !== lastObjectiveText) {
       el.textContent = text;
@@ -2346,6 +2437,7 @@
 
   function updateWaveHud() {
     if (!waveHudEl) return;
+    if (versus) { if (waveHudEl.textContent !== 'LAN VERSUS') waveHudEl.textContent = 'LAN VERSUS'; return; } // LRNA-178
     if (waveState === 'break') {
       waveHudEl.textContent = `WAVE ${currentWave} CLEARED — NEXT WAVE IN ${Math.ceil(waveBreakTimer)}s`;
       waveHudEl.classList.add('break');
@@ -2380,6 +2472,7 @@
     return `+${n} (${unlockState.merit} total)${ready ? ' · ARMORY READY' : ''}`;
   }
   function triggerRunEnd() {
+    if (versus) { endVersus('O'); return; } // LRNA-178
     if (activeMission) { endMission(false, 'The Strike Platform was destroyed.'); return; } // LRNA-174
     running = false;
     setPaused(false);
@@ -2408,6 +2501,7 @@
   // without ever fully closing the skill gap.
   const OMEGA_HIT_CHANCE_CAP = 0.70;
   function onOmegaDestroyedForWaves() {
+    if (versus) { endVersus('A'); return; } // LRNA-178: no rebuild, the Strike Platform wins
     omegaRebuildCount += 1;
     missionStats.omegaKills += 1; // LRNA-174
     spawnFloatText(nodeO.x, nodeO.y - 160, 'NODE OMEGA DESTROYED — REBUILDING STRONGER', '#ff2ea6');
@@ -2456,6 +2550,7 @@
   function resetOmegaPhase() { omegaPhase = 0; omegaShieldTimer = 0; omegaSalvoLeft = 0; omegaSalvoTimer = 0; }
 
   function updateWaveDirector(dt) {
+    if (versus) return; // LRNA-178: Omega is a player, no waves
     if (omegaHealth <= 0) return; // mid-rebuild this frame, applyDamage's caller handles it
     if (waveState === 'active') {
       if (waveStrikesLaunched < waveStrikesTotal) {
@@ -3000,6 +3095,17 @@
   // else (AM batteries, defending field targets - fired through the
   // generic getDefender() auto-defend loop with no tag) falls back to a
   // live lookup by the counter's originId.
+  // LRNA-179: a kill leaves the interceptor's path on screen. Path and y
+  // are relative to the corridor's centre line (LRNA-178: the other
+  // device's screen may be a different height).
+  function spawnKillTrail(path, color, x, ry) {
+    const c = vh() / 2, y = c + ry;
+    killTrails.push({ path: path.map(([px, py]) => [px, c + py]), color, age: 0, x, y });
+    launchRings.push({ x, y, age: 0, color, maxR: 46 });
+    for (let i = 0; i < 8; i++) {
+      particles.push({ x, y, vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 60, life: 1.2, color: '#3a3328', debris: true });
+    }
+  }
   // LRNA-179: your interceptors' trails are green, Omega's red
   function interceptSideColor(target) { return target.originId === 'A' ? '#e8735a' : '#a8d070'; }
   function describeDefender(m) {
@@ -3078,6 +3184,7 @@
   }
 
   function fireEmergencyCounter() {
+    if (net.role === 'guest') return; // LRNA-178: Omega's own counter is omegaEcBtn
     if (paused) return false; // LRNA-119
     if (emergencyCooldown > 0) return false;
     if (counterAmmo.emergency <= 0) return false; // LRNA-165
@@ -3160,9 +3267,14 @@
     // promptly once the jam lifts
     omegaEmergencyCooldown = Math.max(0, omegaEmergencyCooldown - dt);
     if (omegaCountersJamTimer > 0) { omegaCountersJamTimer = Math.max(0, omegaCountersJamTimer - dt); return; }
-    if (omegaEmergencyCooldown > 0 || omegaCounterAmmo.emergency <= 0) return;
+    if (versus) return; // LRNA-178: the Omega player fires it (omegaTryEmergency)
+    omegaTryEmergency();
+  }
+  function omegaTryEmergency() {
+    if (omegaHealth <= 0 || omegaCountersJamTimer > 0) return false;
+    if (omegaEmergencyCooldown > 0 || omegaCounterAmmo.emergency <= 0) return false;
     const target = findOmegaEmergencyTarget();
-    if (!target) return;
+    if (!target) return false;
     target.omegaEmergencyUsed = (target.omegaEmergencyUsed || 0) + 1;
     omegaEmergencyCooldown = EMERGENCY_COOLDOWN;
     // Strike Fighter dodges Omega's first shot at it each flight - the
@@ -3170,12 +3282,13 @@
     if (target.planeKind === 'strikeFighter' && (target.dodgesLeft || 0) > 0) {
       target.dodgesLeft -= 1;
       spawnFloatText(target.x, vh() / 2 + target.laneY - 30, 'DODGED', '#35e6ff');
-      return;
+      return true;
     }
     // Heavy Bomber is explicitly easy to shoot down.
     const hitChance = target.planeKind === 'heavyBomber' ? Math.min(0.95, EMERGENCY_HIT_CHANCE + 0.15) : EMERGENCY_HIT_CHANCE;
     omegaCounterAmmo.emergency -= 1;
     fireCounter({ id: nodeO.id, x: nodeO.x, y: nodeO.y, color: '#e8a58f', hitChance }, target.id, 'omegaEmergency');
+    return true;
   }
 
   function updateOmegaCountersHud() {
@@ -3231,7 +3344,7 @@
     const def = PLANE_TYPES[key];
     const slot = planeSlots[key];
     if (!def || !slot || slot.state !== 'ready') return;
-    if (!isUnlocked(key)) return; // LRNA-175
+    if (!isUnlocked(key) || net.role === 'guest') return; // LRNA-175, LRNA-178
     if (tokens[def.pillar] < def.cost) return;
     const dest = key === 'interceptorJet' ? null : (getTarget(selectedTargetId) || nodeO);
     let seekTargetId = null;
@@ -3723,7 +3836,7 @@
   function loop(now) {
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
-    if (running && !paused) update(dt);
+    if (running && !paused) (versus && net.role === 'guest' ? remoteUpdate : update)(dt); // LRNA-178
     draw();
     drawMinimap();
     requestAnimationFrame(loop);
@@ -3829,7 +3942,7 @@
     updateOmegaDamageFx(dt); // LRNA-179
     for (let i = pendingFx.length - 1; i >= 0; i--) { // LRNA-179: delayed blasts
       pendingFx[i].t -= dt;
-      if (pendingFx[i].t <= 0) { const fx = pendingFx[i]; pendingFx.splice(i, 1); fx.fn(); }
+      if (pendingFx[i].t <= 0) { const fx = pendingFx[i]; pendingFx.splice(i, 1); netFxDepth++; try { fx.fn(); } finally { netFxDepth--; } }
     }
     for (let i = killTrails.length - 1; i >= 0; i--) { killTrails[i].age += dt; if (killTrails[i].age > KILL_TRAIL_LIFE) killTrails.splice(i, 1); }
 
@@ -3910,13 +4023,7 @@
             spawnFloatText(mx, my - 20, `INTERCEPTED BY ${describeDefender(m)}`, '#f3e7c1', 24); // LRNA-110, ART-22
             // LRNA-179: what hit what - the interceptor's whole path stays on
             // screen in its side's color, ending in a kill ring and wreckage
-            const side = interceptSideColor(target);
-            killTrails.push({ path: (m.path || []).concat([[mx, my]]), color: side, age: 0, x: mx, y: my });
-            launchRings.push({ x: mx, y: my, age: 0, color: side, maxR: 46 });
-            for (let i = 0; i < 8; i++) {
-              particles.push({ x: mx, y: my, vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 60, life: 1.2,
-                color: '#3a3328', debris: true });
-            }
+            spawnKillTrail((m.path || []).concat([[mx, my]]).map(([px, py]) => [px, py - vh() / 2]), interceptSideColor(target), mx, my - vh() / 2);
             stats.intercepts += 1;
             // LRNA-078/#435: a shot-down plane frees its slot for a rearm,
             // same as one that lands safely - it just skips the "safe
@@ -4112,6 +4219,8 @@
             // damage this hit deals, 1:1 - EMP deals 0 and earns nothing.
             const dmgReward = Math.round(m.dmg * DMG_TO_COIN_RATIO * playerIncomeFactor()); // LRNA-182
             if (dmgReward > 0) earnTokens('attack', dmgReward, m.x, dest.y + m.laneY - 24);
+          } else if (versus && m.versusCost) {
+            omegaTokens += Math.round(m.versusCost * DMG_TO_COIN_RATIO); // LRNA-178: Omega's hits pay back too
           }
 
           let justDestroyed = false;
@@ -4191,6 +4300,22 @@
     tokenSaveTimer -= dt;
     if (tokenSaveTimer <= 0) { tokenSaveTimer = 1; saveTokens(); saveLifetimeTokens(); }
 
+    updateCosmetics(dt); // LRNA-178: shared with the Omega player's remote view
+    if (versus && net.role === 'host') {
+      omegaTokens += TOKEN_PASSIVE_RATE * omegaIncomeFactor() * dt; // LRNA-178
+      omegaStrikeGap = Math.max(0, omegaStrikeGap - dt);
+      netSnapTimer -= dt;
+      if (netSnapTimer <= 0) { netSnapTimer = NET_SNAP_INTERVAL; netSend(netSnapshot()); }
+    }
+
+    contactsRenderTimer -= dt;
+    if (contactsRenderTimer <= 0) {
+      contactsRenderTimer = CONTACTS_RENDER_INTERVAL;
+      renderTargetList();
+    }
+  }
+
+  function updateCosmetics(dt) {
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
       floatingTexts[i].age += dt;
       if (floatingTexts[i].age > 1.2) floatingTexts.splice(i, 1);
@@ -4217,12 +4342,6 @@
       scorchMarks[i].age += dt;
       if (scorchMarks[i].age > CRATER_LIFE) scorchMarks.splice(i, 1);
     }
-
-    contactsRenderTimer -= dt;
-    if (contactsRenderTimer <= 0) {
-      contactsRenderTimer = CONTACTS_RENDER_INTERVAL;
-      renderTargetList();
-    }
   }
 
 
@@ -4231,7 +4350,7 @@
   function renderTargetList() {
     const cur = getTarget(selectedTargetId);
     const pick = !cur || cur.id === 'O' ? 'O' : cur.kind;
-    for (const b of document.querySelectorAll('.targetBtn')) {
+    for (const b of document.querySelectorAll('#targetPick .targetBtn')) {
       const kind = b.dataset.pick;
       b.setAttribute('aria-checked', String(kind === pick));
       if (kind === 'O') { b.disabled = omegaHealth <= 0; continue; }
@@ -5738,6 +5857,7 @@
 
   function startDemo(initial) {
     if (running) return;
+    window.scrollTo(0, 0); document.body.scrollTop = 0; // LRNA-178: the code boxes on a phone can leave the page scrolled
     initAudio();
     applyUnlocksToBar(); // LRNA-175
     reset(initial);
@@ -5963,7 +6083,7 @@
 
   const launchButtons = Array.from(document.querySelectorAll('.launchBtn[data-type]'));
   function attemptFire(typeKey) {
-    if (paused) return; // LRNA-119
+    if (paused || net.role === 'guest') return; // LRNA-119, LRNA-178
     if (!isUnlocked(typeKey)) return; // LRNA-175
     const cost = TYPES[typeKey].cost;
     const pillar = ABILITY_PILLARS[typeKey];
@@ -6236,6 +6356,377 @@
     }));
   }
 
+  // ---- LRNA-178: TWO PLAYERS ON THE LAN ------------------------------
+  // Transport: one WebRTC data channel, no STUN/TURN (same network), and
+  // the offer/answer swapped by hand as two codes. A code is the SDP,
+  // deflated and base64url'd behind an "LRNA1-" prefix.
+  const NET_PREFIX = 'LRNA1-';
+  const b64u = {
+    enc(bytes) { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+    dec(str) { const s = atob(str.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((str.length + 3) % 4)); return Uint8Array.from(s, c => c.charCodeAt(0)); },
+  };
+  async function pipeThrough(bytes, stream) {
+    return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+  }
+  async function packSignal(obj) {
+    const sdp = obj.sdp.split('\r\n').filter(l => l && !/^a=(extmap-allow-mixed|msid-semantic)/.test(l)).join('\r\n') + '\r\n';
+    const raw = new TextEncoder().encode(JSON.stringify({ t: obj.t, sdp }));
+    if (typeof CompressionStream === 'function') return NET_PREFIX + 'Z' + b64u.enc(await pipeThrough(raw, new CompressionStream('deflate-raw')));
+    return NET_PREFIX + 'P' + b64u.enc(raw);
+  }
+  async function unpackSignal(code) {
+    code = (code || '').replace(/\s+/g, '');
+    if (!code.startsWith(NET_PREFIX)) throw new Error('That is not a 2-player code.');
+    const kind = code[NET_PREFIX.length], body = b64u.dec(code.slice(NET_PREFIX.length + 1));
+    const raw = kind === 'Z' ? await pipeThrough(body, new DecompressionStream('deflate-raw')) : body;
+    const obj = JSON.parse(new TextDecoder().decode(raw));
+    if (!obj || typeof obj.sdp !== 'string') throw new Error('That code is damaged - copy it again.');
+    return obj;
+  }
+  function waitIce(pc) {
+    return new Promise((resolve) => {
+      if (pc.iceGatheringState === 'complete') return resolve();
+      const t = setTimeout(resolve, 4000);
+      pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); resolve(); } });
+    });
+  }
+  function netClose() {
+    try { if (net.ch) net.ch.close(); } catch (e) { /* already closed */ }
+    try { if (net.pc) net.pc.close(); } catch (e) { /* already closed */ }
+    net.pc = net.ch = null; net.connected = false; net.role = null;
+  }
+  function netSetupChannel(ch) {
+    net.ch = ch;
+    ch.onopen = () => { net.connected = true; onNetOpen(); };
+    ch.onmessage = (e) => { try { onNetMessage(JSON.parse(e.data)); } catch (err) { /* ignore a bad message */ } };
+    ch.onclose = () => onNetClosed();
+  }
+  function newPeer() {
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed') onNetClosed(); });
+    return pc;
+  }
+  async function netHost() {
+    netClose();
+    net.role = 'host';
+    net.pc = newPeer();
+    netSetupChannel(net.pc.createDataChannel('lrna', { ordered: true }));
+    await net.pc.setLocalDescription(await net.pc.createOffer());
+    await waitIce(net.pc);
+    return packSignal({ t: 'offer', sdp: net.pc.localDescription.sdp });
+  }
+  async function netJoin(code) {
+    const sig = await unpackSignal(code);
+    if (sig.t !== 'offer') throw new Error("That's a reply code - paste the host's code here.");
+    netClose();
+    net.role = 'guest';
+    net.pc = newPeer();
+    net.pc.ondatachannel = (e) => netSetupChannel(e.channel);
+    await net.pc.setRemoteDescription({ type: 'offer', sdp: sig.sdp });
+    await net.pc.setLocalDescription(await net.pc.createAnswer());
+    await waitIce(net.pc);
+    return packSignal({ t: 'answer', sdp: net.pc.localDescription.sdp });
+  }
+  async function netAcceptAnswer(code) {
+    const sig = await unpackSignal(code);
+    if (sig.t !== 'answer') throw new Error("That's your own code - paste the reply from the other device.");
+    if (!net.pc || net.role !== 'host') throw new Error('Start again with HOST.');
+    await net.pc.setRemoteDescription({ type: 'answer', sdp: sig.sdp });
+  }
+  function netSend(msg) { if (net.ch && net.ch.readyState === 'open') net.ch.send(JSON.stringify(msg)); }
+
+  // effects the host sends along: recorded at the outermost call only (a
+  // replay redoes its own inner effects), y relative to the centre line
+  const NET_FX = {};
+  function netWrap(name, fn, yArg) {
+    const wrapped = function (...args) {
+      if (versus && net.role === 'host' && netFxDepth === 0) {
+        const sent = args.slice();
+        if (yArg != null) sent[yArg] -= vh() / 2;
+        netFxOut.push([name, sent]);
+      }
+      netFxDepth++;
+      try { return fn.apply(this, args); } finally { netFxDepth--; }
+    };
+    NET_FX[name] = (args) => { if (yArg != null) args[yArg] += vh() / 2; fn.apply(null, args); };
+    return wrapped;
+  }
+  spawnExplosion = netWrap('explosion', spawnExplosion, 1);
+  spawnFloatText = netWrap('text', spawnFloatText, 1);
+  spawnBurst = netWrap('burst', spawnBurst, 1);
+  spawnLaunchFx = netWrap('launch', spawnLaunchFx, 1);
+  spawnEmpBurst = netWrap('emp', spawnEmpBurst, 1);
+  spawnScorch = netWrap('scorch', spawnScorch);
+  spawnKillTrail = netWrap('kill', spawnKillTrail);
+  damageOmegaAt = netWrap('crumble', damageOmegaAt);
+
+  const NODE_IDS = () => [...omegaNodes(), ...playerNodes];
+  function netSnapshot() {
+    return {
+      t: 's',
+      m: missiles.map(m => [m.id, m.typeKey, Math.round(m.x), Math.round(m.laneY), +m.age.toFixed(3), m.totalSeconds, m.peak,
+        Math.round(m.vx || 0), m.originId, m.destId || 0, m.color, m.radius, m.sizeKey || 0, m.weaponClass || 0, m.planeKind || 0,
+        m.seekTargetId || 0, m.elite ? 1 : 0, m.pathProfile ? PLANE_PATHS.indexOf(m.pathProfile) : -1, +(m.weavePhase || 0).toFixed(2),
+        m.name || '', m.chipHits || 0]),
+      oh: omegaHealth, ah: nodeA.health, n: NODE_IDS().map(n => [n.id, Math.round(n.health), n.destroyed ? 1 : 0]),
+      ot: Math.floor(omegaTokens), oe: omegaCounterAmmo.emergency, oc: +omegaEmergencyCooldown.toFixed(2), pe: counterAmmo.emergency,
+      ph: omegaPhase, sh: +omegaShieldTimer.toFixed(2), ej: +empGlobalJamTimer.toFixed(2), cj: +omegaCountersJamTimer.toFixed(2),
+      fx: netFxOut.splice(0),
+    };
+  }
+  function applySnapshot(s) {
+    lastSnapshot = s;
+    const prev = new Map(missiles.map(m => [m.id, m]));
+    missiles = s.m.map((a) => {
+      const p = prev.get(a[0]);
+      return { id: a[0], typeKey: a[1], x: a[2], laneY: a[3], age: a[4], totalSeconds: a[5], peak: a[6], vx: a[7], originId: a[8],
+        destId: a[9] || null, color: a[10], radius: a[11], sizeKey: a[12] || undefined, weaponClass: a[13] || undefined,
+        planeKind: a[14] || undefined, seekTargetId: a[15] || undefined, elite: !!a[16], pathProfile: a[17] >= 0 ? PLANE_PATHS[a[17]] : null,
+        weavePhase: a[18], name: a[19], chipHits: a[20], path: p && p.path, pathTimer: p ? p.pathTimer : 0 };
+    });
+    omegaHealth = s.oh; nodeA.health = s.ah;
+    const byId = new Map(NODE_IDS().map(n => [n.id, n]));
+    for (const [id, hp, dead] of s.n) { const n = byId.get(id); if (n) { n.health = hp; n.destroyed = !!dead; } }
+    omegaTokens = s.ot; omegaCounterAmmo.emergency = s.oe; omegaEmergencyCooldown = s.oc; counterAmmo.emergency = s.pe;
+    omegaPhase = s.ph; omegaShieldTimer = s.sh; empGlobalJamTimer = s.ej; omegaCountersJamTimer = s.cj;
+    for (const [name, args] of s.fx) if (NET_FX[name]) NET_FX[name](args);
+  }
+  function omegaIncomeFactor() { return 1 - MISSILE_NODE_INCOME_CUT * (3 - standing(omegaNodes(), 'missileNode')); }
+  // host: a strike ordered by the Omega player
+  function omegaCommandStrike(size, aim) {
+    if (!versus || !running || omegaHealth <= 0 || !OMEGA_STRIKE_COSTS[size]) return false;
+    const cost = OMEGA_STRIKE_COSTS[size];
+    if (omegaTokens < cost || omegaStrikeGap > 0 || activeCount('O') >= MAX_ACTIVE) return false;
+    let dest = nodeA;
+    if (aim === 'missileNode' || aim === 'radarNode') {
+      const left = playerNodes.filter(n => n.kind === aim && !n.destroyed).sort((a, b) => a.health - b.health || a.x - b.x);
+      if (left.length) dest = left[0];
+    }
+    omegaTokens -= cost;
+    omegaStrikeGap = OMEGA_STRIKE_GAP;
+    const m = launchEnemyStrike(nodeO, dest, size);
+    m.versusCost = cost;
+    return true;
+  }
+  function onNetMessage(msg) {
+    if (msg.t === 's' && net.role === 'guest') { if (versus) applySnapshot(msg); return; }
+    if (msg.t === 'start' && net.role === 'guest') { startVersusGuest(); return; }
+    if (msg.t === 'end' && net.role === 'guest') { finishVersus(msg.winner); return; }
+    if (msg.t === 'cmd' && net.role === 'host' && versus && running && !paused) {
+      if (msg.c === 'strike') omegaCommandStrike(msg.size, msg.aim);
+      else if (msg.c === 'ec') omegaTryEmergency();
+    }
+    if (msg.t === 'bye') onNetClosed();
+  }
+  function onNetOpen() {
+    setVsStatus('CONNECTED');
+    if (net.role === 'host') startVersusHost();
+  }
+  function onNetClosed() {
+    if (!net.role) return;
+    const wasPlaying = versus && running;
+    netClose();
+    if (wasPlaying) {
+      running = false;
+      showResult({ kind: '2 PLAYERS', title: 'CONNECTION LOST', won: false, head: 'LINK DOWN', sub: 'The other device left or dropped off the network.', rows: [], versus: true });
+      document.getElementById('resultRetry').hidden = true;
+    }
+    setVersusMode(false);
+    setVsStatus('Not connected.');
+  }
+  function setVersusMode(on) {
+    versus = on;
+    document.body.classList.toggle('versus-guest', on && net.role === 'guest');
+    document.getElementById('omegaBar').hidden = !(on && net.role === 'guest');
+    lastObjectiveText = '';
+  }
+  function startVersusHost() {
+    activeMission = null;
+    overlay.classList.add('hidden');
+    waveResultEl.classList.add('hidden');
+    running = false;
+    setVersusMode(true);
+    startDemo();
+    omegaTokens = OMEGA_START_TOKENS; omegaStrikeGap = 0; netFxOut = []; netSnapTimer = 0;
+    waveStrikesTotal = 0; waveStrikesLaunched = 0;
+    netSend({ t: 'start' });
+    updateWaveHud(); updateObjectiveHud();
+  }
+  function startVersusGuest() {
+    activeMission = null;
+    waveResultEl.classList.add('hidden');
+    running = false;
+    setVersusMode(true);
+    startDemo();
+    missiles = [];
+    camX = camMax();
+    noteManualCamera();
+    document.getElementById('incomingAlert').textContent = 'YOU ARE NODE OMEGA';
+    updateWaveHud(); updateObjectiveHud(); renderOmegaBar();
+  }
+  // host: someone's base fell. 'A' = the Strike Platform won, 'O' = Omega did
+  function endVersus(winner) {
+    if (!running) return;
+    running = false;
+    setPaused(false);
+    netSend(netSnapshot());
+    netSend({ t: 'end', winner });
+    finishVersus(winner);
+  }
+  function finishVersus(winner) {
+    running = false;
+    const me = net.role === 'guest' ? 'O' : 'A';
+    const won = winner === me;
+    showResult({ kind: '2 PLAYERS', title: won ? 'YOU WIN' : 'YOU LOSE', won, versus: true,
+      head: winner === 'A' ? 'OMEGA DESTROYED' : 'PLATFORM DESTROYED',
+      sub: won ? 'Your opponent is down.' : 'Better luck next round.',
+      rows: [['YOU PLAYED', me === 'A' ? 'STRIKE PLATFORM' : 'NODE OMEGA']] });
+    const retry = document.getElementById('resultRetry');
+    retry.hidden = net.role !== 'host';
+    retry.textContent = 'REMATCH';
+  }
+  function leaveVersus() {
+    netSend({ t: 'bye' });
+    netClose();
+    setVersusMode(false);
+  }
+
+  // guest: the remote view - no simulation, just the host's state, eased
+  // forward between snapshots, plus the local effects and camera
+  function remoteUpdate(dt) {
+    const panSpeed = 700 / ZOOM;
+    const left = keys['ArrowLeft'] || keys['a'] || keys['A'], right = keys['ArrowRight'] || keys['d'] || keys['D'];
+    if (left || right) {
+      noteManualCamera();
+      camX += (right ? 1 : -1) * panSpeed * dt;
+    } else if (camManualTimer > 0) {
+      camManualTimer = Math.max(0, camManualTimer - dt);
+    } else {
+      // follow your newest strike, matching its speed like the host's camera does
+      const own = missiles.filter(m => m.originId === 'O' && m.typeKey === 'enemyStrike');
+      const fm = own[own.length - 1];
+      const targetCam = Math.max(camMin(), Math.min(camMax(), fm ? fm.x - vw() / 2 : camMax()));
+      const far = Math.abs(targetCam - camX) > vw() * 0.75;
+      if (fm) camX += (fm.vx || 0) * dt; // a fast strike would outrun the ease alone
+      camX += (targetCam - camX) * Math.min(1, dt * (far ? 3 : 6));
+    }
+    camX = Math.max(camMin(), Math.min(camMax(), camX));
+    for (const m of missiles) {
+      m.age += dt;
+      m.x += (m.vx || 0) * dt;
+      if (m.typeKey === 'counter') {
+        m.pathTimer = (m.pathTimer || 0) - dt;
+        if (m.pathTimer <= 0) { m.pathTimer = 0.04; (m.path = m.path || []).push([m.x, vh() / 2 + m.laneY - altitude(m)]); if (m.path.length > 60) m.path.shift(); }
+      }
+    }
+    for (let i = pendingFx.length - 1; i >= 0; i--) {
+      pendingFx[i].t -= dt;
+      if (pendingFx[i].t <= 0) { const fx = pendingFx[i]; pendingFx.splice(i, 1); fx.fn(); }
+    }
+    for (let i = killTrails.length - 1; i >= 0; i--) { killTrails[i].age += dt; if (killTrails[i].age > KILL_TRAIL_LIFE) killTrails.splice(i, 1); }
+    updateOmegaSmolders(dt);
+    updateOmegaDamageFx(dt);
+    if (camShakeTimer > 0) { camShakeTimer = Math.max(0, camShakeTimer - dt); if (camShakeTimer <= 0) camShakeMag = 0; }
+    if (impactFlash > 0) impactFlash = Math.max(0, impactFlash - dt * 0.9);
+    updateCosmetics(dt);
+    updateHud(); updateNodeHud(); updateOmegaCountersHud(); updateObjectiveHud();
+    renderOmegaBar();
+  }
+
+  // guest: the Omega player's controls
+  let omegaAimSel = 'A';
+  const omegaBarEl = document.getElementById('omegaBar');
+  const omegaStrikeBtns = Array.from(omegaBarEl.querySelectorAll('[data-strike]'));
+  const omegaEcBtnEl = document.getElementById('omegaEcBtn');
+  for (const b of omegaStrikeBtns) {
+    const k = b.dataset.strike, sz = ENEMY_STRIKE_SIZES[k];
+    decorateButton(b, k === 'large' ? 'large' : k, `${b.querySelector('.btnLabel').textContent} STRIKE - ${sz.eta}s flight, ${sz.dmg} damage, ${OMEGA_STRIKE_COSTS[k]} OMEGA.`);
+    b.addEventListener('click', () => {
+      if (!versus || net.role !== 'guest' || !running) return;
+      netSend({ t: 'cmd', c: 'strike', size: k, aim: omegaAimSel });
+      sfxUi();
+    });
+  }
+  decorateButton(omegaEcBtnEl, 'emergency', "OMEGA'S EMERGENCY COUNTER - fires at the incoming warhead closest to impact, in its last 5 seconds.");
+  omegaEcBtnEl.addEventListener('click', () => { if (versus && net.role === 'guest' && running) { netSend({ t: 'cmd', c: 'ec' }); sfxUi(); } });
+  document.getElementById('omegaAim').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-aim]');
+    if (!b || b.disabled) return;
+    omegaAimSel = b.dataset.aim;
+    renderOmegaBar();
+  });
+  function renderOmegaBar() {
+    if (omegaBarEl.hidden) return;
+    document.getElementById('omegaPurse').textContent = `● ${Math.floor(omegaTokens).toLocaleString()}`;
+    const full = activeCount('O') >= MAX_ACTIVE;
+    for (const b of omegaStrikeBtns) b.disabled = omegaTokens < OMEGA_STRIKE_COSTS[b.dataset.strike] || full || omegaHealth <= 0;
+    for (const b of omegaBarEl.querySelectorAll('[data-aim]')) {
+      const kind = b.dataset.aim;
+      if (kind !== 'A') {
+        const n = standing(playerNodes, kind);
+        b.querySelector('.tpCount').textContent = n;
+        b.disabled = n === 0;
+        if (n === 0 && omegaAimSel === kind) omegaAimSel = 'A';
+      }
+      b.setAttribute('aria-checked', String(kind === omegaAimSel));
+    }
+    const target = omegaCountersJamTimer > 0 ? null : findOmegaEmergencyTarget();
+    const ready = !!target && omegaEmergencyCooldown <= 0 && omegaCounterAmmo.emergency > 0;
+    omegaEcBtnEl.disabled = !ready;
+    omegaEcBtnEl.classList.toggle('ready', ready);
+    document.getElementById('omegaEcAmmo').textContent = `${omegaCounterAmmo.emergency} LEFT`;
+    document.getElementById('omegaEcStatus').textContent = omegaCountersJamTimer > 0 ? 'JAMMED' : target ? 'TARGET IN WINDOW' : 'no target';
+  }
+  window.addEventListener('keydown', (e) => {
+    if (!versus || net.role !== 'guest' || !running || e.repeat) return;
+    const i = ['1', '2', '3'].indexOf(e.key);
+    if (i >= 0 && !omegaStrikeBtns[i].disabled) omegaStrikeBtns[i].click();
+    if (e.key === '4' && !omegaEcBtnEl.disabled) omegaEcBtnEl.click();
+  });
+
+  // the code-swap screen
+  const vsStatusEl = document.getElementById('vsStatus');
+  function setVsStatus(text, err) { vsStatusEl.textContent = text || ''; vsStatusEl.classList.toggle('err', !!err); }
+  function showVsStep(which) {
+    document.getElementById('vsChoose').hidden = !!which;
+    document.getElementById('vsHost').hidden = which !== 'host';
+    document.getElementById('vsJoin').hidden = which !== 'join';
+  }
+  function copyCode(el) {
+    el.select();
+    const done = () => setVsStatus('Code copied - send it to the other player.');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(el.value).then(done, () => { try { document.execCommand('copy'); done(); } catch (e) { setVsStatus('Select the code and copy it.'); } });
+    else { try { document.execCommand('copy'); done(); } catch (e) { setVsStatus('Select the code and copy it.'); } }
+  }
+  document.getElementById('vsHostBtn').addEventListener('click', async () => {
+    sfxUi();
+    showVsStep('host');
+    document.getElementById('vsOfferOut').value = '';
+    setVsStatus('Making your code...');
+    try {
+      document.getElementById('vsOfferOut').value = await netHost();
+      setVsStatus('Send the code, then paste the reply and press CONNECT.');
+    } catch (err) { setVsStatus('Could not start a link on this device: ' + err.message, true); }
+  });
+  document.getElementById('vsJoinBtn').addEventListener('click', () => { sfxUi(); showVsStep('join'); setVsStatus("Paste the host's code and press JOIN."); });
+  document.getElementById('vsMakeAnswer').addEventListener('click', async () => {
+    sfxUi();
+    setVsStatus('Joining...');
+    try {
+      document.getElementById('vsAnswerOut').value = await netJoin(document.getElementById('vsOfferIn').value);
+      setVsStatus('Send the reply code back. The game starts when the host connects.');
+    } catch (err) { setVsStatus(err.message, true); }
+  });
+  document.getElementById('vsConnect').addEventListener('click', async () => {
+    sfxUi();
+    setVsStatus('Connecting...');
+    try { await netAcceptAnswer(document.getElementById('vsAnswerIn').value); } catch (err) { setVsStatus(err.message, true); }
+  });
+  document.getElementById('vsCopyOffer').addEventListener('click', () => copyCode(document.getElementById('vsOfferOut')));
+  document.getElementById('vsCopyAnswer').addEventListener('click', () => copyCode(document.getElementById('vsAnswerOut')));
+  document.getElementById('vsBack').addEventListener('click', () => { if (!versus) { netClose(); showVsStep(null); setVsStatus(''); } });
+  document.getElementById('versusBtn').addEventListener('click', () => { if (!net.role) { showVsStep(null); setVsStatus(''); } });
+
   // ---- Test harness hook (tests/) ----
   // Exposes internal state/functions for the Playwright regression suite
   // under tests/. Only active when explicitly requested (?test=1 in the
@@ -6272,6 +6763,14 @@
       get omegaHealth() { return omegaHealth; },
       get omegaInvulnTimer() { return omegaInvulnTimer; },
       get omegaPhase() { return omegaPhase; },
+      // LRNA-178
+      get net() { return net; },
+      get versus() { return versus; },
+      get omegaTokens() { return omegaTokens; },
+      set omegaTokens(v) { omegaTokens = v; },
+      get lastSnapshot() { return lastSnapshot; },
+      omegaCommandStrike: (size, aim) => omegaCommandStrike(size, aim),
+      packSignal: (o) => packSignal(o), unpackSignal: (c) => unpackSignal(c),
       get omegaShieldTimer() { return omegaShieldTimer; },
       get omegaSalvoLeft() { return omegaSalvoLeft; },
       set omegaHealthForTest(v) { omegaHealth = v; },

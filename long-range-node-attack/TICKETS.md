@@ -675,7 +675,7 @@ missions.
 - **LRNA-191** — OPEN — More units, each with a clear counter: new strike
   planes or corridor defenses as ARMORY unlocks (LRNA-177's missile half
   is done).
-- **LRNA-178** — OPEN — 2-player on the LAN: one player is the Strike
+- **LRNA-178** — DONE (2026-10-04) — 2-player on the LAN: one player is the Strike
   Platform, the other plays Omega, on two devices. Needs a relay for the
   two browsers to talk through; Arcade 3000 already has one for Mega
   Checkers (`Rooms`, `/api/hexsiege/rooms*`). Largest of the set.
@@ -693,6 +693,41 @@ missions.
     3. A small relay in the game's own installer (`longrange-installer.py`
        already runs a local web server) - one device hosts, the other opens
        its address. Needs that device's firewall to allow the port.
+  - Owner's pick: option 2. Built:
+    - **2 PLAYERS** on the home screen. One device taps HOST · STRIKE
+      PLATFORM and gets a code ("LRNA1-...", ~400-600 characters: the
+      WebRTC offer, deflated and base64url'd); the other taps JOIN · NODE
+      OMEGA, pastes it, and gets a reply code to send back. COPY CODE puts
+      it on the clipboard. Wrong codes are explained (not a code, damaged,
+      your own code pasted back).
+    - The link is a WebRTC data channel with no STUN/TURN servers - the
+      two devices must be on the same network. Nothing touches a server.
+    - **The host runs the real game** as the Strike Platform, with Omega's
+      waves and automatic Emergency Counter off. **The guest plays Node
+      Omega remotely**: its bottom bar becomes AIM (PLATFORM / MISSILE /
+      RADAR node) + FAST / MEDIUM / HEAVY strikes (150 / 300 / 500 from
+      Omega's own purse: 500 to start, 35/s cut by its lost missile nodes,
+      25% back on a hit; 3 in flight at most) + Omega's EMERGENCY COUNTER
+      (its 15). Keys 1-3 and 4. Omega's automatic defenses, radar, nodes
+      and boss phases all still work.
+    - The host sends its state 15 times a second (missiles, both bases and
+      all 10 nodes, purse, counters, phase, jams) plus every effect it
+      plays (explosions, texts, craters, kill trails, Omega crumbling), so
+      the guest sees the same battle; between updates the guest eases
+      missiles forward. The guest's camera follows its own newest strike.
+    - First base down wins (no Omega rebuild in versus): YOU WIN / YOU
+      LOSE on both screens, REMATCH for the host. If either device quits
+      or drops, the other shows CONNECTION LOST and goes back to single
+      player. No pause/restart mid-match on either side.
+  - Untested here: real phones on a real Wi-Fi. Browsers hide local IPs
+    behind mDNS ".local" names, which resolve fine on most home networks
+    but not on guest/hotel Wi-Fi that isolates devices. The Claude demo
+    page may block WebRTC; use GitHub Pages, the installer or the portal.
+  - Balance of Omega's prices is a first guess - adjust after playing.
+  - Tests (5 new, two real browser pages linked over WebRTC per test):
+    linking and roles, strikes paid and aimed, Omega's Emergency Counter,
+    win/lose and rematch, bad codes and a dropped link. `TEST_GREP=text
+    npm test` now runs a subset. 102/102.
 - **LRNA-179** — DONE (2026-10-03) — Visual effects pass (the owner's presentation
   priority): bigger, distinct explosions per weapon, Omega damage states
   (smoke, fire, exposed core as health drops), and a clear "what hit what"

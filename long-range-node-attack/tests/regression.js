@@ -7,7 +7,7 @@
 // explicit delta and doesn't care whether it's driven by requestAnimationFrame
 // or a test, so 30 simulated seconds costs a handful of synchronous calls,
 // not 30 real ones.
-const { withGame, assert, assertEqual, test, run } = require('./lib');
+const { withGame, withTwoGames, assert, assertEqual, test, run } = require('./lib');
 
 // ART-14: STATS and SOUND live in the in-game menu now; open it first.
 async function menuClick(page, id) {
@@ -832,6 +832,149 @@ test('LRNA-143/175: CLUSTER and EMP are back on the bar once unlocked, on keys 5
     assert(r.cluster && r.emp, 'both buttons show when unlocked');
     assertEqual(r.visible, 11, 'all 3 missiles, CLUSTER, EMP, the 3 LRNA-177 missiles and the 3 planes');
     assert(fired.includes('cluster') && fired.includes('emp'), 'keys 5 and 6 fire them: ' + fired);
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+// LRNA-178: the code swap, driven through the real screens on two pages
+async function lanConnect(host, guest) {
+  await host.click('#versusBtn');
+  await host.click('#vsHostBtn');
+  await host.waitForFunction(() => document.getElementById('vsOfferOut').value.startsWith('LRNA1-'), null, { timeout: 8000 });
+  const offer = await host.inputValue('#vsOfferOut');
+  await guest.click('#versusBtn');
+  await guest.click('#vsJoinBtn');
+  await guest.fill('#vsOfferIn', offer);
+  await guest.click('#vsMakeAnswer');
+  await guest.waitForFunction(() => document.getElementById('vsAnswerOut').value.startsWith('LRNA1-'), null, { timeout: 8000 });
+  const answer = await guest.inputValue('#vsAnswerOut');
+  await host.fill('#vsAnswerIn', answer);
+  await host.click('#vsConnect');
+  await host.waitForFunction(() => window.__TEST__.versus && window.__TEST__.running, null, { timeout: 8000 });
+  await guest.waitForFunction(() => window.__TEST__.versus && window.__TEST__.running && window.__TEST__.lastSnapshot, null, { timeout: 8000 });
+  return { offer, answer };
+}
+
+test('LRNA-178: two devices link up by swapping two codes; host is the Strike Platform, guest is Node Omega', async () => {
+  await withTwoGames(async (host, guest, errors) => {
+    const codes = await lanConnect(host, guest);
+    await host.waitForTimeout(1500);
+    const h = await host.evaluate(() => ({ role: window.__TEST__.net.role, strikes: window.__TEST__.missiles.filter((m) => m.typeKey === 'enemyStrike').length,
+      wave: document.getElementById('waveHud').textContent, obj: document.getElementById('objectiveHud').textContent,
+      omegaBar: !document.getElementById('omegaBar').hidden, purse: window.__TEST__.omegaTokens }));
+    const g = await guest.evaluate(() => ({ role: window.__TEST__.net.role, cls: document.body.classList.contains('versus-guest'),
+      omegaBar: !document.getElementById('omegaBar').hidden, launchBar: getComputedStyle(document.getElementById('launchBar')).display,
+      obj: document.getElementById('objectiveHud').textContent, purse: document.getElementById('omegaPurse').textContent,
+      oh: window.__TEST__.omegaHealth }));
+    assert(codes.offer.length < 900 && codes.answer.length < 900, `codes stay short enough to paste: ${codes.offer.length}/${codes.answer.length}`);
+    assertEqual(h.role, 'host', 'host role'); assertEqual(g.role, 'guest', 'guest role');
+    assertEqual(h.strikes, 0, "no AI waves - Omega is a player now");
+    assertEqual(h.wave, 'LAN VERSUS', 'wave line');
+    assert(h.obj.includes('VERSUS · DESTROY NODE OMEGA'), h.obj);
+    assert(!h.omegaBar, 'the host keeps the normal attack bar');
+    assert(h.purse > 500, 'Omega earns income on the host: ' + h.purse);
+    assert(g.cls && g.omegaBar && g.launchBar === 'none', 'the guest gets the Omega bar instead of the attack bar');
+    assert(g.obj.includes('YOU ARE NODE OMEGA'), g.obj);
+    assert(/● 5\d\d/.test(g.purse), "the guest sees Omega's purse from the host's snapshots: " + g.purse);
+    assertEqual(g.oh, 250, 'and its health');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-178: the Omega player orders strikes - paid on the host, aimed where they chose, seen on both screens', async () => {
+  await withTwoGames(async (host, guest, errors) => {
+    await lanConnect(host, guest);
+    await host.evaluate(() => { window.__TEST__.omegaTokens = 1000; window.__TEST__.neutralizeAutoDefense(); });
+    await guest.waitForTimeout(300);
+    await guest.click('#omegaAim [data-aim="missileNode"]');
+    await guest.click('#omegaButtons [data-strike="medium"]');
+    await host.waitForFunction(() => window.__TEST__.missiles.some((m) => m.typeKey === 'enemyStrike'), null, { timeout: 4000 });
+    const h = await host.evaluate(() => {
+      const m = window.__TEST__.missiles.find((x) => x.typeKey === 'enemyStrike');
+      return { size: m.sizeKey, dest: m.destId, kind: (window.__TEST__.playerNodes.find((n) => n.id === m.destId) || {}).kind, purse: window.__TEST__.omegaTokens };
+    });
+    await guest.waitForFunction(() => window.__TEST__.missiles.some((m) => m.typeKey === 'enemyStrike' && m.originId === 'O'), null, { timeout: 4000 });
+    // the host fires back; the guest sees that too
+    await host.evaluate(() => { window.__TEST__.tokens.attack = 2000; window.__TEST__.attemptFire('large'); });
+    await guest.waitForFunction(() => window.__TEST__.missiles.some((m) => m.originId === 'A' && m.typeKey === 'large'), null, { timeout: 4000 });
+    // the guest can't order what it can't pay for
+    await host.evaluate(() => { window.__TEST__.omegaTokens = 0; });
+    await guest.waitForTimeout(300);
+    const broke = await guest.evaluate(() => [...document.querySelectorAll('#omegaButtons [data-strike]')].every((b) => b.disabled));
+    assertEqual(h.size, 'medium', 'the size the Omega player chose');
+    assertEqual(h.kind, 'missileNode', 'aimed at one of your missile nodes');
+    assert(h.purse > 690 && h.purse < 720, 'paid 300 from 1000: ' + h.purse);
+    assert(broke, 'strike buttons go grey with an empty purse');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test("LRNA-178: the Omega player fires Omega's Emergency Counter at a warhead in its last 5 seconds", async () => {
+  await withTwoGames(async (host, guest, errors) => {
+    await lanConnect(host, guest);
+    await host.evaluate(() => {
+      const T = window.__TEST__;
+      T.neutralizeAutoDefense();
+      const m = T.launchAttack(T.nodeA, T.nodeO, 'large');
+      m.defended = true; // no automatic intercept, only the player's
+      m.age = m.totalSeconds - 4.5;
+    });
+    await guest.waitForFunction(() => !document.getElementById('omegaEcBtn').disabled, null, { timeout: 3000 });
+    await guest.click('#omegaEcBtn');
+    await host.waitForFunction(() => window.__TEST__.missiles.some((m) => m.typeKey === 'counter' && m.source === 'omegaEmergency'), null, { timeout: 3000 });
+    const left = await host.evaluate(() => window.__TEST__.omegaCounterAmmo.emergency);
+    await guest.waitForFunction((n) => document.getElementById('omegaEcAmmo').textContent === `${n} LEFT`, left, { timeout: 3000 });
+    assertEqual(left, 14, 'one of its 15 used');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test('LRNA-178: one base falls, both screens show who won, and the host can call a rematch', async () => {
+  await withTwoGames(async (host, guest, errors) => {
+    await lanConnect(host, guest);
+    await host.evaluate(() => { const T = window.__TEST__; if (T.applyDamage(T.nodeO, T.nodeO.x, 0, 1e6)) T.onOmegaDestroyedForWaves(); });
+    await host.waitForFunction(() => !document.getElementById('waveResultScreen').classList.contains('hidden'), null, { timeout: 3000 });
+    await guest.waitForFunction(() => !document.getElementById('waveResultScreen').classList.contains('hidden'), null, { timeout: 3000 });
+    const read = (p) => p.evaluate(() => ({ title: document.getElementById('waveResultTitle').textContent, retry: !document.getElementById('resultRetry').hidden,
+      label: document.getElementById('resultRetry').textContent, running: window.__TEST__.running }));
+    const h = await read(host), g = await read(guest);
+    await host.click('#resultRetry');
+    await guest.waitForFunction(() => window.__TEST__.running && document.getElementById('waveResultScreen').classList.contains('hidden'), null, { timeout: 4000 });
+    const again = await host.evaluate(() => ({ running: window.__TEST__.running, oh: window.__TEST__.omegaHealth }));
+    assertEqual(h.title, 'YOU WIN', 'the Strike Platform won'); assertEqual(g.title, 'YOU LOSE', 'Omega lost');
+    assert(!h.running && !g.running, 'both games stop');
+    assert(h.retry && h.label === 'REMATCH', 'the host gets REMATCH'); assert(!g.retry, 'the guest waits for the host');
+    assert(again.running && again.oh === 250, 'a rematch starts fresh on both');
+    assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
+  });
+});
+
+test("LRNA-178: wrong codes are explained, and if one device leaves the other says so", async () => {
+  await withTwoGames(async (host, guest, errors) => {
+    await guest.click('#versusBtn');
+    await guest.click('#vsJoinBtn');
+    await guest.fill('#vsOfferIn', 'hello');
+    await guest.click('#vsMakeAnswer');
+    await guest.waitForFunction(() => document.getElementById('vsStatus').classList.contains('err'));
+    const bad = await guest.textContent('#vsStatus');
+    await guest.click('#vsBack');
+    await host.click('#versusBtn');
+    await host.click('#vsHostBtn');
+    await host.waitForFunction(() => document.getElementById('vsOfferOut').value.startsWith('LRNA1-'));
+    const own = await host.inputValue('#vsOfferOut');
+    await host.fill('#vsAnswerIn', own);
+    await host.click('#vsConnect');
+    await host.waitForFunction(() => document.getElementById('vsStatus').classList.contains('err'));
+    const ownErr = await host.textContent('#vsStatus');
+    await host.click('#vsBack');
+    await lanConnect(host, guest);
+    await guest.click('#menuBtn');
+    await guest.click('#menuQuit');
+    await host.waitForFunction(() => document.getElementById('waveResultTitle').textContent === 'CONNECTION LOST' && !document.getElementById('waveResultScreen').classList.contains('hidden'), null, { timeout: 5000 });
+    const after = await host.evaluate(() => ({ versus: window.__TEST__.versus, role: window.__TEST__.net.role, running: window.__TEST__.running }));
+    assert(/not a 2-player code/.test(bad), 'garbage is refused: ' + bad);
+    assert(/your own code/.test(ownErr), "pasting your own code back is caught: " + ownErr);
+    assert(!after.versus && after.role === null && !after.running, 'the host is back to single player: ' + JSON.stringify(after));
     assertEqual(errors.length, 0, 'no page errors: ' + JSON.stringify(errors));
   });
 });
@@ -1881,7 +2024,7 @@ test('ART-10: the home screen is PLAY + MISSIONS + ARMORY on a solid backdrop an
       });
       const size = `${viewport.width}x${viewport.height}`;
       assertEqual(JSON.stringify(r.big), JSON.stringify(['PLAY', 'MISSIONS', 'ARMORY']), `${size}: the main buttons (ARMORY since LRNA-175)`);
-      assert(r.controls <= 5, `${size}: home has at most 5 controls (was 13; ARMORY added in LRNA-175): ${r.controls}`);
+      assert(r.controls <= 6, `${size}: home has at most 6 controls (was 13; ARMORY in LRNA-175, 2 PLAYERS in LRNA-178): ${r.controls}`);
       assert(!r.scrolls, `${size}: home fits without scrolling`);
       assert(r.corners.every(Boolean), `${size}: the menu covers the screen: ${JSON.stringify(r.corners)}`);
       assert(!r.lore, `${size}: the old lore text, chips and ENTRANCE box are gone`);
@@ -2278,7 +2421,7 @@ test('ART-19: one strip replaces the four - tap a dot to follow it, anywhere els
 test('LRNA-183: only three targets - OMEGA, RADAR, MISSILE buttons; scenery cannot be targeted', async () => {
   await withGame(async (page, errors) => {
     const start = await page.evaluate(() => ({
-      buttons: [...document.querySelectorAll('.targetBtn')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
+      buttons: [...document.querySelectorAll('#targetPick .targetBtn')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
       checked: document.querySelector('.targetBtn[aria-checked="true"]').dataset.pick,
       list: !!document.getElementById('targetMenu') || !!document.getElementById('targetLabel'),
       scenery: (() => { const T = window.__TEST__; const sc = T.fieldTargets.find((t) => !t.baseNode); return { target: T.getTarget ? T.getTarget(sc.id) : null, defends: T.fieldTargets.some((t) => t.defends) }; })(),

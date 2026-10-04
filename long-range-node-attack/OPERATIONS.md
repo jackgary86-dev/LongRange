@@ -37,8 +37,12 @@ Tests:
 cd long-range-node-attack
 npm ci
 npx playwright install chromium    # skip where Chromium is preinstalled
-npm test                           # 97 tests as of LRNA-179
+npm test                           # 102 tests as of LRNA-178
+TEST_GREP=LRNA-178 npm test        # only the tests whose name contains the text
 ```
+The 2-player tests (LRNA-178) open two pages and link them over WebRTC;
+Chromium runs with `--disable-features=WebRtcHideLocalIpsWithMdns` so the
+link uses plain local IPs (see `withTwoGames` in tests/lib.js).
 Tests drive the game through `window.__TEST__`, which only exists with
 `?test=1` in the URL (or `localStorage.lrna_test_mode = '1'`).
 

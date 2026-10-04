@@ -61,6 +61,35 @@ async function withGame(fn, { viewport, skipStart, unlocks = 'all', merit = 0 } 
   }
 }
 
+// LRNA-178: two devices in one browser - each page has its own context (its
+// own storage), both fully unlocked, menus showing. WebRTC host candidates
+// stay plain IPs (no mDNS) so the two pages can reach each other here.
+async function withTwoGames(fn) {
+  const browser = await chromium.launch({
+    executablePath,
+    args: ['--disable-background-timer-throttling', '--disable-renderer-backgrounding',
+      '--disable-backgrounding-occluded-windows', '--disable-features=WebRtcHideLocalIpsWithMdns'],
+  });
+  const errors = [];
+  const open = async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await ctx.newPage();
+    page.on('pageerror', (err) => errors.push(err.message));
+    await page.goto(GAME_URL);
+    await page.evaluate((owned) => { localStorage.clear(); localStorage.setItem('lrna_unlocks_v1', JSON.stringify({ merit: 0, owned })); }, ALL_UNLOCKS);
+    await page.reload();
+    await page.waitForTimeout(300);
+    return page;
+  };
+  try {
+    const host = await open();
+    const guest = await open();
+    await fn(host, guest, errors);
+  } finally {
+    await browser.close();
+  }
+}
+
 // Registers a named test. Collected by `run()` below rather than executed
 // immediately, so a summary can be printed after every test has run
 // (instead of stopping at the first failure).
@@ -71,7 +100,9 @@ function test(name, fn) {
 
 async function run() {
   let passed = 0, failed = 0;
-  for (const { name, fn } of registry) {
+  // TEST_GREP=text runs only the tests whose name contains it
+  const only = process.env.TEST_GREP;
+  for (const { name, fn } of registry.filter((t) => !only || t.name.includes(only))) {
     const start = Date.now();
     try {
       await fn();
@@ -93,4 +124,4 @@ async function run() {
 }
 
 module.exports = {
-  ALL_UNLOCKS, withGame, assert, assertEqual, test, run, GAME_URL };
+  ALL_UNLOCKS, withTwoGames, withGame, assert, assertEqual, test, run, GAME_URL };
