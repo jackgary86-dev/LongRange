@@ -679,6 +679,20 @@ missions.
   Platform, the other plays Omega, on two devices. Needs a relay for the
   two browsers to talk through; Arcade 3000 already has one for Mega
   Checkers (`Rooms`, `/api/hexsiege/rooms*`). Largest of the set.
+  - **Blocked (2026-10-04):** needs a decision from the owner on how the two
+    browsers reach each other. Everything else in the game is ready for it.
+    Options:
+    1. **Arcade 3000's rooms relay** (`/api/hexsiege/rooms*`, as proposed).
+       Needs the game served by Arcade 3000 and a game id added to that
+       relay on the server - server work Claude can't do (no access to
+       192.168.1.36 by rule).
+    2. **No server at all: direct WebRTC between the two devices.** One
+       player taps HOST and gets a short code (or QR); the other enters it
+       and sends one back. Works on the same Wi-Fi with no relay; all of it
+       lives in index.html. More setup taps per game than option 1.
+    3. A small relay in the game's own installer (`longrange-installer.py`
+       already runs a local web server) - one device hosts, the other opens
+       its address. Needs that device's firewall to allow the port.
 - **LRNA-179** — DONE (2026-10-03) — Visual effects pass (the owner's presentation
   priority): bigger, distinct explosions per weapon, Omega damage states
   (smoke, fire, exposed core as health drops), and a clear "what hit what"
